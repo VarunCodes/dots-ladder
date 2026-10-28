@@ -13,12 +13,14 @@ Local planning notes (gitignored): `docs/conversation-summary.md`. Read them bef
 ## Commands
 See README.md and docs/testing.md. Locally, pytest is in the repo-root `.venv`. A full pipeline rebuild takes ~35 s on the ~830 MB CSV.
 
+## Status
+Live at https://varuncodes.github.io/dots-ladder/ (public repo, Pages serves `main`). A ruleset on `main` requires a PR and all three CI checks; no direct pushes. The old private repo, `dots-ladder-old`, is archived as a backup; never push its history here.
+
 ## Next steps
-1. Move to a fresh public repo (single clean commit), then enable Pages and required CI checks.
-2. Optional weekly GitHub Action to rebuild `rungs.json` (commit only the JSON).
-3. After the first meet, add the result to `data/my-lifts.json`.
-4. Make the site an installable PWA; an app-store wrapper only after that, if wanted.
-5. Optional local-only page reading `private/` for the named-lifter ladder.
+1. Optional weekly GitHub Action to rebuild `rungs.json` (commit only the JSON).
+2. After the first meet, add the result to `data/my-lifts.json`.
+3. Make the site an installable PWA; an app-store wrapper only after that, if wanted.
+4. Optional local-only page reading `private/` for the named-lifter ladder.
 
 ## Conventions
 UK English, kg, DOTS (not Wilks).
