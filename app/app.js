@@ -3,6 +3,9 @@ import * as L from "./ladder.js";
 import { $, el } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 
+// The rungs are raw full-power results only (see pipeline/build_rungs.py), so everyone here is compared as raw.
+const EQUIPMENT = "Raw";
+
 const fmtDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
@@ -76,7 +79,7 @@ function renderLadder(group, points, score) {
 }
 
 /** Redraws everything except the form, for the current profile and experience tab. */
-function render(rungsData, me, state) {
+function render(rungsData, state) {
   const { profile, experience } = state;
   const wclass = L.effectiveClass(profile);
   const score = renderNow(profile);
@@ -88,7 +91,7 @@ function render(rungsData, me, state) {
       const button = el("button", "tab", name);
       button.type = "button";
       button.setAttribute("aria-pressed", name === experience);
-      button.addEventListener("click", () => render(rungsData, me, Object.assign(state, { experience: name })));
+      button.addEventListener("click", () => render(rungsData, Object.assign(state, { experience: name })));
       return button;
     }),
   );
@@ -99,7 +102,7 @@ function render(rungsData, me, state) {
   $("sex-icon").setAttribute("href", profile.sex === "M" ? "#icon-male" : "#icon-female");
   $("now-context").replaceChildren(
     el("span", "visually-hidden", `${profile.sex === "M" ? "Men" : "Women"}, `),
-    `${me.equipment}, ${wclass} kg class${chosen}, ${profile.bodyweight} kg bodyweight`,
+    `${EQUIPMENT}, ${wclass} kg class${chosen}, ${profile.bodyweight} kg bodyweight`,
   );
 
   refreshEvents(state, group, experience);
@@ -194,7 +197,7 @@ function setupOnboarding(state, storage, onDone) {
   });
 }
 
-function setupForm(rungsData, me, state, storage, onCleared) {
+function setupForm(rungsData, state, storage, onCleared) {
   const form = $("profile-form");
   const saved = (ok) => {
     $("save-note").textContent = ok ? "Saved on this device only." : "Couldn't save on this device; changes last until you close the page.";
@@ -223,7 +226,7 @@ function setupForm(rungsData, me, state, storage, onCleared) {
     // Only the dropdown is refilled: rewriting an input while it's being typed in would eat a trailing "." or "0".
     fillClassSelect(form, profile);
     saved(L.saveProfile(storage, profile));
-    render(rungsData, me, state);
+    render(rungsData, state);
   });
 
   // Closing the card with invalid values puts the saved numbers back, so the closed card never hides a mismatch.
@@ -253,7 +256,7 @@ function setupForm(rungsData, me, state, storage, onCleared) {
 }
 
 try {
-  const [rungsData, me] = await Promise.all([loadJson("data/rungs.json"), loadJson("data/my-lifts.json")]);
+  const rungsData = await loadJson("data/rungs.json");
   const storage = deviceStorage();
   const thisMonth = L.monthOf(new Date());
   // New visitors start blank: no saved numbers means the onboarding form, and events start empty.
@@ -263,7 +266,7 @@ try {
   const showStanding = () => {
     fillForm($("profile-form"), state.profile);
     showOnboarding(false);
-    render(rungsData, me, state);
+    render(rungsData, state);
   };
   const askForNumbers = () => {
     $("onboarding").reset();
@@ -276,8 +279,8 @@ try {
     showStanding();
     $("save-note").textContent = saved ? "" : "Couldn't save on this device; your numbers last until you close the page.";
   });
-  setupForm(rungsData, me, state, storage, askForNumbers);
-  setupEvents({ state, storage, thisMonth, onChange: () => render(rungsData, me, state) });
+  setupForm(rungsData, state, storage, askForNumbers);
+  setupEvents({ state, storage, thisMonth, onChange: () => render(rungsData, state) });
   if (state.profile) showStanding();
   else askForNumbers();
 } catch (error) {

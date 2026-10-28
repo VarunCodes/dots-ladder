@@ -16,9 +16,8 @@ DOTS stands for **Dynamic Objective Team Scoring**. It turns a powerlifting tota
 ## How it works
 
 1. `pipeline/build_rungs.py` turns OpenPowerlifting's public-domain bulk download into `data/rungs.json`: DOTS percentiles for each sex, weight class and experience group (first meet, second meet, 3+ meets). No names.
-2. `data/my-lifts.json` holds my own record of lifts, bodyweight, meets and events. Everyone, me included, enters their numbers on the page, so it isn't loaded into anyone's numbers.
-3. `index.html` + `app/` is a static page (plain HTML, CSS and JS, no build step) that shows where my DOTS sits on the ladder and the next rung to beat. It's hosted on GitHub Pages.
-4. `manifest.webmanifest`, `icons/` and `sw.js` make the page an installable app (a PWA). The service worker fetches every file from the network first and falls back to the last copy offline.
+2. `index.html` + `app/` is a static page (plain HTML, CSS and JS, no build step) that shows where my DOTS sits on the ladder and the next rung to beat. It's hosted on GitHub Pages.
+3. `manifest.webmanifest`, `icons/` and `sw.js` make the page an installable app (a PWA). The service worker fetches every file from the network first and falls back to the last copy offline.
 
 ## Install on Android
 
@@ -30,7 +29,7 @@ Open the site in Chrome, then menu → **Add to home screen** → **Install**. I
 python3 -m http.server 8000   # from the repo root, then open http://localhost:8000
 ```
 
-Opening `index.html` directly won't work: browsers block loading the JSON files from `file://`.
+Opening `index.html` directly won't work: browsers block loading the JSON file from `file://`.
 
 ## Rebuild the rungs
 
@@ -55,8 +54,8 @@ Details, coverage and CI: `docs/testing.md`.
 ## Privacy rules
 
 - Public pages show aggregate rungs only (groups of 20+ lifters). No names or per-lifter rows.
-- My own data is limited to what the page needs: lifts, bodyweight, and meets to the month only.
-- `private/` holds named-lifter data for local use and is gitignored.
+- No personal data in the repo. Everyone's numbers, mine included, are entered on the page and stay in the browser on that device.
+- `private/` holds my own records and named-lifter data for local use, and is gitignored.
 - See `docs/legal-ethics-audit.md`.
 
 ## Docs

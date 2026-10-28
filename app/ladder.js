@@ -34,27 +34,6 @@ export function weightClass(sex, bodyweight) {
   return limit ? `${limit}` : `${CLASSES[sex].at(-1)}+`;
 }
 
-/** Experience group for the lifter's next meet: based on meets already completed. */
-export function experienceBucket(meets) {
-  const done = meets.filter((m) => m.result != null).length;
-  return EXPERIENCE[Math.min(done, 2)];
-}
-
-export function latestBodyweight(log) {
-  return [...log].sort((x, y) => x.date.localeCompare(y.date)).at(-1)?.kg ?? null;
-}
-
-/** Heaviest logged kg per lift, or null if any lift is missing. */
-export function currentLifts(bests) {
-  const lifts = {};
-  for (const lift of LIFTS) {
-    const kgs = bests.filter((b) => b.lift === lift).map((b) => b.kg);
-    if (!kgs.length) return null;
-    lifts[lift] = Math.max(...kgs);
-  }
-  return lifts;
-}
-
 export function sumLifts(lifts) {
   return LIFTS.reduce((sum, lift) => sum + lifts[lift], 0);
 }
@@ -121,11 +100,6 @@ export function validProfile(raw) {
   if (raw == null || typeof raw !== "object" || invalidFields(raw).length) return null;
   const weightClass = weightClasses(raw.sex).includes(raw.weightClass) ? raw.weightClass : null;
   return { sex: raw.sex, bodyweight: raw.bodyweight, ...Object.fromEntries(LIFTS.map((l) => [l, raw[l]])), weightClass };
-}
-
-/** The starting profile from my-lifts.json: latest bodyweight and heaviest logged lifts, class worked out from bodyweight. */
-export function defaultProfile(me) {
-  return validProfile({ sex: me.sex, bodyweight: latestBodyweight(me.bodyweightLog), ...currentLifts(me.bests), weightClass: null });
 }
 
 /** The saved profile from storage (e.g. localStorage), or the fallback if there's none, it's unreadable or it's invalid. */
@@ -226,11 +200,6 @@ export function eventClass(event, profile) {
 /** Highest rung at or below the score, or null if it's below every rung. */
 export function rungBeaten(rungs, score) {
   return rungs.findLast((r) => r.dots <= score) ?? null;
-}
-
-/** The starting events from my-lifts.json (any invalid ones are skipped). */
-export function defaultEvents(me) {
-  return (me.events ?? []).map(validEvent).filter(Boolean);
 }
 
 /** The saved events from storage, or the fallback if there are none or they're unreadable. Invalid entries are dropped; an empty saved list stays empty. */
