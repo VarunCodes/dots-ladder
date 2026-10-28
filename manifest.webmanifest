@@ -1,6 +1,6 @@
 {
   "name": "DOTS Ladder",
-  "short_name": "DOTS Ladder",
+  "short_name": "DOTS",
   "description": "Tracking my powerlifting DOTS score against anonymous UK meet benchmarks.",
   "lang": "en-GB",
   "start_url": "./",

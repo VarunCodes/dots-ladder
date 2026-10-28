@@ -36,8 +36,9 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 - **Manifest**: the fields Chrome needs to offer install, `display: standalone`, and `start_url` and `scope` of `./` (the site lives under `/dots-ladder/`).
 - **Icons**: every icon exists, is a PNG of its declared size, and there's a 192 px, a 512 px and a maskable one.
 - **Service worker**: every file in its cache list exists, and every file the page loads (from `index.html`, `app/app.js` and the manifest) is in that list, so the page opens offline. Adding a file to the page without caching it fails CI.
+- **Offline behaviour**: `sw.js` runs in Node with a stub network and cache. Online, it serves the network copy, saves it, and revalidates rather than trusting the browser's HTTP cache. Offline, it serves the saved copy, opening any page falls back to the saved start page, and with nothing saved the request fails instead of hanging. Other sites and non-GET requests are left to the browser.
 
-What can't run in Node is checked by hand: install from Chrome on Android, then reopen in aeroplane mode. To debug the phone, connect it over USB and open `chrome://inspect` on the computer.
+What can't run in Node (the browser installing the app and swapping in the service worker) is checked by hand: install from Chrome on Android, then reopen in aeroplane mode. To debug the phone, connect it over USB and open `chrome://inspect` on the computer.
 
 The DOM code in `app/app.js` isn't unit tested. It's thin, and it's checked by viewing the page.
 

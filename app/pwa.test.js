@@ -68,3 +68,80 @@ test("the service worker caches every file the page loads, so it opens offline",
     assert.ok(cached.has(path), `sw.js doesn't cache ${path}`);
   }
 });
+
+// --- Offline behaviour: sw.js's fetch handler, with a stub network and cache --------
+
+const BASE = "https://example.test/dots-ladder/";
+
+/** Runs sw.js against a fake network (online or not) and a cache seeded with `cached` (path -> body). */
+function serviceWorker({ online, cached = {} }) {
+  const store = new Map(Object.entries(cached).map(([path, body]) => [new URL(path, BASE).href, body]));
+  const handlers = {};
+  const fetches = [];
+  const cache = {
+    async match(request, options) {
+      const url = new URL(typeof request === "string" ? request : request.url, BASE);
+      if (options?.ignoreSearch) url.search = "";
+      return store.has(url.href) ? new Response(store.get(url.href)) : undefined;
+    },
+    async put(request, response) {
+      store.set(request.url, await response.text());
+    },
+  };
+  const context = vm.createContext({
+    URL,
+    self: { addEventListener: (type, handler) => (handlers[type] = handler), location: { origin: new URL(BASE).origin } },
+    caches: { open: async () => cache },
+    fetch: async (request, init) => {
+      fetches.push({ url: request.url, init });
+      if (!online) throw new TypeError("Failed to fetch");
+      return new Response(`fresh ${new URL(request.url).pathname}`);
+    },
+  });
+  vm.runInContext(read("sw.js").toString(), context);
+
+  /** Dispatches a fetch event; returns the response promise (or undefined if the worker passed) and its waitUntil promises. */
+  function request(path, { mode = "cors", method = "GET" } = {}) {
+    let response;
+    const pending = [];
+    handlers.fetch({
+      request: { url: new URL(path, BASE).href, mode, method },
+      respondWith: (promise) => (response = promise),
+      waitUntil: (promise) => pending.push(promise),
+    });
+    return { response, settled: async () => Promise.all(pending) };
+  }
+  return { request, store, fetches };
+}
+
+test("online, the service worker serves the network copy and saves it for offline", async () => {
+  const sw = serviceWorker({ online: true, cached: { "data/rungs.json": "old" } });
+  const { response, settled } = sw.request("data/rungs.json");
+  assert.equal(await (await response).text(), "fresh /dots-ladder/data/rungs.json");
+  await settled();
+  assert.equal(sw.store.get(`${BASE}data/rungs.json`), "fresh /dots-ladder/data/rungs.json");
+  assert.equal(sw.fetches[0].init.cache, "no-cache", "must revalidate, not trust the HTTP cache");
+});
+
+test("offline, the service worker serves the saved copy", async () => {
+  const sw = serviceWorker({ online: false, cached: { "data/rungs.json": "saved" } });
+  const { response } = sw.request("data/rungs.json?v=2");
+  assert.equal(await (await response).text(), "saved");
+});
+
+test("offline, opening any page in the app falls back to the saved start page", async () => {
+  const sw = serviceWorker({ online: false, cached: { "./": "start page" } });
+  const { response } = sw.request("index.html", { mode: "navigate" });
+  assert.equal(await (await response).text(), "start page");
+});
+
+test("offline with nothing saved, the request fails instead of hanging", async () => {
+  const sw = serviceWorker({ online: false });
+  await assert.rejects(sw.request("app/app.js").response, TypeError);
+});
+
+test("the service worker leaves other sites and non-GET requests alone", () => {
+  const sw = serviceWorker({ online: true });
+  assert.equal(sw.request("https://www.openpowerlifting.org/").response, undefined);
+  assert.equal(sw.request("data/rungs.json", { method: "POST" }).response, undefined);
+});
