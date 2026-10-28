@@ -31,6 +31,14 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 - **Page logic**: experience group, latest bodyweight, best lifts, the rungs for a group, and the next rung to beat.
 - **Contract tests on the committed data**: `data/rungs.json` and `data/my-lifts.json` must give a full ladder (a median rung for every experience group in the user's class), and every rung must be aggregate only (no unexpected fields, 20+ lifters, p10/p90 only at 50+). If a pipeline change or a data edit would break the page or the privacy rules, CI fails.
 
+`app/pwa.test.js` checks the installable app:
+
+- **Manifest**: the fields Chrome needs to offer install, `display: standalone`, and `start_url` and `scope` of `./` (the site lives under `/dots-ladder/`).
+- **Icons**: every icon exists, is a PNG of its declared size, and there's a 192 px, a 512 px and a maskable one.
+- **Service worker**: every file in its cache list exists, and every file the page loads (from `index.html`, `app/app.js` and the manifest) is in that list, so the page opens offline. Adding a file to the page without caching it fails CI.
+
+What can't run in Node is checked by hand: install from Chrome on Android, then reopen in aeroplane mode. To debug the phone, connect it over USB and open `chrome://inspect` on the computer.
+
 The DOM code in `app/app.js` isn't unit tested. It's thin, and it's checked by viewing the page.
 
 ## CI: GitHub Actions
