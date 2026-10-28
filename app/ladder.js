@@ -265,3 +265,26 @@ export function ladderRows(rungs, score, markers) {
   const rank = (row) => (row.kind === "rung" ? 0 : row.kind === "you" ? 1 : 2);
   return rows.sort((x, y) => y.dots - x.dots || rank(x) - rank(y));
 }
+
+// --- Screens and the Log test steppers ------------------------------------------------
+
+export const ROUTES = ["ladder", "log", "progress"];
+
+/** The screen for a URL hash ("#/log" or "#/log?class" → "log"); anything unknown is the Ladder. */
+export function routeFrom(hash) {
+  const name = (hash ?? "").replace(/^#\/?/, "").split("?")[0];
+  return ROUTES.includes(name) ? name : "ladder";
+}
+
+/** One stepper press: value ± step, kept to one decimal place and within [min, max]. An empty value starts at min. */
+export function stepValue(value, step, direction, [min, max]) {
+  if (!Number.isFinite(value)) return min;
+  const next = Math.round((value + direction * step) * 10) / 10;
+  return Math.min(max, Math.max(min, next));
+}
+
+/** Rungs passed going from one score to another: positive when climbing, negative when dropping. Reaching a rung's score clears it. */
+export function rungsClimbed(rungs, fromScore, toScore) {
+  const passed = (low, high) => rungs.filter((r) => r.dots > low && r.dots <= high).length;
+  return toScore >= fromScore ? passed(fromScore, toScore) : -passed(toScore, fromScore);
+}

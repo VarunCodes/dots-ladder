@@ -43,7 +43,8 @@ body {
 main, footer { max-width: 480px; margin: 0 auto; padding: 0 20px; }
 /* Tight to the top: the browser bar or Android's status bar already gives room; the safe area covers notches. */
 main { padding-top: max(16px, env(safe-area-inset-top)); }
-footer { padding-top: 20px; padding-bottom: 40px; font-size: 0.75rem; line-height: 1.45; }
+/* The fixed tab bar is about 84 px tall; the footer's bottom padding keeps the last row clear of it. */
+footer { padding-top: 20px; padding-bottom: calc(110px + env(safe-area-inset-bottom)); font-size: 0.75rem; line-height: 1.45; }
 
 h1, h2 { margin: 0; font-family: var(--display); line-height: 1.1; }
 h2 { font-size: 1.375rem; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
@@ -64,11 +65,10 @@ a:hover { color: var(--accent-hover); }
 .hero { display: flex; flex-direction: column; gap: 4px; }
 .hero-score { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
 #now-dots { font-family: var(--display); font-weight: 700; font-size: 5.25rem; line-height: 0.9; letter-spacing: -0.01em; }
-#now-dots.stale { opacity: 0.35; }
 .hero-unit { font-size: 0.875rem; color: var(--muted); }
 #now-caption { font-size: 0.875rem; }
 
-.warning, .error {
+.error {
   margin-top: 12px;
   padding: 10px 12px;
   border-left: 3px solid var(--error);
@@ -192,35 +192,118 @@ a:hover { color: var(--accent-hover); }
 .primary:hover:not(:disabled) { background: var(--accent-hover); }
 .primary:disabled { background: var(--surface); color: var(--muted); cursor: default; }
 
-/* --- Your numbers and your events (move to their own screens in the next phase) ---- */
+/* --- Screen headers, the tab bar --------------------------------------------------- */
 
-.panel { position: relative; margin-top: 28px; }
-.panel > h2, .edit > summary { padding-right: 48px; }
+.screen-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 18px; }
+.screen-head h1 { font-size: 2.125rem; font-weight: 700; text-transform: uppercase; }
 
-.edit > summary { cursor: pointer; list-style: none; }
-.edit > summary::-webkit-details-marker { display: none; }
-.edit > summary h2 { display: inline; }
-.edit > summary::after { content: " +"; font-family: var(--display); font-size: 1.375rem; color: var(--muted); }
-.edit[open] > summary::after { content: " −"; }
-.edit[open] > summary { margin-bottom: 14px; }
+.tabbar {
+  position: fixed;
+  inset: auto 0 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 8px 8px max(20px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--divider);
+  background: var(--bg);
+}
+.tabbar a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 48px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+.tabbar a[aria-current="page"] { color: var(--accent); font-weight: 600; }
+.tabbar svg { width: 24px; height: 24px; }
 
-.intro { margin: 6px 0 8px; }
+/* --- Log test: steppers, weight class, live result ---------------------------------- */
 
-.icon-button {
-  position: absolute;
-  top: 0;
-  right: 0;
+#log-form { display: flex; flex-direction: column; gap: 8px; }
+#log-form .segmented { margin: 0 0 4px; }
+
+.steppers { display: flex; flex-direction: column; gap: 8px; }
+.stepper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px 92px 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+.stepper label { display: flex; flex-direction: column; }
+.stepper-name { font-weight: 600; }
+.stepper-hint { font-size: 0.75rem; color: var(--muted); }
+.step-btn {
   width: 44px;
   height: 44px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface-2);
-  color: var(--muted);
-  font-size: 1.1rem;
+  color: var(--text);
+  font-size: 1.375rem;
+  line-height: 1;
   cursor: pointer;
 }
-.icon-button:hover { color: var(--text); }
-.edit:not([open]) .icon-button { display: none; }
+.stepper input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--display);
+  font-size: 1.75rem;
+  font-weight: 600;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper input:invalid { border-color: var(--error); background: color-mix(in srgb, var(--error) 12%, transparent); }
+
+.class-field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 0.8125rem; color: var(--muted); }
+.class-field select {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.result-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.result-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.875rem; }
+#result-delta { font-weight: 600; color: var(--muted); }
+#result-delta.up { color: var(--accent); }
+.result-score { display: flex; align-items: baseline; gap: 10px; }
+#result-dots { font-family: var(--display); font-size: 4.25rem; font-weight: 700; line-height: 0.95; }
+#result-rungs { font-size: 0.875rem; color: var(--text-2); }
+
+#log-note { color: var(--error); font-size: 0.875rem; }
+#log-note:empty { display: none; }
+#save-test { flex: none; margin-top: 8px; }
+#save-test:disabled { background: var(--surface); color: var(--muted); }
+.save-hint { text-align: center; }
+#clear-numbers { align-self: center; }
+
+/* --- Your events (on Progress until its own design lands) --------------------------- */
+
+.panel { position: relative; margin-top: 24px; }
+.intro { margin: 6px 0 8px; }
 
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .fields .wide { grid-column: 1 / -1; }
@@ -239,7 +322,7 @@ a:hover { color: var(--accent-hover); }
 }
 .fields input::placeholder { color: var(--muted); opacity: 0.7; }
 .fields input:invalid { border-color: var(--error); background: color-mix(in srgb, var(--error) 12%, var(--surface)); }
-#class-note, #save-note { margin: 0; }
+#class-note { margin: 0; }
 
 .event { border-top: 1px solid var(--divider); }
 .event:last-child { border-bottom: 1px solid var(--divider); }

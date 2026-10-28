@@ -292,6 +292,34 @@ test("every published percentile has a name", () => {
   }
 });
 
+// --- Screens and steppers -------------------------------------------------------
+
+test("routes come from the hash; anything unknown is the Ladder", () => {
+  assert.equal(L.routeFrom("#/log"), "log");
+  assert.equal(L.routeFrom("#/progress"), "progress");
+  assert.equal(L.routeFrom("#/ladder"), "ladder");
+  assert.equal(L.routeFrom("#/log?class"), "log", "a query after the route is ignored");
+  for (const hash of ["", "#", "#/", "#/nope", undefined]) assert.equal(L.routeFrom(hash), "ladder", String(hash));
+});
+
+test("a stepper press moves by its step, keeps one decimal place and stays in range", () => {
+  assert.equal(L.stepValue(70, 0.1, 1, L.LIMITS.bodyweight), 70.1);
+  assert.equal(L.stepValue(70.1, 0.1, -1, L.LIMITS.bodyweight), 70, "no 70.00000001");
+  assert.equal(L.stepValue(120, 2.5, 1, L.LIMITS.lift), 122.5);
+  assert.equal(L.stepValue(1, 2.5, -1, L.LIMITS.lift), 1, "never below the minimum");
+  assert.equal(L.stepValue(599, 2.5, 1, L.LIMITS.lift), 600, "never above the maximum");
+  assert.equal(L.stepValue(NaN, 2.5, 1, L.LIMITS.lift), 1, "an empty field starts at the minimum");
+});
+
+test("rungs climbed counts rungs passed, positive up and negative down", () => {
+  const rungs = [{ percentile: 10, dots: 266 }, { percentile: 25, dots: 300 }, { percentile: 50, dots: 338 }];
+  assert.equal(L.rungsClimbed(rungs, 277.9, 310), 1);
+  assert.equal(L.rungsClimbed(rungs, 250, 340), 3);
+  assert.equal(L.rungsClimbed(rungs, 277.9, 300), 1, "reaching a rung's score clears it");
+  assert.equal(L.rungsClimbed(rungs, 310, 270), -1);
+  assert.equal(L.rungsClimbed(rungs, 277.9, 280), 0);
+});
+
 // --- Contract: the committed JSON files work with the page ------------------------
 
 test("every committed rung is aggregate only", () => {
