@@ -186,6 +186,11 @@ a { color: var(--ink); text-underline-offset: 2px; }
 .step.projection { color: var(--blue); }
 .step.projection::before { border-style: dashed; border-color: var(--blue); }
 
+/* The gym-goer estimate: not a rung, so no lamp, just a tick on the rail, muted and in the body face. */
+.step.reference { color: var(--muted); font-style: italic; }
+.step.reference::before { width: 12px; height: 2px; margin-top: -1px; left: -29px; border: 0; border-radius: 0; background: var(--muted); }
+.step.reference .step-dots { font-family: var(--body); font-size: 1rem; font-weight: 400; }
+
 /* --- Your numbers and your events: plain sections below the board ------------------ */
 
 .panel { position: relative; margin-top: 32px; }
