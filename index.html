@@ -29,13 +29,15 @@
       <symbol id="icon-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></symbol>
       <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></symbol>
       <symbol id="icon-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></symbol>
+      <symbol id="icon-tab-ladder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 3v18M17 3v18M7 7h10M7 12h10M7 17h10"/></symbol>
+      <symbol id="icon-tab-log" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
+      <symbol id="icon-tab-progress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
     </defs>
   </svg>
 
   <main>
-    <h1 class="visually-hidden">DOTS Ladder</h1>
-
-    <section class="screen" aria-labelledby="board-heading">
+    <section id="screen-ladder" class="screen" aria-labelledby="ladder-title">
+      <h1 id="ladder-title" class="visually-hidden">DOTS Ladder</h1>
       <!-- First visit, nothing saved on this device: ask for the lifts before showing anything else. -->
       <form id="onboarding" class="onboard" autocomplete="off" hidden>
         <h2>Where do you stand?</h2>
@@ -74,7 +76,6 @@
           <h2 id="board-heading" class="visually-hidden">Where you stand</h2>
           <p class="hero-score"><span id="now-dots">–</span> <span class="hero-unit">your DOTS</span></p>
           <p id="now-caption" class="muted">Loading…</p>
-          <p id="now-warning" class="warning" role="alert" hidden></p>
         </header>
 
         <section class="card next-card" aria-label="Next rung">
@@ -88,9 +89,9 @@
             <li class="chip">UK</li>
             <li class="chip">Raw</li>
             <li class="chip">Full power</li>
-            <li><button id="class-chip" class="chip chip-button" type="button" aria-controls="numbers-panel">
+            <li><a id="class-chip" class="chip chip-button" href="#/log?class">
               <svg class="chip-icon" aria-hidden="true"><use id="sex-icon" href="#icon-male"/></svg><span id="class-chip-text">–</span>
-            </button></li>
+            </a></li>
           </ul>
           <div id="experience" class="segmented-tabs" role="group" aria-label="Compare against lifters at their"></div>
           <p id="group-note" class="muted small"></p>
@@ -99,37 +100,67 @@
       </div>
     </section>
 
-    <details id="numbers-panel" class="panel edit" hidden>
-      <summary><h2>Your numbers</h2></summary>
-      <button id="reset" class="icon-button" type="button" aria-label="Clear your numbers from this phone" title="Clear your numbers">↺</button>
-      <form id="profile-form" class="fields" autocomplete="off">
-        <label>Sex
-          <select name="sex">
-            <option value="M">Men</option>
-            <option value="F">Women</option>
-          </select>
+    <section id="screen-log" class="screen" aria-labelledby="log-title" hidden>
+      <header class="screen-head">
+        <p class="eyebrow">Log a test</p>
+        <h1 id="log-title">New 1RMs</h1>
+      </header>
+      <form id="log-form" autocomplete="off">
+        <fieldset class="segmented">
+          <legend class="visually-hidden">Sex</legend>
+          <label><input type="radio" name="sex" value="M"><svg class="sex-icon" aria-hidden="true"><use href="#icon-male"/></svg>Men</label>
+          <label><input type="radio" name="sex" value="F"><svg class="sex-icon" aria-hidden="true"><use href="#icon-female"/></svg>Women</label>
+        </fieldset>
+        <div class="steppers">
+          <div class="stepper" data-step="0.1">
+            <label for="log-bodyweight"><span class="stepper-name">Bodyweight</span><span class="stepper-hint">Morning weigh-in, kg</span></label>
+            <button type="button" class="step-btn" data-dir="-1" aria-label="Decrease bodyweight">−</button>
+            <input id="log-bodyweight" name="bodyweight" type="number" inputmode="decimal" step="any" min="30" max="250">
+            <button type="button" class="step-btn" data-dir="1" aria-label="Increase bodyweight">+</button>
+          </div>
+          <div class="stepper" data-step="2.5">
+            <label for="log-squat"><span class="stepper-name">Squat</span><span class="stepper-hint">kg · 2.5 steps</span></label>
+            <button type="button" class="step-btn" data-dir="-1" aria-label="Decrease squat">−</button>
+            <input id="log-squat" name="squat" type="number" inputmode="decimal" step="any" min="1" max="600">
+            <button type="button" class="step-btn" data-dir="1" aria-label="Increase squat">+</button>
+          </div>
+          <div class="stepper" data-step="2.5">
+            <label for="log-bench"><span class="stepper-name">Bench</span><span class="stepper-hint">kg · 2.5 steps</span></label>
+            <button type="button" class="step-btn" data-dir="-1" aria-label="Decrease bench">−</button>
+            <input id="log-bench" name="bench" type="number" inputmode="decimal" step="any" min="1" max="600">
+            <button type="button" class="step-btn" data-dir="1" aria-label="Increase bench">+</button>
+          </div>
+          <div class="stepper" data-step="2.5">
+            <label for="log-deadlift"><span class="stepper-name">Deadlift</span><span class="stepper-hint">kg · 2.5 steps</span></label>
+            <button type="button" class="step-btn" data-dir="-1" aria-label="Decrease deadlift">−</button>
+            <input id="log-deadlift" name="deadlift" type="number" inputmode="decimal" step="any" min="1" max="600">
+            <button type="button" class="step-btn" data-dir="1" aria-label="Increase deadlift">+</button>
+          </div>
+        </div>
+        <label class="class-field">Weight class
+          <select id="log-class" name="weightClass"></select>
         </label>
-        <label>Bodyweight (kg)
-          <input name="bodyweight" type="number" inputmode="decimal" step="any" min="30" max="250" required>
-        </label>
-        <label>Squat 1RM (kg)
-          <input name="squat" type="number" inputmode="decimal" step="any" min="1" max="600" required>
-        </label>
-        <label>Bench 1RM (kg)
-          <input name="bench" type="number" inputmode="decimal" step="any" min="1" max="600" required>
-        </label>
-        <label>Deadlift 1RM (kg)
-          <input name="deadlift" type="number" inputmode="decimal" step="any" min="1" max="600" required>
-        </label>
-        <label>Weight class
-          <select name="weightClass"></select>
-        </label>
-        <p id="class-note" class="muted small wide"></p>
-        <p id="save-note" class="muted small wide" role="status"></p>
-      </form>
-    </details>
+        <p id="class-note" class="muted small"></p>
 
-    <section id="events-panel" class="panel events" aria-labelledby="events-heading" hidden>
+        <section class="result-card" aria-label="Result" aria-live="polite">
+          <p class="result-top"><span id="result-total" class="muted"></span><span id="result-delta"></span></p>
+          <p class="result-score"><span id="result-dots">–</span> <span class="muted">DOTS</span></p>
+          <p id="result-rungs"></p>
+        </section>
+        <p id="log-note" role="status"></p>
+        <button id="save-test" type="submit" class="primary">Save test</button>
+        <p class="muted small save-hint">Saved on this phone only.</p>
+        <button id="clear-numbers" type="button" class="link-button">Clear my numbers from this phone</button>
+      </form>
+    </section>
+
+    <section id="screen-progress" class="screen" aria-labelledby="progress-title" hidden>
+      <header class="screen-head">
+        <p class="eyebrow">Progress</p>
+        <h1 id="progress-title">The climb</h1>
+      </header>
+      <p class="muted small">Your chart, the weight-class lever and the lift split are on the way.</p>
+    <section id="events-panel" class="panel events" aria-labelledby="events-heading">
       <h2 id="events-heading">Your events</h2>
       <p class="muted small intro">Upcoming meets or test days, each with a conservative and an optimistic total. Leave a scenario empty to skip it. The next 3 show on the ladder.</p>
       <div id="event-list"></div>
@@ -143,5 +174,11 @@
   <footer class="muted small">
     <p>Anonymous percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters shown. Data: <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>.</p>
   </footer>
+
+  <nav id="tabbar" class="tabbar" aria-label="Main" hidden>
+    <a href="#/ladder" data-route="ladder"><svg aria-hidden="true"><use href="#icon-tab-ladder"/></svg>Ladder</a>
+    <a href="#/log" data-route="log"><svg aria-hidden="true"><use href="#icon-tab-log"/></svg>Log test</a>
+    <a href="#/progress" data-route="progress"><svg aria-hidden="true"><use href="#icon-tab-progress"/></svg>Progress</a>
+  </nav>
 </body>
 </html>

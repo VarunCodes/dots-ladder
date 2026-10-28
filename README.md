@@ -9,8 +9,9 @@ DOTS stands for **Dynamic Objective Team Scoring**. It turns a powerlifting tota
 ## Using the app
 
 - **First visit:** the app asks for your sex, bodyweight and squat, bench and deadlift 1RMs, then shows your DOTS and where you sit on the ladder. Nothing else appears until you've entered them.
-- **Your numbers:** enter your squat, bench and deadlift 1RMs and your bodyweight. Your DOTS and your place on the ladder update as you type, so you can track your own progress after each training block or 1RM test. Your weight class is worked out from your bodyweight, or you can pick one to compare against, such as a class you plan to cut to.
-- **Your events:** add upcoming meets or test days, each with a month, the bodyweight you expect, and conservative and optimistic squat, bench and deadlift targets. The next 3 show on the ladder, so you can see which rungs each target would reach.
+- **Ladder:** your DOTS, the next rung and how many kg it takes, and the rungs for your class and meet experience (first meet, second meet, 3+ meets), with your events and a gym-goer estimate alongside.
+- **Log test:** after a training block or 1RM test, step your bodyweight and lifts up or down and see your new DOTS and rungs before you save. Your weight class is worked out from your bodyweight, or you can pick one to compare against, such as a class you plan to cut to.
+- **Progress → your events:** add upcoming meets or test days, each with a month, the bodyweight you expect, and conservative and optimistic squat, bench and deadlift targets. The next 3 show on the ladder, so you can see which rungs each target would reach.
 - **Private to your phone:** everything you enter is saved in the browser on that device, and never sent anywhere or committed.
 
 ## How it works
