@@ -16,7 +16,7 @@ DOTS stands for **Dynamic Objective Team Scoring**. It turns a powerlifting tota
 ## How it works
 
 1. `pipeline/build_rungs.py` turns OpenPowerlifting's public-domain bulk download into `data/rungs.json`: DOTS percentiles for each sex, weight class and experience group (first meet, second meet, 3+ meets). No names.
-2. `data/my-lifts.json` holds my own lifts, bodyweight, meets and events as example data. New visitors start blank, so the page doesn't load it into anyone's numbers.
+2. `data/my-lifts.json` holds my own record of lifts, bodyweight, meets and events. Everyone, me included, enters their numbers on the page, so it isn't loaded into anyone's numbers.
 3. `index.html` + `app/` is a static page (plain HTML, CSS and JS, no build step) that shows where my DOTS sits on the ladder and the next rung to beat. It's hosted on GitHub Pages.
 4. `manifest.webmanifest`, `icons/` and `sw.js` make the page an installable app (a PWA). The service worker fetches every file from the network first and falls back to the last copy offline.
 

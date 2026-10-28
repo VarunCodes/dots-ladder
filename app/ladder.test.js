@@ -284,8 +284,8 @@ test("the gym-goer estimates stay below every published rung, so they never pass
 
 // --- Contract: the committed JSON files work with the page ------------------------
 
-test("my-lifts.json gives a valid example profile with a full ladder", () => {
-  // my-lifts.json is example data now (new visitors start blank); it must still load the way the page would.
+test("my-lifts.json gives a valid profile with a full ladder", () => {
+  // my-lifts.json is my own record now (everyone enters their numbers on the page); keep it valid and on the ladder.
   const profile = L.defaultProfile(readJson("../data/my-lifts.json"));
   assert.ok(profile, "my-lifts.json needs a sex, bodyweight, squat, bench and deadlift");
   const rungs = readJson("../data/rungs.json");
