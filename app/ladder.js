@@ -234,3 +234,34 @@ export const GYM_GOER_ESTIMATE = { M: 200, F: 160 };
 export function referenceMarker(sex) {
   return { label: `${sex === "M" ? "Male" : "Female"} gym-goer (estimate)`, dots: GYM_GOER_ESTIMATE[sex] };
 }
+
+// --- The ladder as rows: rungs, you, your events and the gym-goer estimate -----------
+
+/** Kg to add to the total to reach a DOTS score, rounded up to 2.5 kg because attempts go up in 2.5 kg steps; 0 if already there. */
+export function kgToReach(sex, bodyweight, total, targetDots) {
+  const raw = totalForDots(sex, bodyweight, targetDots) - total;
+  return raw > 0 ? Math.ceil(raw / 2.5 - 1e-9) * 2.5 : 0;
+}
+
+export const RUNG_NAMES = { 10: "Bottom 10%", 25: "Lower quartile", 50: "Median lifter", 75: "Upper quartile", 90: "Top 10%" };
+
+/**
+ * Every row on the ladder, highest DOTS first. Rungs carry their state: "next" (the first one above you),
+ * "above" or "cleared". Markers (you, events, the gym-goer estimate) pass through with their kind.
+ * Every row has gap = its DOTS minus yours.
+ */
+export function ladderRows(rungs, score, markers) {
+  const next = nextRung(rungs, score);
+  const rows = [
+    ...rungs.map((r) => ({
+      kind: "rung",
+      percentile: r.percentile,
+      dots: r.dots,
+      state: r === next ? "next" : r.dots > score ? "above" : "cleared",
+    })),
+    ...markers,
+  ].map((row) => ({ ...row, gap: row.dots - score }));
+  // Highest first; on a tie a rung sits above a marker, and you sit above other markers.
+  const rank = (row) => (row.kind === "rung" ? 0 : row.kind === "you" ? 1 : 2);
+  return rows.sort((x, y) => y.dots - x.dots || rank(x) - rank(y));
+}

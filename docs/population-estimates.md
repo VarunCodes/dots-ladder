@@ -7,7 +7,7 @@
 No dataset measures squat, bench and deadlift one-rep maxes for the general UK population. The marker is built from typical strength-to-bodyweight ratios, so it could be 20–30% out either way. That's why it:
 
 - is never a rung, and never sits among the rungs (a contract test checks it stays below every published rung)
-- looks different from the rungs: muted italic text, a tick on the rail instead of a lamp, and "~" before the value
+- looks different from the rungs: "≈" where a rung has its P-label, muted italic text with no background, and "~" before the value
 - says "estimate" in its label
 
 ## Method
