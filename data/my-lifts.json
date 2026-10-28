@@ -22,9 +22,22 @@
       "result": null
     }
   ],
-  "projections": {
-    "basis": "70 kg bodyweight; full monthly rate Dec-Feb, half rate Mar-May",
-    "conservative": { "monthlyKg": { "squat": 4, "bench": 1.5, "deadlift": 4 }, "May2027": { "squat": 138, "bench": 107, "deadlift": 168 } },
-    "optimistic": { "monthlyKg": { "squat": 7.5, "bench": 2.5, "deadlift": 7.5 }, "May2027": { "squat": 154, "bench": 111, "deadlift": 184 } }
-  }
+  "events": [
+    {
+      "id": "meet-plan",
+      "name": "Meet plan",
+      "month": "2026-11",
+      "bodyweight": 70,
+      "conservative": { "squat": 120, "bench": 97.5, "deadlift": 150 },
+      "optimistic": null
+    },
+    {
+      "id": "projection",
+      "name": "",
+      "month": "2027-05",
+      "bodyweight": 70,
+      "conservative": { "squat": 138, "bench": 107, "deadlift": 168 },
+      "optimistic": { "squat": 154, "bench": 111, "deadlift": 184 }
+    }
+  ]
 }
