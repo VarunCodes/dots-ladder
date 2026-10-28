@@ -29,7 +29,8 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
 - **Parity with the pipeline**: the same DOTS values, bodyweight clamping and weight-class boundaries as the Python tests, so the page and the rungs never disagree.
 - **Page logic**: experience group, latest bodyweight, best lifts, the rungs for a group, and the next rung to beat.
-- **Contract tests on the committed data**: `data/rungs.json` and `data/my-lifts.json` must give a full ladder (a median rung for every experience group in the user's class), and every rung must be aggregate only (no unexpected fields, 20+ lifters, p10/p90 only at 50+). If a pipeline change or a data edit would break the page or the privacy rules, CI fails.
+- **Editable numbers**: the class list per sex, the class worked out from bodyweight or chosen, the "weigh in at X kg or under" check, hiding the meet plan and projections after a change of sex, rejecting missing or out-of-range values and naming which ones (so the page can say what to fix), the defaults from `my-lifts.json`, and saving to and loading from browser storage (with a fake storage: nothing saved, corrupt JSON, invalid values and blocked storage all fall back to the defaults).
+- **Contract tests on the committed data**: `data/rungs.json` and `data/my-lifts.json` must give a full ladder (a median rung for every experience group in the user's class), and every rung must be aggregate only (no unexpected fields, 20+ lifters, p10/p90 only at 50+). Every class in the rungs must be choosable in the class dropdown, and `my-lifts.json` must give a valid starting profile. If a pipeline change or a data edit would break the page or the privacy rules, CI fails.
 
 `app/pwa.test.js` checks the installable app:
 

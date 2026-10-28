@@ -77,6 +77,16 @@ header p { margin: 2px 0 0; }
 }
 
 .hero p:last-child, .next p { margin: 4px 0 0; }
+.big.stale { opacity: 0.4; }
+
+.warning {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
 .next { background: var(--accent-soft); border-color: transparent; }
 
 .muted { color: var(--muted); }
@@ -143,3 +153,46 @@ a { color: var(--accent); }
   background: var(--accent-soft);
   color: var(--text);
 }
+
+/* Edit form: collapsed by default so the ladder stays the focus. */
+.edit { position: relative; }
+.edit summary { cursor: pointer; margin: 0; list-style-position: inside; }
+
+/* Reset sits out of the way in the corner (only while the card is open), and asks before replacing anything. */
+.icon-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.icon-button:hover, .icon-button:focus-visible { color: var(--text); border-color: var(--muted); }
+.edit[open] summary { margin-bottom: 12px; }
+
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fields .wide { grid-column: 1 / -1; margin: 0; }
+
+.fields label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+
+.fields input, .fields select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem; /* 16px+ stops mobile browsers zooming in on focus */
+  font-variant-numeric: tabular-nums;
+}
+
+.fields input:focus-visible, .fields select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fields input:invalid { border-color: var(--accent); background: var(--accent-soft); }
+.fields input::placeholder { color: var(--muted); opacity: 0.7; }

@@ -76,3 +76,75 @@ export function rungsFor(data, sex, wclass, experience) {
 export function nextRung(rungs, score) {
   return rungs.find((r) => r.dots > score) ?? null;
 }
+
+// --- The lifter's editable numbers ---------------------------------------------------
+// A profile is { sex, bodyweight, squat, bench, deadlift, weightClass }, all kg.
+// weightClass null means "work it out from bodyweight".
+
+export const PROFILE_KEY = "dots-ladder:profile";
+export const LIMITS = { bodyweight: [30, 250], lift: [1, 600] };
+
+/** Class labels for a sex, lightest first: ["59", "66", ..., "120+"]. */
+export function weightClasses(sex) {
+  return [...CLASSES[sex].map(String), `${CLASSES[sex].at(-1)}+`];
+}
+
+/** The class to compare against: the one chosen, or the one the bodyweight falls in. */
+export function effectiveClass(profile) {
+  return profile.weightClass ?? weightClass(profile.sex, profile.bodyweight);
+}
+
+/** The chosen class's upper limit if the bodyweight is over it (so the lifter would need to cut), else null. */
+export function overClassLimit(profile) {
+  const limit = Number(effectiveClass(profile));
+  return Number.isFinite(limit) && profile.bodyweight > limit ? limit : null;
+}
+
+const inRange = (value, [min, max]) => typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
+
+/** Names of the required values that are missing or out of range: "sex", "bodyweight", "squat", "bench", "deadlift". */
+export function invalidFields(raw) {
+  const bad = [];
+  if (!(raw?.sex in CLASSES)) bad.push("sex");
+  if (!inRange(raw?.bodyweight, LIMITS.bodyweight)) bad.push("bodyweight");
+  for (const lift of LIFTS) if (!inRange(raw?.[lift], LIMITS.lift)) bad.push(lift);
+  return bad;
+}
+
+/** A clean copy of the profile, or null if a required value is missing or out of range. A class that doesn't exist for the sex falls back to auto. */
+export function validProfile(raw) {
+  if (raw == null || typeof raw !== "object" || invalidFields(raw).length) return null;
+  const weightClass = weightClasses(raw.sex).includes(raw.weightClass) ? raw.weightClass : null;
+  return { sex: raw.sex, bodyweight: raw.bodyweight, ...Object.fromEntries(LIFTS.map((l) => [l, raw[l]])), weightClass };
+}
+
+/** The starting profile from my-lifts.json: latest bodyweight and heaviest logged lifts, class worked out from bodyweight. */
+export function defaultProfile(me) {
+  return validProfile({ sex: me.sex, bodyweight: latestBodyweight(me.bodyweightLog), ...currentLifts(me.bests), weightClass: null });
+}
+
+/** Whether my-lifts.json's meet plan and projections apply: they're that lifter's, so not after a change of sex. */
+export function planApplies(me, profile) {
+  return me.sex === profile.sex;
+}
+
+/** The saved profile from storage (e.g. localStorage), or the fallback if there's none, it's unreadable or it's invalid. */
+export function loadProfile(storage, fallback) {
+  try {
+    return validProfile(JSON.parse(storage.getItem(PROFILE_KEY))) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Saves a valid profile; returns whether it was saved (storage can be full, blocked or missing). */
+export function saveProfile(storage, profile) {
+  const clean = validProfile(profile);
+  if (!clean) return false;
+  try {
+    storage.setItem(PROFILE_KEY, JSON.stringify(clean));
+    return true;
+  } catch {
+    return false;
+  }
+}
