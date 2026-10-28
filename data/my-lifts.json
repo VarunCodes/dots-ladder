@@ -1,0 +1,30 @@
+{
+  "sex": "M",
+  "equipment": "Raw",
+  "notes": "Bench best was touch-and-go; paused (meet-legal) is expected ~3-5% lower.",
+  "bodyweightLog": [
+    { "date": "2026-10-27", "kg": 70.0 }
+  ],
+  "bests": [
+    { "date": "2026-10-24", "lift": "bench", "kg": 100, "reps": 2, "context": "gym, pyramid day, touch-and-go, technical failure" },
+    { "date": "2026-10-25", "lift": "squat", "kg": 120, "reps": 1, "context": "gym, pyramid day" },
+    { "date": "2026-10-25", "lift": "deadlift", "kg": 150, "reps": 1, "context": "gym, straight after a 145 single" }
+  ],
+  "meets": [
+    {
+      "month": "2026-11",
+      "weightClassKg": "74",
+      "plannedAttempts": {
+        "squat": [107.5, 115, 120],
+        "bench": [90, 95, 97.5],
+        "deadlift": [135, 145, 150]
+      },
+      "result": null
+    }
+  ],
+  "projections": {
+    "basis": "70 kg bodyweight; full monthly rate Dec-Feb, half rate Mar-May",
+    "conservative": { "monthlyKg": { "squat": 4, "bench": 1.5, "deadlift": 4 }, "May2027": { "squat": 138, "bench": 107, "deadlift": 168 } },
+    "optimistic": { "monthlyKg": { "squat": 7.5, "bench": 2.5, "deadlift": 7.5 }, "May2027": { "squat": 154, "bench": 111, "deadlift": 184 } }
+  }
+}

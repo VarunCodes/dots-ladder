@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DOTS Ladder</title>
+  <meta name="description" content="Tracking my powerlifting DOTS score against anonymous UK meet benchmarks.">
+  <link rel="stylesheet" href="app/style.css">
+  <script type="module" src="app/app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>DOTS Ladder</h1>
+      <p id="subtitle" class="muted">Loading…</p>
+    </header>
+
+    <section class="card hero" aria-labelledby="now-heading">
+      <h2 id="now-heading" class="label">Current DOTS</h2>
+      <p id="now-dots" class="big">–</p>
+      <p id="now-detail" class="muted"></p>
+    </section>
+
+    <section class="card next" aria-labelledby="next-heading">
+      <h2 id="next-heading" class="label">Next rung</h2>
+      <p id="next-rung"></p>
+    </section>
+
+    <section class="card" aria-labelledby="ladder-heading">
+      <h2 id="ladder-heading" class="label">The ladder</h2>
+      <div id="experience" class="tabs" role="group" aria-label="Compare against"></div>
+      <p id="group-note" class="muted small"></p>
+      <ol id="ladder" class="ladder"></ol>
+    </section>
+
+    <p id="error" class="error" hidden></p>
+  </main>
+
+  <footer class="muted small">
+    <p>Rungs are anonymous DOTS percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters are shown.</p>
+    <p>Data: <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>.</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Per-lifter data: local use only, never publish (see docs/legal-ethics-audit.md)
+private/
+
+# OpenPowerlifting bulk download: never commit the raw data
+*.zip
+openpowerlifting*.csv
+pipeline/*.csv
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+
+# macOS
+.DS_Store
+
+# Planning summary: has personal details (name, lifts, meet plan). Local only.
+docs/conversation-summary.md
