@@ -103,7 +103,8 @@ a { color: var(--ink); text-underline-offset: 2px; }
 #now-dots { font-size: 4.768rem; letter-spacing: -0.01em; }
 #now-dots.stale { opacity: 0.35; }
 .score-unit { font-size: 1.563rem; color: var(--muted); }
-#now-detail { margin-top: 6px; }
+#now-context { margin-top: 8px; }
+#now-detail { margin-top: 2px; }
 
 .warning {
   margin-top: 12px;
@@ -239,6 +240,7 @@ a { color: var(--ink); text-underline-offset: 2px; }
 .event-title::after { content: " +"; color: var(--muted); }
 .event[open] .event-title::after { content: " −"; }
 .event-dots { font-family: var(--display); font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--blue); white-space: nowrap; }
+.event-dots .to { font-family: var(--body); font-size: 0.875rem; font-weight: 400; color: var(--muted); }
 .event[data-invalid="true"] .event-dots { color: var(--red); font-family: var(--body); font-size: 0.875rem; }
 .event .fields { padding-bottom: 16px; }
 

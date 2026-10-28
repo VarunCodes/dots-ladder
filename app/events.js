@@ -218,9 +218,12 @@ export function refreshEvents(state, group, experience) {
   for (const item of $("event-list").querySelectorAll("details.event")) {
     const event = state.events.find((e) => e.id === item.dataset.id);
     const scores = L.eventScores(event, state.profile.sex);
-    const range = scores.map((s) => s.dots.toFixed(1)).join("–");
     item.querySelector(".event-title").textContent = eventLabel(event);
-    item.querySelector(".event-dots").textContent = item.dataset.invalid ? "not saved" : `${range} DOTS`;
+    // Two scores read as "276.0 to 293.0": a plain "to" keeps them apart in the condensed face.
+    const values = scores.map((s) => el("span", null, s.dots.toFixed(1)));
+    item.querySelector(".event-dots").replaceChildren(
+      ...(item.dataset.invalid ? ["not saved"] : values.flatMap((v, i) => (i ? [el("span", "to", " to "), v] : [v]))),
+    );
 
     // While the fields hold invalid values, the saved scores would look current, so only the "Not saved" note shows.
     item.querySelector(".event-preview").replaceChildren(
