@@ -41,7 +41,8 @@ body {
 }
 
 main, footer { max-width: 480px; margin: 0 auto; padding: 0 20px; }
-main { padding-top: max(40px, env(safe-area-inset-top)); }
+/* Tight to the top: the browser bar or Android's status bar already gives room; the safe area covers notches. */
+main { padding-top: max(16px, env(safe-area-inset-top)); }
 footer { padding-top: 20px; padding-bottom: 40px; font-size: 0.75rem; line-height: 1.45; }
 
 h1, h2 { margin: 0; font-family: var(--display); line-height: 1.1; }
