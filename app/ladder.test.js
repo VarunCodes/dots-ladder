@@ -263,10 +263,9 @@ test("events fall back when nothing is saved, the JSON is corrupt or storage is 
 
 // --- Reference marker ------------------------------------------------------------
 
-test("the reference marker is the gym-goer estimate for the selected sex, labelled as an estimate", () => {
-  assert.deepEqual(L.referenceMarker("M"), { label: "Regular gym-goer (estimate)", dots: 200 });
-  assert.equal(L.referenceMarker("F").dots, 160);
-  assert.match(L.referenceMarker("F").label, /estimate/);
+test("the reference marker is the gym-goer estimate for the selected sex, named by sex and labelled as an estimate", () => {
+  assert.deepEqual(L.referenceMarker("M"), { label: "Male gym-goer (estimate)", dots: 200 });
+  assert.deepEqual(L.referenceMarker("F"), { label: "Female gym-goer (estimate)", dots: 160 });
 });
 
 test("the gym-goer estimates stay below every published rung, so they never pass for one", () => {

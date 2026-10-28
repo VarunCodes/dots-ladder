@@ -256,7 +256,7 @@ export function saveEvents(storage, events) {
 
 export const GYM_GOER_ESTIMATE = { M: 200, F: 160 };
 
-/** The gym-goer reference marker for the selected sex. */
+/** The gym-goer reference marker for the selected sex, named by sex so it's clear which estimate it is. */
 export function referenceMarker(sex) {
-  return { label: "Regular gym-goer (estimate)", dots: GYM_GOER_ESTIMATE[sex] };
+  return { label: `${sex === "M" ? "Male" : "Female"} gym-goer (estimate)`, dots: GYM_GOER_ESTIMATE[sex] };
 }

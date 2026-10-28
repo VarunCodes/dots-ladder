@@ -1,6 +1,6 @@
 # Population estimates: one gym-goer marker, never a rung
 
-**Decision (28 Oct 2026):** the rungs stay OpenPowerlifting-only: measured percentiles of real UK meet results. The ladder also shows a single **reference marker**, "Regular gym-goer (estimate)", for the selected sex: about **200 DOTS for men** and **160 DOTS for women**. It's there for scale, to show how far a lifter on the ladder already is from a typical gym-goer, because powerlifting is a niche sport. There's no marker for untrained adults. It adds nothing to a ladder for people who train.
+**Decision (28 Oct 2026):** the rungs stay OpenPowerlifting-only: measured percentiles of real UK meet results. The ladder also shows a single **reference marker** for the selected sex, "Male gym-goer (estimate)" or "Female gym-goer (estimate)": about **200 DOTS for men** and **160 DOTS for women**. It's there for scale, to show how far a lifter on the ladder already is from a typical gym-goer, because powerlifting is a niche sport. There's no marker for untrained adults. It adds nothing to a ladder for people who train.
 
 ## Why it's an estimate, not data
 
