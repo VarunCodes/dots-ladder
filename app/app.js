@@ -31,8 +31,8 @@ function renderNow(profile) {
   const total = L.sumLifts(profile);
   const score = L.dots(profile.sex, profile.bodyweight, total);
   $("now-dots").textContent = score.toFixed(1);
-  $("now-detail").textContent =
-    `${total} kg total (S ${profile.squat} / B ${profile.bench} / D ${profile.deadlift}) at ${profile.bodyweight} kg bodyweight.`;
+  for (const lift of L.LIFTS) $(`lift-${lift}`).textContent = profile[lift];
+  $("now-detail").textContent = `${total} kg total`;
   return score;
 }
 
@@ -47,8 +47,8 @@ function renderNext(profile, score, group, experience) {
   }
   const kg = L.totalForDots(sex, bw, next.dots) - L.totalForDots(sex, bw, score);
   target.append(
-    el("strong", null, `${rungLabel(next)} of ${experience} lifters: ${next.dots} DOTS`),
-    el("span", "muted", ` · ${(next.dots - score).toFixed(1)} DOTS to go, about +${Math.ceil(kg * 2) / 2} kg on your total at ${bw} kg.`),
+    el("strong", null, `Next rung: ${rungLabel(next).toLowerCase()} of ${experience} lifters, at ${next.dots}`),
+    el("span", null, `${(next.dots - score).toFixed(1)} to go, about ${Math.ceil(kg * 2) / 2} kg more on your total.`),
   );
 }
 
@@ -64,7 +64,9 @@ function renderLadder(group, points, score) {
       const reached = item.kind === "rung" && score >= item.dots;
       const li = el("li", `step ${item.kind}${reached ? " reached" : ""}`);
       const shown = item.kind === "rung" ? String(item.dots) : item.dots.toFixed(1);
-      li.append(el("span", "step-label", item.label), el("span", "step-dots", shown));
+      const label = el("span", "step-label", item.label);
+      if (reached) label.append(el("span", "visually-hidden", " (reached)"));
+      li.append(label, el("span", "step-dots", shown));
       return li;
     }),
   );
@@ -88,8 +90,14 @@ function render(rungsData, me, state) {
     }),
   );
 
+  // The one place the page says who the numbers are for: the sex symbol, then equipment, class and bodyweight.
+  // The symbol is hidden from screen readers, so the text carries "Men" or "Women" for them.
   const chosen = profile.weightClass ? " (chosen)" : "";
-  $("subtitle").textContent = `${me.equipment} · ${wclass} kg class${chosen} · ${profile.bodyweight} kg bodyweight`;
+  $("sex-icon").setAttribute("href", profile.sex === "M" ? "#icon-male" : "#icon-female");
+  $("now-context").replaceChildren(
+    el("span", "visually-hidden", `${profile.sex === "M" ? "Men" : "Women"}, `),
+    `${me.equipment}, ${wclass} kg class${chosen}, ${profile.bodyweight} kg bodyweight`,
+  );
 
   refreshEvents(state, group, experience);
   if (!group) {
@@ -98,8 +106,7 @@ function render(rungsData, me, state) {
     $("next-rung").textContent = "";
     return;
   }
-  $("group-note").textContent =
-    `${profile.sex === "M" ? "Men" : "Women"}, ${wclass} kg class, ${experience}: ${group.lifters} lifters.`;
+  $("group-note").textContent = `${group.lifters} lifters in this group.`;
   renderNext(profile, score, group, experience);
   renderLadder(group, markers(state), score);
 }
@@ -148,7 +155,7 @@ const FIELD_TEXT = {
 function renderStale(invalid) {
   const warning = $("now-warning");
   warning.hidden = invalid.length === 0;
-  warning.textContent = "Not updated: fix the highlighted values in Edit your numbers. This is your last saved DOTS.";
+  warning.textContent = "Not updated: fix the highlighted values in Your numbers. This is your last saved DOTS.";
   $("now-dots").classList.toggle("stale", invalid.length > 0);
 }
 
@@ -226,5 +233,5 @@ try {
 } catch (error) {
   $("error").hidden = false;
   $("error").textContent = `Couldn't load the data (${error.message}). If you opened the file directly, serve the folder instead: python3 -m http.server`;
-  $("subtitle").textContent = "";
+  $("now-context").textContent = "";
 }

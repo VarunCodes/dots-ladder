@@ -59,7 +59,8 @@ test("every file the service worker caches exists", () => {
 
 test("the service worker caches every file the page loads, so it opens offline", () => {
   const cached = new Set(precacheList());
-  const htmlRefs = [...indexHtml.matchAll(/(?:href|src)="([^"]+)"/g)].map((m) => m[1]).filter(isRelative);
+  // In-page references like href="#icon-squat" (the SVG sprite) aren't files.
+  const htmlRefs = [...indexHtml.matchAll(/(?:href|src)="([^"]+)"/g)].map((m) => m[1]).filter((ref) => isRelative(ref) && !ref.startsWith("#"));
   const appJs = read("app/app.js").toString();
   const dataFiles = [...appJs.matchAll(/loadJson\("([^"]+)"\)/g)].map((m) => m[1]);
   // Every module app.js pulls in, following imports through each module (all live in app/).
@@ -73,8 +74,10 @@ test("the service worker caches every file the page loads, so it opens offline",
     }
   };
   follow("app/app.js");
+  const cssRefs = [...read("app/style.css").toString().matchAll(/url\("\.\.\/([^"]+)"\)/g)].map((m) => m[1]);
+  assert.ok(cssRefs.length > 0, "found no files in style.css");
   assert.ok(dataFiles.length > 0, "found no data files in app.js");
-  for (const path of [...htmlRefs, ...dataFiles, ...imports, ...manifest.icons.map((icon) => icon.src)]) {
+  for (const path of [...htmlRefs, ...dataFiles, ...imports, ...cssRefs, ...manifest.icons.map((icon) => icon.src)]) {
     assert.ok(cached.has(path), `sw.js doesn't cache ${path}`);
   }
 });
