@@ -31,18 +31,26 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 - **Page logic**: experience group, latest bodyweight, best lifts, the rungs for a group, and the next rung to beat.
 - **Events**: month handling, which values are wrong (including "fill in at least one scenario"), clean copies with empty scenarios as null, scores at the event's bodyweight, the next 3 upcoming events for the ladder, the class note when an event's bodyweight is in another class, the rung an event beats, and saving and loading (invalid saved events dropped, deleting every event kept, corrupt or blocked storage falling back).
 - **Editable numbers**: the class list per sex, the class worked out from bodyweight or chosen, the "weigh in at X kg or under" check, rejecting missing or out-of-range values and naming which ones (so the page can say what to fix), the defaults from `my-lifts.json`, and saving to and loading from browser storage (with a fake storage: nothing saved, corrupt JSON, invalid values and blocked storage all fall back to the defaults).
-- **Contract tests on the committed data**: `data/rungs.json` and `data/my-lifts.json` must give a full ladder (a median rung for every experience group in the user's class), and every rung must be aggregate only (no unexpected fields, 20+ lifters, p10/p90 only at 50+). Every class in the rungs must be choosable in the class dropdown, `my-lifts.json` must give a valid starting profile, every committed event must be valid, and meets and events must be month-only. If a pipeline change or a data edit would break the page or the privacy rules, CI fails.
+- **Gym-goer marker**: the estimate and label for each sex ("Male gym-goer (estimate)" ~200, "Female gym-goer (estimate)" ~160).
+- **Contract tests on the committed data**:
+  - `my-lifts.json` must give a valid starting profile, and that profile must get a full ladder from `data/rungs.json` (a median rung for every experience group in its class), checked the way the page loads it.
+  - Every rung must be aggregate only: no unexpected fields, 20+ lifters, and p10/p90 only at 50+.
+  - Every class in the rungs must be choosable in the class dropdown.
+  - Every committed event must be valid, and meets and events must be month-only.
+  - The gym-goer estimates must stay below every published rung, so the marker never passes for one (see `docs/population-estimates.md`).
+
+  If a pipeline change or a data edit would break the page or the privacy rules, CI fails.
 
 `app/pwa.test.js` checks the installable app:
 
 - **Manifest**: the fields Chrome needs to offer install, `display: standalone`, and `start_url` and `scope` of `./` (the site lives under `/dots-ladder/`).
 - **Icons**: every icon exists, is a PNG of its declared size, and there's a 192 px, a 512 px and a maskable one.
-- **Service worker**: every file in its cache list exists, and every file the page loads (from `index.html`, every module `app/app.js` imports directly or indirectly, the data files and the manifest) is in that list, so the page opens offline. Adding a file to the page without caching it fails CI.
+- **Service worker**: every file in its cache list exists, and every file the page loads is in that list, so the page opens offline. That covers `index.html` (in-page `#` references from the icon sprite are skipped), every module `app/app.js` imports directly or indirectly, the data files, files the stylesheet loads (the font) and the manifest icons. Adding a file to the page without caching it fails CI.
 - **Offline behaviour**: `sw.js` runs in Node with a stub network and cache. Online, it serves the network copy, saves it, and revalidates rather than trusting the browser's HTTP cache. Offline, it serves the saved copy, opening any page falls back to the saved start page, and with nothing saved the request fails instead of hanging. Other sites and non-GET requests are left to the browser.
 
 What can't run in Node (the browser installing the app and swapping in the service worker) is checked by hand: install from Chrome on Android, then reopen in aeroplane mode. To debug the phone, connect it over USB and open `chrome://inspect` on the computer.
 
-The DOM code in `app/app.js` isn't unit tested. It's thin, and it's checked by viewing the page.
+The DOM code in `app/app.js` and `app/events.js` isn't unit tested; it only renders what `ladder.js` works out. So far it has been checked by hand and with headless Chrome runs outside the repo, so nothing in CI exercises the page in a real browser yet.
 
 ## CI: GitHub Actions
 
@@ -70,8 +78,8 @@ To raise the floor, change the lower version in the workflow's matrix and the "P
 
 ### Cost and speed
 
-Each job takes about 10 s, most of it starting the runner and setting up Python. Private repos on GitHub's free plan get 2,000 Actions minutes a month. Each job counts as a minimum of 1 minute, so one push uses about 3 minutes.
+Each job takes about 10 s, most of it starting the runner and setting up Python. The repo is public, and GitHub Actions is free for public repos on standard runners, so CI costs nothing.
 
 ### Required checks
 
-GitHub can block merging a PR until the tests pass (branch protection or rulesets). For private repos that needs a paid plan; on the free plan the check is advisory only. If the repo becomes public, turn it on: Settings → Rules → require the `pytest (3.10)`, `pytest (3.14)` and `node-test` checks on `main`.
+A ruleset on `main` requires a pull request and all three checks (`pytest (3.10)`, `pytest (3.14)` and `node-test`) to pass before merging, so nothing reaches `main` or the live site without green CI. It's under Settings → Rules.
