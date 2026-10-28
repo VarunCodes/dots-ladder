@@ -60,5 +60,6 @@ Details, coverage and CI: `docs/testing.md`.
 - `docs/legal-ethics-audit.md`: legal and ethics review
 - `docs/testing.md`: running the tests, what they cover, and CI
 - `docs/federation-analysis.md`: why there's no federation or drug-tested switch (data per federation, Oct 2026)
+- `docs/population-estimates.md`: the one gym-goer reference marker, and why it's an estimate and never a rung
 
 Data: [OpenPowerlifting](https://www.openpowerlifting.org/), public domain.

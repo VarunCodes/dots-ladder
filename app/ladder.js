@@ -249,3 +249,14 @@ export function saveEvents(storage, events) {
     return false;
   }
 }
+
+// --- Reference marker: an estimate, not data ---------------------------------------
+// The rungs are measured OpenPowerlifting percentiles. This single marker is an estimate of a
+// regular gym-goer's DOTS, for scale only; see docs/population-estimates.md for the method.
+
+export const GYM_GOER_ESTIMATE = { M: 200, F: 160 };
+
+/** The gym-goer reference marker for the selected sex, named by sex so it's clear which estimate it is. */
+export function referenceMarker(sex) {
+  return { label: `${sex === "M" ? "Male" : "Female"} gym-goer (estimate)`, dots: GYM_GOER_ESTIMATE[sex] };
+}

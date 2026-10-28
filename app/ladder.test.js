@@ -261,6 +261,19 @@ test("events fall back when nothing is saved, the JSON is corrupt or storage is 
   assert.equal(L.saveEvents(fakeStorage({}, { fail: true }), [may]), false);
 });
 
+// --- Reference marker ------------------------------------------------------------
+
+test("the reference marker is the gym-goer estimate for the selected sex, named by sex and labelled as an estimate", () => {
+  assert.deepEqual(L.referenceMarker("M"), { label: "Male gym-goer (estimate)", dots: 200 });
+  assert.deepEqual(L.referenceMarker("F"), { label: "Female gym-goer (estimate)", dots: 160 });
+});
+
+test("the gym-goer estimates stay below every published rung, so they never pass for one", () => {
+  for (const rung of readJson("../data/rungs.json").rungs) {
+    assert.ok(L.GYM_GOER_ESTIMATE[rung.sex] < (rung.p10 ?? rung.p25), `${rung.sex} ${rung.weightClassKg} ${rung.experience}`);
+  }
+});
+
 // --- Contract: the committed JSON files work with the page ------------------------
 
 test("committed data files give the user a full ladder", () => {

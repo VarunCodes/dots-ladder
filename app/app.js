@@ -14,10 +14,13 @@ async function loadJson(path) {
   return response.json();
 }
 
-/** Scores to place on the ladder alongside the rungs: you now, then each upcoming event's scenarios. */
+/** Scores to place on the ladder alongside the rungs: you now, each upcoming event's scenarios, and the gym-goer estimate. */
 function markers(state) {
   const { profile, events, thisMonth } = state;
-  const list = [{ label: "You now", dots: L.dots(profile.sex, profile.bodyweight, L.sumLifts(profile)), kind: "now" }];
+  const list = [
+    { label: "You now", dots: L.dots(profile.sex, profile.bodyweight, L.sumLifts(profile)), kind: "now" },
+    { ...L.referenceMarker(profile.sex), kind: "reference" },
+  ];
   for (const event of L.ladderEvents(events, thisMonth)) {
     const scores = L.eventScores(event, profile.sex);
     for (const { scenario, dots } of scores) {
@@ -63,7 +66,7 @@ function renderLadder(group, points, score) {
     ...items.map((item) => {
       const reached = item.kind === "rung" && score >= item.dots;
       const li = el("li", `step ${item.kind}${reached ? " reached" : ""}`);
-      const shown = item.kind === "rung" ? String(item.dots) : item.dots.toFixed(1);
+      const shown = item.kind === "rung" ? String(item.dots) : item.kind === "reference" ? `~${item.dots}` : item.dots.toFixed(1);
       const label = el("span", "step-label", item.label);
       if (reached) label.append(el("span", "visually-hidden", " (reached)"));
       li.append(label, el("span", "step-dots", shown));
