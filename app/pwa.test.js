@@ -73,8 +73,10 @@ test("the service worker caches every file the page loads, so it opens offline",
     }
   };
   follow("app/app.js");
+  const cssRefs = [...read("app/style.css").toString().matchAll(/url\("\.\.\/([^"]+)"\)/g)].map((m) => m[1]);
+  assert.ok(cssRefs.length > 0, "found no files in style.css");
   assert.ok(dataFiles.length > 0, "found no data files in app.js");
-  for (const path of [...htmlRefs, ...dataFiles, ...imports, ...manifest.icons.map((icon) => icon.src)]) {
+  for (const path of [...htmlRefs, ...dataFiles, ...imports, ...cssRefs, ...manifest.icons.map((icon) => icon.src)]) {
     assert.ok(cached.has(path), `sw.js doesn't cache ${path}`);
   }
 });

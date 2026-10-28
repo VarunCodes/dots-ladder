@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DOTS Ladder</title>
   <meta name="description" content="Tracking my powerlifting DOTS score against anonymous UK meet benchmarks.">
-  <meta name="theme-color" content="#c2410c">
+  <meta name="theme-color" content="#edeff1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f2328" media="(prefers-color-scheme: dark)">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="preload" href="fonts/barlow-condensed-600.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="app/style.css">
   <script type="module" src="app/app.js"></script>
   <script>
@@ -16,21 +18,25 @@
 </head>
 <body>
   <main>
-    <header>
+    <header class="masthead">
       <h1>DOTS Ladder</h1>
       <p id="subtitle" class="muted">Loading…</p>
     </header>
 
-    <section class="card hero" aria-labelledby="now-heading">
-      <h2 id="now-heading" class="label">Current DOTS</h2>
-      <p id="now-dots" class="big">–</p>
+    <section class="board" aria-labelledby="board-heading">
+      <h2 id="board-heading" class="visually-hidden">Where you stand</h2>
+      <p class="score"><span id="now-dots">–</span> <span class="score-unit">DOTS</span></p>
       <p id="now-detail" class="muted"></p>
-      <p id="now-warning" class="warning small" role="alert" hidden></p>
+      <p id="now-warning" class="warning" role="alert" hidden></p>
+      <p id="next-rung" class="next"></p>
+      <div id="experience" class="tabs" role="group" aria-label="Compare against"></div>
+      <p id="group-note" class="muted small"></p>
+      <ol id="ladder" class="ladder" aria-label="The ladder, highest first"></ol>
     </section>
 
-    <details class="card edit">
-      <summary class="label">Edit your numbers</summary>
-      <button id="reset" class="icon-button" type="button" aria-label="Reset to defaults" title="Reset to defaults">↺</button>
+    <details class="panel edit">
+      <summary><h2>Your numbers</h2></summary>
+      <button id="reset" class="icon-button" type="button" aria-label="Reset your numbers to the defaults" title="Reset to defaults">↺</button>
       <form id="profile-form" class="fields" autocomplete="off">
         <label>Sex
           <select name="sex">
@@ -58,25 +64,13 @@
       </form>
     </details>
 
-    <section class="card events" aria-labelledby="events-heading">
-      <h2 id="events-heading" class="label">Your events</h2>
-      <button id="events-reset" class="icon-button" type="button" aria-label="Reset events to defaults" title="Reset events to defaults">↺</button>
-      <p class="muted small">Upcoming meets or test days, with a conservative and an optimistic total. Leave a scenario empty to skip it. The next 3 appear on the ladder.</p>
+    <section class="panel events" aria-labelledby="events-heading">
+      <h2 id="events-heading">Your events</h2>
+      <button id="events-reset" class="icon-button" type="button" aria-label="Reset events to the defaults" title="Reset events to defaults">↺</button>
+      <p class="muted small intro">Upcoming meets or test days, each with a conservative and an optimistic total. Leave a scenario empty to skip it. The next 3 show on the ladder.</p>
       <div id="event-list"></div>
       <p id="events-note" class="muted small" role="status"></p>
-      <button id="add-event" class="tab add" type="button">+ Add event</button>
-    </section>
-
-    <section class="card next" aria-labelledby="next-heading">
-      <h2 id="next-heading" class="label">Next rung</h2>
-      <p id="next-rung"></p>
-    </section>
-
-    <section class="card" aria-labelledby="ladder-heading">
-      <h2 id="ladder-heading" class="label">The ladder</h2>
-      <div id="experience" class="tabs" role="group" aria-label="Compare against"></div>
-      <p id="group-note" class="muted small"></p>
-      <ol id="ladder" class="ladder"></ol>
+      <button id="add-event" class="button add" type="button">Add event</button>
     </section>
 
     <p id="error" class="error" hidden></p>

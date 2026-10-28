@@ -24,3 +24,6 @@ Live at https://varuncodes.github.io/dots-ladder/ (public repo, Pages serves `ma
 
 ## Conventions
 UK English, kg, DOTS (not Wilks).
+
+## Design
+A competition scoreboard (tokens at the top of `app/style.css`). The scoreboard is always dark; the page is chalk-grey (light) or slate (dark). Each colour has one job: blue = you and your events, red = invalid values only, white lamp = a rung you've reached; focus is ink. Barlow Condensed (self-hosted in `fonts/`, OFL) for headings and numbers, the system font for the rest. Sentence-case headings, no all-caps labels, no middle-dot or arrow separators in copy.

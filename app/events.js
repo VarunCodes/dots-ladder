@@ -10,10 +10,10 @@ const capital = (word) => word[0].toUpperCase() + word.slice(1);
 export const fmtMonth = (yearMonth) =>
   new Date(`${yearMonth}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 
-/** "Meet plan, Nov 2026", or "May 2027 · optimistic" when the event has both scenarios. */
+/** "Meet plan, Nov 2026", or "May 2027 (optimistic)" when the event has both scenarios. */
 export function eventLabel(event, scenario) {
   const base = [event.name, fmtMonth(event.month)].filter(Boolean).join(", ");
-  return scenario ? `${base} · ${scenario}` : base;
+  return scenario ? `${base} (${scenario})` : base;
 }
 
 function problemText(name) {
@@ -226,8 +226,8 @@ export function refreshEvents(state, group, experience) {
     item.querySelector(".event-preview").replaceChildren(
       ...(item.dataset.invalid ? [] : scores).map(({ scenario, total, dots }) => {
         const beaten = group && L.rungBeaten(group.rungs, dots);
-        const place = !group ? "" : beaten ? ` · beats ${beaten.percentile}% of ${experience} lifters` : " · below every rung";
-        return el("span", null, `${capital(scenario)}: ${total} kg → ${dots.toFixed(1)} DOTS${place}`);
+        const place = !group ? "" : beaten ? `, beats ${beaten.percentile}% of ${experience} lifters` : ", below every rung";
+        return el("span", null, `${capital(scenario)}: ${total} kg total, ${dots.toFixed(1)} DOTS${place}`);
       }),
     );
 
