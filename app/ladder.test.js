@@ -276,14 +276,13 @@ test("the gym-goer estimates stay below every published rung, so they never pass
 
 // --- Contract: the committed JSON files work with the page ------------------------
 
-test("committed data files give the user a full ladder", () => {
+test("my-lifts.json gives a valid starting profile with a full ladder", () => {
+  // The same path the page takes: defaults from my-lifts.json, then the rungs for that profile's class.
+  const profile = L.defaultProfile(readJson("../data/my-lifts.json"));
+  assert.ok(profile, "my-lifts.json needs a sex, bodyweight, squat, bench and deadlift");
   const rungs = readJson("../data/rungs.json");
-  const me = readJson("../data/my-lifts.json");
-  const bw = L.latestBodyweight(me.bodyweightLog);
-  assert.ok(bw > 0, "my-lifts.json needs a bodyweight");
-  assert.ok(L.currentLifts(me.bests), "my-lifts.json needs a squat, bench and deadlift");
   for (const experience of L.EXPERIENCE) {
-    const group = L.rungsFor(rungs, me.sex, L.weightClass(me.sex, bw), experience);
+    const group = L.rungsFor(rungs, profile.sex, L.effectiveClass(profile), experience);
     assert.ok(group?.rungs.some((r) => r.percentile === 50), `no median rung for ${experience}`);
   }
 });
@@ -314,8 +313,4 @@ test("every class in the rungs can be chosen in the class dropdown", () => {
   for (const { sex, weightClassKg } of readJson("../data/rungs.json").rungs) {
     assert.ok(L.weightClasses(sex).includes(weightClassKg), `${sex} ${weightClassKg} kg can't be chosen`);
   }
-});
-
-test("my-lifts.json gives a valid starting profile", () => {
-  assert.ok(L.defaultProfile(readJson("../data/my-lifts.json")), "my-lifts.json doesn't make a valid profile");
 });
