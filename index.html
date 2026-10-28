@@ -27,6 +27,36 @@
       <p id="now-detail" class="muted"></p>
     </section>
 
+    <details class="card edit">
+      <summary class="label">Edit your numbers</summary>
+      <form id="profile-form" class="fields" autocomplete="off">
+        <label>Sex
+          <select name="sex">
+            <option value="M">Men</option>
+            <option value="F">Women</option>
+          </select>
+        </label>
+        <label>Bodyweight (kg)
+          <input name="bodyweight" type="number" inputmode="decimal" step="any" min="30" max="250" required>
+        </label>
+        <label>Squat 1RM (kg)
+          <input name="squat" type="number" inputmode="decimal" step="any" min="1" max="600" required>
+        </label>
+        <label>Bench 1RM (kg)
+          <input name="bench" type="number" inputmode="decimal" step="any" min="1" max="600" required>
+        </label>
+        <label>Deadlift 1RM (kg)
+          <input name="deadlift" type="number" inputmode="decimal" step="any" min="1" max="600" required>
+        </label>
+        <label>Weight class
+          <select name="weightClass"></select>
+        </label>
+        <p id="class-note" class="muted small wide"></p>
+        <p id="save-note" class="muted small wide" role="status"></p>
+        <button id="reset" class="tab wide" type="button">Reset to defaults</button>
+      </form>
+    </details>
+
     <section class="card next" aria-labelledby="next-heading">
       <h2 id="next-heading" class="label">Next rung</h2>
       <p id="next-rung"></p>

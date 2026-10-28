@@ -14,12 +14,12 @@ Local planning notes (gitignored): `docs/conversation-summary.md`. Read them bef
 See README.md and docs/testing.md. Locally, pytest is in the repo-root `.venv`. A full pipeline rebuild takes ~35 s on the ~830 MB CSV.
 
 ## Status
-Live at https://varuncodes.github.io/dots-ladder/ (public repo, Pages serves `main`), installable as a PWA (`manifest.webmanifest`, `sw.js`, network-first). When adding a file the page loads, add it to `PRECACHE` in `sw.js`; a test enforces it. A ruleset on `main` requires a PR and all three CI checks; no direct pushes. The old private repo, `dots-ladder-old`, is archived as a backup; never push its history here.
+Live at https://varuncodes.github.io/dots-ladder/ (public repo, Pages serves `main`), installable as a PWA (`manifest.webmanifest`, `sw.js`, network-first). When adding a file the page loads, add it to `PRECACHE` in `sw.js`; a test enforces it. Lifts, bodyweight, sex and weight class are editable on the page and saved in localStorage (`dots-ladder:profile`); `my-lifts.json` only supplies the defaults. A ruleset on `main` requires a PR and all three CI checks; no direct pushes. The old private repo, `dots-ladder-old`, is archived as a backup; never push its history here.
 
 ## Next steps
 1. Optional weekly GitHub Action to rebuild `rungs.json` (commit only the JSON).
 2. After the first meet, add the result to `data/my-lifts.json`.
-3. Interactions (editable numbers, text fields); user input stays in browser storage on the device, never committed. An app-store wrapper only later, if wanted.
+3. Export/import of the on-device profile (browser storage can be wiped), then more interactions; user input stays on the device, never committed. An app-store wrapper only later, if wanted.
 4. Optional local-only page reading `private/` for the named-lifter ladder.
 
 ## Conventions

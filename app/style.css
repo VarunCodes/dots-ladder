@@ -143,3 +143,27 @@ a { color: var(--accent); }
   background: var(--accent-soft);
   color: var(--text);
 }
+
+/* Edit form: collapsed by default so the ladder stays the focus. */
+.edit summary { cursor: pointer; margin: 0; list-style-position: inside; }
+.edit[open] summary { margin-bottom: 12px; }
+
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fields .wide { grid-column: 1 / -1; margin: 0; }
+
+.fields label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+
+.fields input, .fields select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem; /* 16px+ stops mobile browsers zooming in on focus */
+  font-variant-numeric: tabular-nums;
+}
+
+.fields input:focus-visible, .fields select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fields input:invalid { border-color: var(--accent); background: var(--accent-soft); }
