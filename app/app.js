@@ -3,13 +3,26 @@ import * as L from "./ladder.js";
 import { $, el } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 
-// The rungs are raw full-power results only (see pipeline/build_rungs.py), so everyone here is compared as raw.
-const EQUIPMENT = "Raw";
-
 const fmtDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-const rungLabel = ({ percentile }) => (percentile === 50 ? "Median" : `Beats ${percentile}%`);
+// "+22.1" or "−77.9" (a real minus sign), for gaps from your score.
+const signed = (n) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}`;
+
+/** An inline icon from the sprite in index.html; decorative unless given a label. */
+function icon(id, label) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", `#${id}`);
+  svg.append(use);
+  if (label) {
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", label);
+  } else {
+    svg.setAttribute("aria-hidden", "true");
+  }
+  return svg;
+}
 
 async function loadJson(path) {
   const response = await fetch(path);
@@ -17,76 +30,90 @@ async function loadJson(path) {
   return response.json();
 }
 
-/** Scores to place on the ladder alongside the rungs: you now, each upcoming event's scenarios, and the gym-goer estimate. */
-function markers(state) {
+/** Rows to place among the rungs: you, the gym-goer estimate, and each upcoming event's scenarios. */
+function markers(state, score) {
   const { profile, events, thisMonth } = state;
   const list = [
-    { label: "You now", dots: L.dots(profile.sex, profile.bodyweight, L.sumLifts(profile)), kind: "now" },
-    { ...L.referenceMarker(profile.sex), kind: "reference" },
+    { kind: "you", label: "You", dots: score },
+    { kind: "reference", ...L.referenceMarker(profile.sex) },
   ];
   for (const event of L.ladderEvents(events, thisMonth)) {
     const scores = L.eventScores(event, profile.sex);
     for (const { scenario, dots } of scores) {
-      list.push({ label: eventLabel(event, scores.length > 1 ? scenario : null), dots, kind: "projection" });
+      list.push({ kind: "event", label: eventLabel(event, scores.length > 1 ? scenario : null), dots });
     }
   }
   return list;
 }
 
-function renderNow(profile) {
-  const total = L.sumLifts(profile);
-  const score = L.dots(profile.sex, profile.bodyweight, total);
+/** "between P10 and P25", "below P10" or "above P90", from the rungs' states. */
+function position(rows) {
+  const rungs = rows.filter((r) => r.kind === "rung");
+  const cleared = rungs.find((r) => r.state === "cleared"); // rows are highest first
+  const next = rungs.find((r) => r.state === "next");
+  if (cleared && next) return `between P${cleared.percentile} and P${next.percentile}`;
+  if (next) return `below P${next.percentile}`;
+  return cleared ? `above P${cleared.percentile}` : "";
+}
+
+function renderHero(profile, score, rows) {
   $("now-dots").textContent = score.toFixed(1);
-  for (const lift of L.LIFTS) $(`lift-${lift}`).textContent = profile[lift];
-  $("now-detail").textContent = `${total} kg total`;
-  return score;
+  $("now-caption").textContent = [`${L.sumLifts(profile)} kg total`, `${profile.bodyweight} kg bodyweight`, position(rows)]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-function renderNext(profile, score, group, experience) {
-  const { sex, bodyweight: bw } = profile;
-  const target = $("next-rung");
-  target.replaceChildren();
-  const next = L.nextRung(group.rungs, score);
-  if (!next) {
-    target.textContent = `You're above every rung for ${experience} lifters. Try the next group up.`;
-    return;
+function renderNext(profile, score, group) {
+  const next = group && L.nextRung(group.rungs, score);
+  $("next-label").textContent = next ? `Next rung · P${next.percentile}` : "Next rung";
+  $("next-value").textContent = !group
+    ? "Not enough lifters in this group to publish rungs."
+    : next
+      ? `+${(next.dots - score).toFixed(1)} DOTS ≈ +${L.kgToReach(profile.sex, profile.bodyweight, L.sumLifts(profile), next.dots)} kg on your total`
+      : "Top rung reached";
+}
+
+function renderRow(row, profile) {
+  const li = el("li", `row row-${row.kind}${row.state ? ` row-${row.state}` : ""}`);
+  const key = el("span", "row-key");
+  const main = el("span", "row-main");
+  const end = el("span", "row-end");
+
+  if (row.kind === "rung") {
+    key.textContent = `P${row.percentile}`;
+    const title = row.state === "next" ? "Next rung" : row.state === "cleared" ? "Cleared" : L.RUNG_NAMES[row.percentile];
+    main.append(el("span", "row-title", title), el("span", "row-sub", `${row.dots} DOTS`));
+    if (row.state === "cleared") end.append(icon("icon-check", "Cleared"));
+    else end.textContent = signed(row.gap);
+  } else if (row.kind === "you") {
+    key.textContent = "You";
+    main.append(
+      el("span", "row-title", `${row.dots.toFixed(1)} DOTS`),
+      el("span", "row-sub", `${L.sumLifts(profile)} kg @ ${profile.bodyweight} kg`),
+    );
+    end.append(icon("icon-person"));
+  } else if (row.kind === "event") {
+    key.append(icon("icon-flag"));
+    main.append(el("span", "row-title", row.label), el("span", "row-sub", `${row.dots.toFixed(1)} DOTS`));
+    end.textContent = signed(row.gap);
+  } else {
+    key.textContent = "≈";
+    main.append(el("span", "row-title", row.label), el("span", "row-sub", `~${row.dots} DOTS`));
+    end.textContent = signed(row.gap);
   }
-  const kg = L.totalForDots(sex, bw, next.dots) - L.totalForDots(sex, bw, score);
-  target.append(
-    el("strong", null, `Next rung: ${rungLabel(next).toLowerCase()} of ${experience} lifters, at ${next.dots}`),
-    el("span", null, `${(next.dots - score).toFixed(1)} to go, about ${Math.ceil(kg * 2) / 2} kg more on your total.`),
-  );
+  li.append(key, main, end);
+  return li;
 }
 
-function renderLadder(group, points, score) {
-  const items = [
-    ...group.rungs.map((r) => ({ ...r, label: rungLabel(r), kind: "rung" })),
-    ...points,
-  ].sort((x, y) => y.dots - x.dots || (x.kind === "rung") - (y.kind === "rung"));
-
-  const ladder = $("ladder");
-  ladder.replaceChildren(
-    ...items.map((item) => {
-      const reached = item.kind === "rung" && score >= item.dots;
-      const li = el("li", `step ${item.kind}${reached ? " reached" : ""}`);
-      const shown = item.kind === "rung" ? String(item.dots) : item.kind === "reference" ? `~${item.dots}` : item.dots.toFixed(1);
-      const label = el("span", "step-label", item.label);
-      if (reached) label.append(el("span", "visually-hidden", " (reached)"));
-      li.append(label, el("span", "step-dots", shown));
-      return li;
-    }),
-  );
-}
-
-/** Redraws everything except the form, for the current profile and experience tab. */
+/** Redraws the Ladder for the current profile and experience group. */
 function render(rungsData, state) {
   const { profile, experience } = state;
   const wclass = L.effectiveClass(profile);
-  const score = renderNow(profile);
+  const score = L.dots(profile.sex, profile.bodyweight, L.sumLifts(profile));
   const group = L.rungsFor(rungsData, profile.sex, wclass, experience);
-  const tabs = $("experience");
+  const rows = L.ladderRows(group?.rungs ?? [], score, markers(state, score));
 
-  tabs.replaceChildren(
+  $("experience").replaceChildren(
     ...L.EXPERIENCE.map((name) => {
       const button = el("button", "tab", name);
       button.type = "button";
@@ -96,25 +123,19 @@ function render(rungsData, state) {
     }),
   );
 
-  // The one place the page says who the numbers are for: the sex symbol, then equipment, class and bodyweight.
-  // The symbol is hidden from screen readers, so the text carries "Men" or "Women" for them.
-  const chosen = profile.weightClass ? " (chosen)" : "";
+  // The class chip says who you're compared with; the symbol is hidden, so the label carries "Men" or "Women".
+  const sexWord = profile.sex === "M" ? "Men" : "Women";
   $("sex-icon").setAttribute("href", profile.sex === "M" ? "#icon-male" : "#icon-female");
-  $("now-context").replaceChildren(
-    el("span", "visually-hidden", `${profile.sex === "M" ? "Men" : "Women"}, `),
-    `${EQUIPMENT}, ${wclass} kg class${chosen}, ${profile.bodyweight} kg bodyweight`,
-  );
+  $("class-chip-text").textContent = `${sexWord} ${wclass} kg`;
+  $("class-chip").setAttribute("aria-label", `${sexWord}, ${wclass} kg class${profile.weightClass ? " (chosen)" : ""}. Change weight class`);
 
   refreshEvents(state, group, experience);
-  if (!group) {
-    $("group-note").textContent = `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
-    $("ladder").replaceChildren();
-    $("next-rung").textContent = "";
-    return;
-  }
-  $("group-note").textContent = `${group.lifters} lifters in this group.`;
-  renderNext(profile, score, group, experience);
-  renderLadder(group, markers(state), score);
+  $("group-note").textContent = group
+    ? `${group.lifters} lifters in this group.`
+    : `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
+  renderHero(profile, score, rows);
+  renderNext(profile, score, group);
+  $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
 }
 
 /** localStorage, or null where the browser blocks it; the ladder.js helpers treat null as "nothing saved". */
@@ -280,11 +301,17 @@ try {
     $("save-note").textContent = saved ? "" : "Couldn't save on this device; your numbers last until you close the page.";
   });
   setupForm(rungsData, state, storage, askForNumbers);
+  $("class-chip").addEventListener("click", () => {
+    const panel = $("numbers-panel");
+    panel.open = true;
+    panel.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    $("profile-form").elements.weightClass.focus({ preventScroll: true });
+  });
   setupEvents({ state, storage, thisMonth, onChange: () => render(rungsData, state) });
   if (state.profile) showStanding();
   else askForNumbers();
 } catch (error) {
   $("error").hidden = false;
   $("error").textContent = `Couldn't load the data (${error.message}). If you opened the file directly, serve the folder instead: python3 -m http.server`;
-  $("now-context").textContent = "";
+  $("now-caption").textContent = "";
 }

@@ -247,6 +247,51 @@ test("the gym-goer estimates stay below every published rung, so they never pass
   }
 });
 
+// --- Ladder rows and the design spec's required cases --------------------------------
+
+test("DOTS matches the design spec's required cases", () => {
+  assert.equal(L.dots("M", 70, 370).toFixed(1), "277.9");
+  assert.equal(L.dots("M", 66, 370).toFixed(1), "289.9");
+  assert.equal(L.dots("M", 93, 500).toFixed(1), "318.1");
+  assert.equal(L.dots("F", 60, 300).toFixed(1), "332.6");
+  assert.equal(L.dots("M", 70, 0).toFixed(1), "0.0");
+  for (const bw of [10, 39, 250, 1000]) assert.ok(Number.isFinite(L.dots("M", bw, 370)), `bodyweight ${bw}`);
+});
+
+test("kg to the next rung rounds up to 2.5 kg, because attempts go up in 2.5 kg steps", () => {
+  assert.equal(L.kgToReach("M", 70, 370, 282.7), 7.5, "raw 6.35 kg");
+  assert.equal(L.kgToReach("M", 70, 370, L.dots("M", 70, 375)), 5, "exactly 5 kg stays 5");
+  assert.equal(L.kgToReach("M", 70, 370, 270), 0, "already above");
+});
+
+test("ladder rows: highest first, the next rung marked, cleared rungs below you, gaps from your score", () => {
+  const rungs = [{ percentile: 10, dots: 266 }, { percentile: 25, dots: 300 }, { percentile: 50, dots: 338 }];
+  const rows = L.ladderRows(rungs, 277.9, [
+    { kind: "you", label: "You", dots: 277.9 },
+    { kind: "reference", label: "Male gym-goer (estimate)", dots: 200 },
+  ]);
+  assert.deepEqual(rows.map((r) => r.percentile ?? r.kind), [50, 25, "you", 10, "reference"]);
+  assert.deepEqual(rows.filter((r) => r.kind === "rung").map((r) => r.state), ["above", "next", "cleared"]);
+  assert.equal(rows[1].gap.toFixed(1), "22.1");
+  assert.equal(rows.at(-1).gap.toFixed(1), "-77.9");
+});
+
+test("ladder rows: above every rung there is no next rung; a tie puts the rung above the marker", () => {
+  const rungs = [{ percentile: 50, dots: 300 }];
+  assert.equal(L.ladderRows(rungs, 400, []).find((r) => r.state === "next"), undefined);
+  const tie = L.ladderRows(rungs, 300, [{ kind: "you", label: "You", dots: 300 }]);
+  assert.deepEqual(tie.map((r) => r.kind), ["rung", "you"]);
+  assert.equal(tie[0].state, "cleared", "reaching a rung's score clears it");
+});
+
+test("every published percentile has a name", () => {
+  for (const rung of readJson("../data/rungs.json").rungs) {
+    for (const key of Object.keys(rung).filter((k) => /^p\d+$/.test(k))) {
+      assert.ok(L.RUNG_NAMES[Number(key.slice(1))], `no name for ${key}`);
+    }
+  }
+});
+
 // --- Contract: the committed JSON files work with the page ------------------------
 
 test("every committed rung is aggregate only", () => {

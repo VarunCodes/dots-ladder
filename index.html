@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DOTS Ladder</title>
   <meta name="description" content="Tracking my powerlifting DOTS score against anonymous UK meet benchmarks.">
-  <meta name="theme-color" content="#edeff1" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1f2328" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#111214">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
-  <link rel="preload" href="fonts/barlow-condensed-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/barlow-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/barlow-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="app/style.css">
   <script type="module" src="app/app.js"></script>
   <script>
@@ -25,13 +25,17 @@
       <symbol id="icon-deadlift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="3.6" r="1.8" fill="currentColor" stroke="none"/><path d="M12 6.4 V13 M9.8 7.6 H14.2 M9.8 7.6 V14.4 M14.2 7.6 V14.4 M12 13 L10.6 21 M12 13 L13.4 21 M3 21 H21"/><rect x="2.6" y="10.4" width="2.4" height="8" rx="0.8" fill="currentColor" stroke="none"/><rect x="19" y="10.4" width="2.4" height="8" rx="0.8" fill="currentColor" stroke="none"/><path d="M5 14.4 H19"/></symbol>
       <symbol id="icon-male" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="14" r="5.5"/><path d="M14 10 L19.5 4.5 M14.5 4.5 H19.5 V9.5"/></symbol>
       <symbol id="icon-female" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="5.5"/><path d="M12 14 V21.5 M8.5 18 H15.5"/></symbol>
+      <symbol id="icon-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></symbol>
+      <symbol id="icon-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></symbol>
+      <symbol id="icon-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></symbol>
     </defs>
   </svg>
 
   <main>
     <h1 class="visually-hidden">DOTS Ladder</h1>
 
-    <section class="board" aria-labelledby="board-heading">
+    <section class="screen" aria-labelledby="board-heading">
       <!-- First visit, nothing saved on this device: ask for the lifts before showing anything else. -->
       <form id="onboarding" class="onboard" autocomplete="off" hidden>
         <h2>Where do you stand?</h2>
@@ -65,23 +69,33 @@
       </form>
 
       <div id="standing" hidden>
-      <h2 id="board-heading" class="visually-hidden">Where you stand</h2>
-      <p class="score"><span id="now-dots">–</span> <span class="score-unit">DOTS</span></p>
-      <p class="context">
-        <svg class="sex-icon" aria-hidden="true"><use id="sex-icon" href="#icon-male"/></svg>
-        <span id="now-context">Loading…</span>
-      </p>
-      <ul class="lifts" aria-label="Your best lifts">
-        <li><svg class="lift-icon" aria-hidden="true"><use href="#icon-squat"/></svg><span class="lift-value"><span id="lift-squat">–</span> kg</span><span class="lift-label">Squat</span></li>
-        <li><svg class="lift-icon" aria-hidden="true"><use href="#icon-bench"/></svg><span class="lift-value"><span id="lift-bench">–</span> kg</span><span class="lift-label">Bench</span></li>
-        <li><svg class="lift-icon" aria-hidden="true"><use href="#icon-deadlift"/></svg><span class="lift-value"><span id="lift-deadlift">–</span> kg</span><span class="lift-label">Deadlift</span></li>
-      </ul>
-      <p id="now-detail" class="muted"></p>
-      <p id="now-warning" class="warning" role="alert" hidden></p>
-      <p id="next-rung" class="next"></p>
-      <div id="experience" class="tabs" role="group" aria-label="Compare against"></div>
-      <p id="group-note" class="muted small"></p>
-      <ol id="ladder" class="ladder" aria-label="The ladder, highest first"></ol>
+        <header class="hero">
+          <p class="eyebrow">DOTS Ladder</p>
+          <h2 id="board-heading" class="visually-hidden">Where you stand</h2>
+          <p class="hero-score"><span id="now-dots">–</span> <span class="hero-unit">your DOTS</span></p>
+          <p id="now-caption" class="muted">Loading…</p>
+          <p id="now-warning" class="warning" role="alert" hidden></p>
+        </header>
+
+        <section class="card next-card" aria-label="Next rung">
+          <svg class="next-icon" aria-hidden="true"><use href="#icon-arrow-up"/></svg>
+          <p><span id="next-label" class="muted small"></span><span id="next-value" class="next-value"></span></p>
+        </section>
+
+        <div class="rungs-head">
+          <h2 id="rungs-heading">The rungs</h2>
+          <ul class="chips" aria-label="Who you're compared with">
+            <li class="chip">UK</li>
+            <li class="chip">Raw</li>
+            <li class="chip">Full power</li>
+            <li><button id="class-chip" class="chip chip-button" type="button" aria-controls="numbers-panel">
+              <svg class="chip-icon" aria-hidden="true"><use id="sex-icon" href="#icon-male"/></svg><span id="class-chip-text">–</span>
+            </button></li>
+          </ul>
+          <div id="experience" class="segmented-tabs" role="group" aria-label="Compare against lifters at their"></div>
+          <p id="group-note" class="muted small"></p>
+        </div>
+        <ol id="ladder" class="rung-list" aria-labelledby="rungs-heading"></ol>
       </div>
     </section>
 
@@ -127,8 +141,7 @@
   </main>
 
   <footer class="muted small">
-    <p>Rungs are anonymous DOTS percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters are shown.</p>
-    <p>Data: <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>.</p>
+    <p>Anonymous percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters shown. Data: <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>.</p>
   </footer>
 </body>
 </html>

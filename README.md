@@ -69,6 +69,6 @@ Details, coverage and CI: `docs/testing.md`.
 
 - **Data:** [OpenPowerlifting](https://www.openpowerlifting.org/) bulk download, released into the public domain. The rungs are built only from this data.
 - **DOTS formula:** the coefficients OpenPowerlifting uses. The page and the pipeline share them, and tests keep the two in step.
-- **Font:** [Barlow Condensed](https://github.com/jpt/barlow) by the Barlow Project Authors, SIL Open Font License 1.1 (`fonts/OFL.txt`).
+- **Fonts:** [Barlow and Barlow Condensed](https://github.com/jpt/barlow) by the Barlow Project Authors, SIL Open Font License 1.1 (`fonts/OFL.txt`).
 - **Icons:** original pictograms drawn for this app; no third-party icons.
 - **Gym-goer estimate:** method and sources in `docs/population-estimates.md`.

@@ -28,7 +28,7 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 `app/ladder.test.js` checks the page's logic in `app/ladder.js`:
 
 - **Parity with the pipeline**: the same DOTS values, bodyweight clamping and weight-class boundaries as the Python tests, so the page and the rungs never disagree.
-- **Page logic**: the rungs for a group, and the next rung to beat.
+- **Page logic**: the rungs for a group, the next rung to beat, and the ladder's rows (highest first, the next rung marked, cleared rungs, the gap from your score, ties putting the rung above the marker). The kg to the next rung rounds up to 2.5 kg. The design spec's required DOTS cases are tests too, and every published percentile must have a name.
 - **Events**: month handling, which values are wrong (including "fill in at least one scenario"), clean copies with empty scenarios as null, scores at the event's bodyweight, the next 3 upcoming events for the ladder, the class note when an event's bodyweight is in another class, the rung an event beats, and saving and loading (invalid saved events dropped, deleting every event kept, corrupt or blocked storage falling back).
 - **First visit**: the onboarding form only flags values that have been entered, and isn't complete until all five are valid.
 - **Editable numbers**: the class list per sex, the class worked out from bodyweight or chosen, the "weigh in at X kg or under" check, rejecting missing or out-of-range values and naming which ones (so the page can say what to fix), and saving to and loading from browser storage (with a fake storage: nothing saved, corrupt JSON, invalid values and blocked storage all fall back).
