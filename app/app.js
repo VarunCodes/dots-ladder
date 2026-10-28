@@ -31,7 +31,8 @@ function renderNow(profile) {
   const total = L.sumLifts(profile);
   const score = L.dots(profile.sex, profile.bodyweight, total);
   $("now-dots").textContent = score.toFixed(1);
-  $("now-detail").textContent = `${total} kg total: squat ${profile.squat}, bench ${profile.bench}, deadlift ${profile.deadlift}`;
+  for (const lift of L.LIFTS) $(`lift-${lift}`).textContent = profile[lift];
+  $("now-detail").textContent = `${total} kg total`;
   return score;
 }
 
@@ -89,10 +90,14 @@ function render(rungsData, me, state) {
     }),
   );
 
-  // The one place the page says who the numbers are for.
+  // The one place the page says who the numbers are for: the sex symbol, then equipment, class and bodyweight.
+  // The symbol is hidden from screen readers, so the text carries "Men" or "Women" for them.
   const chosen = profile.weightClass ? " (chosen)" : "";
-  $("now-context").textContent =
-    `${profile.sex === "M" ? "Men" : "Women"}, ${me.equipment.toLowerCase()}, ${wclass} kg class${chosen}, ${profile.bodyweight} kg bodyweight`;
+  $("sex-icon").setAttribute("href", profile.sex === "M" ? "#icon-male" : "#icon-female");
+  $("now-context").replaceChildren(
+    el("span", "visually-hidden", `${profile.sex === "M" ? "Men" : "Women"}, `),
+    `${me.equipment}, ${wclass} kg class${chosen}, ${profile.bodyweight} kg bodyweight`,
+  );
 
   refreshEvents(state, group, experience);
   if (!group) {

@@ -59,7 +59,8 @@ test("every file the service worker caches exists", () => {
 
 test("the service worker caches every file the page loads, so it opens offline", () => {
   const cached = new Set(precacheList());
-  const htmlRefs = [...indexHtml.matchAll(/(?:href|src)="([^"]+)"/g)].map((m) => m[1]).filter(isRelative);
+  // In-page references like href="#icon-squat" (the SVG sprite) aren't files.
+  const htmlRefs = [...indexHtml.matchAll(/(?:href|src)="([^"]+)"/g)].map((m) => m[1]).filter((ref) => isRelative(ref) && !ref.startsWith("#"));
   const appJs = read("app/app.js").toString();
   const dataFiles = [...appJs.matchAll(/loadJson\("([^"]+)"\)/g)].map((m) => m[1]);
   // Every module app.js pulls in, following imports through each module (all live in app/).

@@ -55,7 +55,7 @@ main, footer {
   padding: 0 16px;
 }
 
-main { padding-top: 24px; }
+main { padding-top: 16px; }
 footer { padding: 24px 16px 40px; }
 
 /* Type scale: a major third (1.25) from 16px, display face for headings and scores. */
@@ -69,9 +69,6 @@ p { margin: 0; }
 a { color: var(--ink); text-underline-offset: 2px; }
 
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-
-.masthead { margin-bottom: 20px; }
-.masthead p { margin-top: 4px; }
 
 /* --- The scoreboard: the one surface on the page --------------------------------- */
 
@@ -103,8 +100,24 @@ a { color: var(--ink); text-underline-offset: 2px; }
 #now-dots { font-size: 4.768rem; letter-spacing: -0.01em; }
 #now-dots.stale { opacity: 0.35; }
 .score-unit { font-size: 1.563rem; color: var(--muted); }
-#now-context { margin-top: 8px; }
-#now-detail { margin-top: 2px; }
+.context { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.sex-icon { width: 20px; height: 20px; flex: none; }
+
+/* The three lifts as scoreboard columns: pictogram, value, name. */
+.lifts {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 0 0;
+  padding: 0;
+}
+.lifts li { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; }
+.lifts li + li { border-left: 1px solid var(--line); }
+.lift-icon { width: 32px; height: 32px; }
+.lift-value { font-family: var(--display); font-size: 1.563rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.lift-value span { font-size: inherit; }
+.lift-label { font-size: 0.875rem; color: var(--muted); }
+#now-detail { margin-top: 12px; }
 
 .warning {
   margin-top: 12px;
