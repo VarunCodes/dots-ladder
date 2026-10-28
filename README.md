@@ -2,6 +2,10 @@
 
 Track my powerlifting DOTS score over time and climb a ladder of anonymous benchmarks ("rungs") built from UK meet results.
 
+## What's DOTS?
+
+DOTS stands for **Dynamic Objective Team Scoring**. It turns a powerlifting total (squat + bench + deadlift) into a score adjusted for bodyweight and sex, so lifters of different sizes can be compared fairly: a heavier lifter needs a bigger total for the same score. Many federations use it in place of the older Wilks formula, and OpenPowerlifting lists it alongside meet results.
+
 ## How it works
 
 1. `pipeline/build_rungs.py` turns OpenPowerlifting's public-domain bulk download into `data/rungs.json`: DOTS percentiles for each sex, weight class and experience group (first meet, second meet, 3+ meets). No names.
