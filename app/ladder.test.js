@@ -139,6 +139,14 @@ test("invalid fields are named, so the page can say what to fix", () => {
   assert.deepEqual(L.invalidFields(null), ["sex", "bodyweight", "squat", "bench", "deadlift"]);
 });
 
+test("a first-time form only flags values that have been entered", () => {
+  const empty = { sex: "M", bodyweight: NaN, squat: NaN, bench: NaN, deadlift: NaN };
+  assert.deepEqual(L.enteredProblems(empty), []);
+  assert.deepEqual(L.enteredProblems({ ...empty, bodyweight: 0, squat: 120 }), ["bodyweight"]);
+  assert.deepEqual(L.enteredProblems({ ...empty, bench: 900 }), ["bench"]);
+  assert.equal(L.validProfile({ ...empty, bodyweight: 70, squat: 120, bench: 100 }), null, "not complete until all five are in");
+});
+
 test("a class that doesn't exist for the sex falls back to working it out from bodyweight", () => {
   assert.equal(L.validProfile({ ...me70, weightClass: "63" }).weightClass, null);
   assert.equal(L.validProfile({ ...me70, weightClass: 74 }).weightClass, null, "class labels are strings");
@@ -276,8 +284,8 @@ test("the gym-goer estimates stay below every published rung, so they never pass
 
 // --- Contract: the committed JSON files work with the page ------------------------
 
-test("my-lifts.json gives a valid starting profile with a full ladder", () => {
-  // The same path the page takes: defaults from my-lifts.json, then the rungs for that profile's class.
+test("my-lifts.json gives a valid example profile with a full ladder", () => {
+  // my-lifts.json is example data now (new visitors start blank); it must still load the way the page would.
   const profile = L.defaultProfile(readJson("../data/my-lifts.json"));
   assert.ok(profile, "my-lifts.json needs a sex, bodyweight, squat, bench and deadlift");
   const rungs = readJson("../data/rungs.json");

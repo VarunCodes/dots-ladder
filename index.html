@@ -32,6 +32,39 @@
     <h1 class="visually-hidden">DOTS Ladder</h1>
 
     <section class="board" aria-labelledby="board-heading">
+      <!-- First visit, nothing saved on this device: ask for the lifts before showing anything else. -->
+      <form id="onboarding" class="onboard" autocomplete="off" hidden>
+        <h2>Where do you stand?</h2>
+        <p class="muted">Enter your best lifts to see your DOTS and how you compare with UK powerlifters.</p>
+        <fieldset class="segmented">
+          <legend class="visually-hidden">Sex</legend>
+          <label><input type="radio" name="sex" value="M" checked><svg class="sex-icon" aria-hidden="true"><use href="#icon-male"/></svg>Men</label>
+          <label><input type="radio" name="sex" value="F"><svg class="sex-icon" aria-hidden="true"><use href="#icon-female"/></svg>Women</label>
+        </fieldset>
+        <div class="fields">
+          <label class="wide">Bodyweight (kg)
+            <input name="bodyweight" type="number" inputmode="decimal" step="any" min="30" max="250" placeholder="kg">
+          </label>
+          <div class="trio wide">
+            <label>Squat 1RM
+              <input name="squat" type="number" inputmode="decimal" step="any" min="1" max="600" placeholder="kg">
+            </label>
+            <label>Bench 1RM
+              <input name="bench" type="number" inputmode="decimal" step="any" min="1" max="600" placeholder="kg">
+            </label>
+            <label>Deadlift 1RM
+              <input name="deadlift" type="number" inputmode="decimal" step="any" min="1" max="600" placeholder="kg">
+            </label>
+          </div>
+        </div>
+        <p id="onboard-note" class="small" role="status"></p>
+        <div class="onboard-actions">
+          <button type="submit" class="primary" disabled>Show my ladder</button>
+        </div>
+        <p class="muted small">Saved on this phone only.</p>
+      </form>
+
+      <div id="standing" hidden>
       <h2 id="board-heading" class="visually-hidden">Where you stand</h2>
       <p class="score"><span id="now-dots">–</span> <span class="score-unit">DOTS</span></p>
       <p class="context">
@@ -49,11 +82,12 @@
       <div id="experience" class="tabs" role="group" aria-label="Compare against"></div>
       <p id="group-note" class="muted small"></p>
       <ol id="ladder" class="ladder" aria-label="The ladder, highest first"></ol>
+      </div>
     </section>
 
-    <details class="panel edit">
+    <details id="numbers-panel" class="panel edit" hidden>
       <summary><h2>Your numbers</h2></summary>
-      <button id="reset" class="icon-button" type="button" aria-label="Reset your numbers to the defaults" title="Reset to defaults">↺</button>
+      <button id="reset" class="icon-button" type="button" aria-label="Clear your numbers from this phone" title="Clear your numbers">↺</button>
       <form id="profile-form" class="fields" autocomplete="off">
         <label>Sex
           <select name="sex">
@@ -81,9 +115,8 @@
       </form>
     </details>
 
-    <section class="panel events" aria-labelledby="events-heading">
+    <section id="events-panel" class="panel events" aria-labelledby="events-heading" hidden>
       <h2 id="events-heading">Your events</h2>
-      <button id="events-reset" class="icon-button" type="button" aria-label="Reset events to the defaults" title="Reset events to defaults">↺</button>
       <p class="muted small intro">Upcoming meets or test days, each with a conservative and an optimistic total. Leave a scenario empty to skip it. The next 3 show on the ladder.</p>
       <div id="event-list"></div>
       <p id="events-note" class="muted small" role="status"></p>

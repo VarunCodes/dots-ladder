@@ -82,13 +82,14 @@ a { color: var(--ink); text-underline-offset: 2px; }
   --on-blue: #0f1726;
   --red: #ff5a5f;
   --lamp: #ffffff;
+  --field: #22272d;
   background: var(--bg);
   color: var(--ink);
   border-radius: 6px;
   padding: 20px 16px 24px;
 }
 @media (prefers-color-scheme: dark) {
-  .board { --bg: #2a3037; border: 1px solid #3a4148; }
+  .board { --bg: #2a3037; --field: #323941; border: 1px solid #3a4148; }
 }
 
 .score {
@@ -292,6 +293,45 @@ a { color: var(--ink); text-underline-offset: 2px; }
 }
 
 footer p + p { margin-top: 8px; }
+
+/* --- First visit: the onboarding form inside the scoreboard ------------------------- */
+
+.onboard > p { margin-top: 6px; }
+.onboard .fields { margin-top: 12px; }
+
+.segmented { display: flex; gap: 6px; margin: 16px 0 0; padding: 0; border: 0; }
+.segmented label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented label:has(input:checked) { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.segmented label:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+#onboard-note { margin-top: 12px; color: var(--red); }
+#onboard-note:empty { display: none; }
+
+.onboard-actions { display: flex; gap: 8px; margin-top: 16px; }
+.primary {
+  flex: 1;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.primary:disabled { opacity: 0.35; cursor: default; }
+.onboard-actions + p { margin-top: 8px; }
 
 .visually-hidden {
   position: absolute;

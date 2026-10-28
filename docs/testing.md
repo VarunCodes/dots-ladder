@@ -30,10 +30,11 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 - **Parity with the pipeline**: the same DOTS values, bodyweight clamping and weight-class boundaries as the Python tests, so the page and the rungs never disagree.
 - **Page logic**: experience group, latest bodyweight, best lifts, the rungs for a group, and the next rung to beat.
 - **Events**: month handling, which values are wrong (including "fill in at least one scenario"), clean copies with empty scenarios as null, scores at the event's bodyweight, the next 3 upcoming events for the ladder, the class note when an event's bodyweight is in another class, the rung an event beats, and saving and loading (invalid saved events dropped, deleting every event kept, corrupt or blocked storage falling back).
+- **First visit**: the onboarding form only flags values that have been entered, and isn't complete until all five are valid.
 - **Editable numbers**: the class list per sex, the class worked out from bodyweight or chosen, the "weigh in at X kg or under" check, rejecting missing or out-of-range values and naming which ones (so the page can say what to fix), the defaults from `my-lifts.json`, and saving to and loading from browser storage (with a fake storage: nothing saved, corrupt JSON, invalid values and blocked storage all fall back to the defaults).
 - **Gym-goer marker**: the estimate and label for each sex ("Male gym-goer (estimate)" ~200, "Female gym-goer (estimate)" ~160).
 - **Contract tests on the committed data**:
-  - `my-lifts.json` must give a valid starting profile, and that profile must get a full ladder from `data/rungs.json` (a median rung for every experience group in its class), checked the way the page loads it.
+  - `my-lifts.json` (example data) must give a valid profile, and that profile must get a full ladder from `data/rungs.json` (a median rung for every experience group in its class), checked the way the page loads it.
   - Every rung must be aggregate only: no unexpected fields, 20+ lifters, and p10/p90 only at 50+.
   - Every class in the rungs must be choosable in the class dropdown.
   - Every committed event must be valid, and meets and events must be month-only.

@@ -111,6 +111,11 @@ export function invalidFields(raw) {
   return bad;
 }
 
+/** Like invalidFields, but skips values not entered yet: a first-time form shouldn't flag fields the person hasn't reached. */
+export function enteredProblems(raw) {
+  return invalidFields(raw).filter((name) => !blank(raw?.[name]));
+}
+
 /** A clean copy of the profile, or null if a required value is missing or out of range. A class that doesn't exist for the sex falls back to auto. */
 export function validProfile(raw) {
   if (raw == null || typeof raw !== "object" || invalidFields(raw).length) return null;
