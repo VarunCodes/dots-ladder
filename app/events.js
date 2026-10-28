@@ -25,12 +25,11 @@ function problemText(name) {
   return `${capital(scenario)} ${LIFT_NAMES[lift].toLowerCase()} must be ${L.LIMITS.lift.join("–")} kg.`;
 }
 
-let ctx; // { state, storage, defaults, thisMonth, onChange }
+let ctx; // { state, storage, thisMonth, onChange }
 
 export function setupEvents(context) {
   ctx = context;
   $("add-event").addEventListener("click", addEvent);
-  $("events-reset").addEventListener("click", resetEvents);
   renderList();
 }
 
@@ -45,7 +44,7 @@ function renderList(openId) {
   $("event-list").replaceChildren(
     ...(events.length
       ? events.map((event) => eventItem(event, event.id === openId))
-      : [el("p", "muted small", "No events yet. Add a meet or test day to see it on the ladder.")]),
+      : [el("p", "muted small", "Planning a meet or a 1RM test? Add it to see where your targets land on the ladder.")]),
   );
 }
 
@@ -196,19 +195,6 @@ function deleteEvent(id) {
   ctx.state.events = ctx.state.events.filter((e) => e.id !== id);
   persist();
   renderList();
-  ctx.onChange();
-}
-
-function resetEvents() {
-  if (!window.confirm("Reset events to the defaults? Events you've added or changed on this device will be replaced.")) return;
-  try {
-    ctx.storage?.removeItem(L.EVENTS_KEY);
-  } catch {
-    // Nothing saved to clear.
-  }
-  ctx.state.events = ctx.defaults;
-  renderList();
-  $("events-note").textContent = "Back to the default events from my-lifts.json.";
   ctx.onChange();
 }
 

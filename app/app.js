@@ -3,6 +3,9 @@ import * as L from "./ladder.js";
 import { $, el } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 
+// The rungs are raw full-power results only (see pipeline/build_rungs.py), so everyone here is compared as raw.
+const EQUIPMENT = "Raw";
+
 const fmtDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
@@ -76,7 +79,7 @@ function renderLadder(group, points, score) {
 }
 
 /** Redraws everything except the form, for the current profile and experience tab. */
-function render(rungsData, me, state) {
+function render(rungsData, state) {
   const { profile, experience } = state;
   const wclass = L.effectiveClass(profile);
   const score = renderNow(profile);
@@ -88,7 +91,7 @@ function render(rungsData, me, state) {
       const button = el("button", "tab", name);
       button.type = "button";
       button.setAttribute("aria-pressed", name === experience);
-      button.addEventListener("click", () => render(rungsData, me, Object.assign(state, { experience: name })));
+      button.addEventListener("click", () => render(rungsData, Object.assign(state, { experience: name })));
       return button;
     }),
   );
@@ -99,7 +102,7 @@ function render(rungsData, me, state) {
   $("sex-icon").setAttribute("href", profile.sex === "M" ? "#icon-male" : "#icon-female");
   $("now-context").replaceChildren(
     el("span", "visually-hidden", `${profile.sex === "M" ? "Men" : "Women"}, `),
-    `${me.equipment}, ${wclass} kg class${chosen}, ${profile.bodyweight} kg bodyweight`,
+    `${EQUIPMENT}, ${wclass} kg class${chosen}, ${profile.bodyweight} kg bodyweight`,
   );
 
   refreshEvents(state, group, experience);
@@ -162,14 +165,45 @@ function renderStale(invalid) {
   $("now-dots").classList.toggle("stale", invalid.length > 0);
 }
 
-function setupForm(rungsData, me, state, defaults, storage) {
+/** Onboarding (nothing saved yet) or the scoreboard with Your numbers and Your events. */
+function showOnboarding(on) {
+  $("onboarding").hidden = !on;
+  for (const id of ["standing", "numbers-panel", "events-panel"]) $(id).hidden = on;
+}
+
+/** The first-visit form: the button stays disabled until all five values are valid, and only entered values are flagged. */
+function setupOnboarding(state, storage, onDone) {
+  const form = $("onboarding");
+  const button = form.querySelector('button[type="submit"]');
+  const read = () => ({
+    sex: form.elements.sex.value,
+    bodyweight: form.elements.bodyweight.valueAsNumber,
+    ...Object.fromEntries(L.LIFTS.map((lift) => [lift, form.elements[lift].valueAsNumber])),
+    weightClass: null,
+  });
+
+  form.addEventListener("input", () => {
+    const raw = read();
+    $("onboard-note").textContent = L.enteredProblems(raw).map((name) => FIELD_TEXT[name]).join(" ");
+    button.disabled = !L.validProfile(raw);
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const profile = L.validProfile(read());
+    if (!profile) return;
+    state.profile = profile;
+    onDone(L.saveProfile(storage, profile));
+  });
+}
+
+function setupForm(rungsData, state, storage, onCleared) {
   const form = $("profile-form");
   const saved = (ok) => {
     $("save-note").textContent = ok ? "Saved on this device only." : "Couldn't save on this device; changes last until you close the page.";
   };
   let invalid = [];
-  for (const name of ["bodyweight", ...L.LIFTS]) form.elements[name].placeholder = `e.g. ${defaults[name]}`;
-  fillForm(form, state.profile);
+  for (const name of ["bodyweight", ...L.LIFTS]) form.elements[name].placeholder = "kg";
 
   form.addEventListener("input", (event) => {
     const f = form.elements;
@@ -192,7 +226,7 @@ function setupForm(rungsData, me, state, defaults, storage) {
     // Only the dropdown is refilled: rewriting an input while it's being typed in would eat a trailing "." or "0".
     fillClassSelect(form, profile);
     saved(L.saveProfile(storage, profile));
-    render(rungsData, me, state);
+    render(rungsData, state);
   });
 
   // Closing the card with invalid values puts the saved numbers back, so the closed card never hides a mismatch.
@@ -204,35 +238,51 @@ function setupForm(rungsData, me, state, defaults, storage) {
     $("save-note").textContent = "Invalid changes were undone; showing your saved numbers.";
   });
 
+  // Clearing goes back to the first-visit form; there are no default numbers to fall back to.
   $("reset").addEventListener("click", () => {
-    if (!window.confirm("Reset to the default numbers? What you've saved on this device will be replaced.")) return;
+    if (!window.confirm("Clear your numbers from this phone? You'll be asked for them again.")) return;
     try {
       storage?.removeItem(L.PROFILE_KEY);
     } catch {
       // Nothing saved to clear.
     }
-    state.profile = defaults;
+    state.profile = null;
     invalid = [];
     renderStale(invalid);
-    fillForm(form, defaults);
-    $("save-note").textContent = "Back to the defaults from my-lifts.json.";
-    render(rungsData, me, state);
+    $("save-note").textContent = "";
+    form.closest("details").open = false;
+    onCleared();
   });
 }
 
 try {
-  const [rungsData, me] = await Promise.all([loadJson("data/rungs.json"), loadJson("data/my-lifts.json")]);
+  const rungsData = await loadJson("data/rungs.json");
   const storage = deviceStorage();
-  const defaults = L.defaultProfile(me);
-  const profile = L.loadProfile(storage, defaults);
-  if (!profile) throw new Error("my-lifts.json needs a sex, bodyweight, squat, bench and deadlift");
   const thisMonth = L.monthOf(new Date());
-  const defaultEvents = L.defaultEvents(me);
-  const state = { profile, events: L.loadEvents(storage, defaultEvents), thisMonth, experience: L.experienceBucket(me.meets) };
+  // New visitors start blank: no saved numbers means the onboarding form, and events start empty.
+  const state = { profile: L.loadProfile(storage, null), events: L.loadEvents(storage, []), thisMonth, experience: L.EXPERIENCE[0] };
   if (rungsData.snapshot) $("snapshot").textContent = `, snapshot ${fmtDate(rungsData.snapshot)}`;
-  setupForm(rungsData, me, state, defaults, storage);
-  setupEvents({ state, storage, defaults: defaultEvents, thisMonth, onChange: () => render(rungsData, me, state) });
-  render(rungsData, me, state);
+
+  const showStanding = () => {
+    fillForm($("profile-form"), state.profile);
+    showOnboarding(false);
+    render(rungsData, state);
+  };
+  const askForNumbers = () => {
+    $("onboarding").reset();
+    $("onboarding").querySelector('button[type="submit"]').disabled = true;
+    $("onboard-note").textContent = "";
+    showOnboarding(true);
+  };
+
+  setupOnboarding(state, storage, (saved) => {
+    showStanding();
+    $("save-note").textContent = saved ? "" : "Couldn't save on this device; your numbers last until you close the page.";
+  });
+  setupForm(rungsData, state, storage, askForNumbers);
+  setupEvents({ state, storage, thisMonth, onChange: () => render(rungsData, state) });
+  if (state.profile) showStanding();
+  else askForNumbers();
 } catch (error) {
   $("error").hidden = false;
   $("error").textContent = `Couldn't load the data (${error.message}). If you opened the file directly, serve the folder instead: python3 -m http.server`;

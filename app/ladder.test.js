@@ -35,33 +35,7 @@ test("weight class boundaries match the pipeline", () => {
   );
 });
 
-test("experience counts only meets with a result", () => {
-  assert.equal(L.experienceBucket([]), "first meet");
-  assert.equal(L.experienceBucket([{ result: null }]), "first meet");
-  assert.equal(L.experienceBucket([{ result: {} }]), "second meet");
-  assert.equal(L.experienceBucket([{ result: {} }, { result: {} }, { result: {} }]), "3+ meets");
-});
-
 // --- Lifts and bodyweight --------------------------------------------------------
-
-test("latest bodyweight is the most recent entry, not the last listed", () => {
-  const log = [{ date: "2026-11-01", kg: 71 }, { date: "2026-10-01", kg: 69 }];
-  assert.equal(L.latestBodyweight(log), 71);
-  assert.equal(L.latestBodyweight([]), null);
-});
-
-test("current lifts take the heaviest per lift", () => {
-  const bests = [
-    { lift: "squat", kg: 115 }, { lift: "squat", kg: 120 },
-    { lift: "bench", kg: 100 }, { lift: "deadlift", kg: 150 },
-  ];
-  assert.deepEqual(L.currentLifts(bests), { squat: 120, bench: 100, deadlift: 150 });
-  assert.equal(L.sumLifts(L.currentLifts(bests)), 370);
-});
-
-test("current lifts are null until all three are logged", () => {
-  assert.equal(L.currentLifts([{ lift: "squat", kg: 120 }]), null);
-});
 
 // --- Rungs ---------------------------------------------------------------------
 
@@ -139,18 +113,17 @@ test("invalid fields are named, so the page can say what to fix", () => {
   assert.deepEqual(L.invalidFields(null), ["sex", "bodyweight", "squat", "bench", "deadlift"]);
 });
 
+test("a first-time form only flags values that have been entered", () => {
+  const empty = { sex: "M", bodyweight: NaN, squat: NaN, bench: NaN, deadlift: NaN };
+  assert.deepEqual(L.enteredProblems(empty), []);
+  assert.deepEqual(L.enteredProblems({ ...empty, bodyweight: 0, squat: 120 }), ["bodyweight"]);
+  assert.deepEqual(L.enteredProblems({ ...empty, bench: 900 }), ["bench"]);
+  assert.equal(L.validProfile({ ...empty, bodyweight: 70, squat: 120, bench: 100 }), null, "not complete until all five are in");
+});
+
 test("a class that doesn't exist for the sex falls back to working it out from bodyweight", () => {
   assert.equal(L.validProfile({ ...me70, weightClass: "63" }).weightClass, null);
   assert.equal(L.validProfile({ ...me70, weightClass: 74 }).weightClass, null, "class labels are strings");
-});
-
-test("the default profile comes from the logged bodyweight and best lifts", () => {
-  const me = {
-    sex: "M",
-    bodyweightLog: [{ date: "2026-10-27", kg: 70 }, { date: "2026-09-01", kg: 72 }],
-    bests: [{ lift: "squat", kg: 115 }, { lift: "squat", kg: 120 }, { lift: "bench", kg: 100 }, { lift: "deadlift", kg: 150 }],
-  };
-  assert.deepEqual(L.defaultProfile(me), me70);
 });
 
 test("saved profile round-trips through storage", () => {
@@ -275,30 +248,6 @@ test("the gym-goer estimates stay below every published rung, so they never pass
 });
 
 // --- Contract: the committed JSON files work with the page ------------------------
-
-test("my-lifts.json gives a valid starting profile with a full ladder", () => {
-  // The same path the page takes: defaults from my-lifts.json, then the rungs for that profile's class.
-  const profile = L.defaultProfile(readJson("../data/my-lifts.json"));
-  assert.ok(profile, "my-lifts.json needs a sex, bodyweight, squat, bench and deadlift");
-  const rungs = readJson("../data/rungs.json");
-  for (const experience of L.EXPERIENCE) {
-    const group = L.rungsFor(rungs, profile.sex, L.effectiveClass(profile), experience);
-    assert.ok(group?.rungs.some((r) => r.percentile === 50), `no median rung for ${experience}`);
-  }
-});
-
-test("committed meets and events are month-only, never an exact date", () => {
-  const me = readJson("../data/my-lifts.json");
-  for (const item of [...me.meets, ...(me.events ?? [])]) {
-    assert.match(item.month, /^\d{4}-\d{2}$/);
-    assert.ok(!("date" in item), "meets and events must not carry an exact date");
-  }
-});
-
-test("every committed event is valid, so none is silently dropped", () => {
-  const me = readJson("../data/my-lifts.json");
-  assert.equal(L.defaultEvents(me).length, (me.events ?? []).length);
-});
 
 test("every committed rung is aggregate only", () => {
   const allowed = new Set(["sex", "weightClassKg", "experience", "lifters", "p10", "p25", "p50", "p75", "p90"]);
