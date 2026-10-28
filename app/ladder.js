@@ -116,6 +116,11 @@ export function defaultProfile(me) {
   return validProfile({ sex: me.sex, bodyweight: latestBodyweight(me.bodyweightLog), ...currentLifts(me.bests), weightClass: null });
 }
 
+/** Whether my-lifts.json's meet plan and projections apply: they're that lifter's, so not after a change of sex. */
+export function planApplies(me, profile) {
+  return me.sex === profile.sex;
+}
+
 /** The saved profile from storage (e.g. localStorage), or the fallback if there's none, it's unreadable or it's invalid. */
 export function loadProfile(storage, fallback) {
   try {

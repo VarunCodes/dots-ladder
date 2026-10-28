@@ -146,6 +146,11 @@ test("the default profile comes from the logged bodyweight and best lifts", () =
   assert.deepEqual(L.defaultProfile(me), me70);
 });
 
+test("the meet plan and projections apply only while the sex matches my-lifts.json", () => {
+  assert.equal(L.planApplies({ sex: "M" }, me70), true);
+  assert.equal(L.planApplies({ sex: "M" }, { ...me70, sex: "F" }), false);
+});
+
 test("saved profile round-trips through storage", () => {
   const storage = fakeStorage();
   assert.equal(L.saveProfile(storage, { ...me70, weightClass: "66" }), true);

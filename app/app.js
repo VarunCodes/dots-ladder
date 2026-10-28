@@ -29,6 +29,7 @@ async function loadJson(path) {
 function markers(me, profile) {
   const { sex, bodyweight: bw } = profile;
   const list = [{ label: "You now", dots: L.dots(sex, bw, L.sumLifts(profile)), kind: "now" }];
+  if (!L.planApplies(me, profile)) return list;
 
   const meet = me.meets.find((m) => m.result == null && m.plannedAttempts);
   if (meet) {
@@ -137,7 +138,7 @@ function fillForm(form, profile) {
 function fillClassSelect(form, profile) {
   const auto = L.weightClass(profile.sex, profile.bodyweight);
   form.elements.weightClass.replaceChildren(
-    new Option(`Auto from bodyweight: ${auto} kg`, ""),
+    new Option(`Auto (${auto} kg)`, ""),
     ...L.weightClasses(profile.sex).map((c) => new Option(`${c} kg`, c)),
   );
   form.elements.weightClass.value = profile.weightClass ?? "";
@@ -158,6 +159,7 @@ function setupForm(rungsData, me, state, defaults, storage) {
   const saved = (ok) => {
     $("save-note").textContent = ok ? "Saved on this device only." : "Couldn't save on this device; changes last until you close the page.";
   };
+  for (const name of ["bodyweight", ...L.LIFTS]) form.elements[name].placeholder = `e.g. ${defaults[name]}`;
   fillForm(form, state.profile);
 
   form.addEventListener("input", (event) => {
@@ -182,6 +184,7 @@ function setupForm(rungsData, me, state, defaults, storage) {
   });
 
   $("reset").addEventListener("click", () => {
+    if (!window.confirm("Reset to the default numbers? What you've saved on this device will be replaced.")) return;
     try {
       storage?.removeItem(L.PROFILE_KEY);
     } catch {
