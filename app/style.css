@@ -77,6 +77,16 @@ header p { margin: 2px 0 0; }
 }
 
 .hero p:last-child, .next p { margin: 4px 0 0; }
+.big.stale { opacity: 0.4; }
+
+.warning {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
 .next { background: var(--accent-soft); border-color: transparent; }
 
 .muted { color: var(--muted); }

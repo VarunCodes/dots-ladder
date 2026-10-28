@@ -132,6 +132,13 @@ test("profiles with a missing or out-of-range value are rejected", () => {
   }
 });
 
+test("invalid fields are named, so the page can say what to fix", () => {
+  assert.deepEqual(L.invalidFields(me70), []);
+  assert.deepEqual(L.invalidFields({ ...me70, bodyweight: -58, deadlift: 0 }), ["bodyweight", "deadlift"]);
+  assert.deepEqual(L.invalidFields({ ...me70, sex: "X", bench: NaN }), ["sex", "bench"]);
+  assert.deepEqual(L.invalidFields(null), ["sex", "bodyweight", "squat", "bench", "deadlift"]);
+});
+
 test("a class that doesn't exist for the sex falls back to working it out from bodyweight", () => {
   assert.equal(L.validProfile({ ...me70, weightClass: "63" }).weightClass, null);
   assert.equal(L.validProfile({ ...me70, weightClass: 74 }).weightClass, null, "class labels are strings");

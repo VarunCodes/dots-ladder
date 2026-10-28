@@ -154,11 +154,26 @@ function renderClassNote(profile) {
       : "Worked out from your bodyweight. Pick a class to compare against a different one.";
 }
 
+const FIELD_TEXT = {
+  sex: "Choose men or women.",
+  bodyweight: `Bodyweight must be ${L.LIMITS.bodyweight.join("–")} kg.`,
+  ...Object.fromEntries(L.LIFTS.map((lift) => [lift, `${lift[0].toUpperCase()}${lift.slice(1)} must be ${L.LIMITS.lift.join("–")} kg.`])),
+};
+
+/** Flags the Current DOTS card while the form holds values that aren't used, so a stale score is never shown as current. */
+function renderStale(invalid) {
+  const warning = $("now-warning");
+  warning.hidden = invalid.length === 0;
+  warning.textContent = "Not updated: fix the highlighted values in Edit your numbers. This is your last saved DOTS.";
+  $("now-dots").classList.toggle("stale", invalid.length > 0);
+}
+
 function setupForm(rungsData, me, state, defaults, storage) {
   const form = $("profile-form");
   const saved = (ok) => {
     $("save-note").textContent = ok ? "Saved on this device only." : "Couldn't save on this device; changes last until you close the page.";
   };
+  let invalid = [];
   for (const name of ["bodyweight", ...L.LIFTS]) form.elements[name].placeholder = `e.g. ${defaults[name]}`;
   fillForm(form, state.profile);
 
@@ -166,21 +181,33 @@ function setupForm(rungsData, me, state, defaults, storage) {
     const f = form.elements;
     // Classes differ by sex, so a sex change goes back to working the class out from bodyweight.
     if (event.target === f.sex) f.weightClass.value = "";
-    const profile = L.validProfile({
+    const raw = {
       sex: f.sex.value,
       bodyweight: f.bodyweight.valueAsNumber,
       ...Object.fromEntries(L.LIFTS.map((lift) => [lift, f[lift].valueAsNumber])),
       weightClass: f.weightClass.value || null,
-    });
-    if (!profile) {
-      $("save-note").textContent = "Check the highlighted values; nothing is saved until they're valid.";
+    };
+    invalid = L.invalidFields(raw);
+    renderStale(invalid);
+    if (invalid.length) {
+      $("save-note").textContent = `Not saved: ${invalid.map((name) => FIELD_TEXT[name]).join(" ")}`;
       return;
     }
+    const profile = L.validProfile(raw);
     state.profile = profile;
     // Only the dropdown is refilled: rewriting an input while it's being typed in would eat a trailing "." or "0".
     fillClassSelect(form, profile);
     saved(L.saveProfile(storage, profile));
     render(rungsData, me, state);
+  });
+
+  // Closing the card with invalid values puts the saved numbers back, so the closed card never hides a mismatch.
+  form.closest("details").addEventListener("toggle", (event) => {
+    if (event.target.open || !invalid.length) return;
+    invalid = [];
+    renderStale(invalid);
+    fillForm(form, state.profile);
+    $("save-note").textContent = "Invalid changes were undone; showing your saved numbers.";
   });
 
   $("reset").addEventListener("click", () => {
@@ -191,6 +218,8 @@ function setupForm(rungsData, me, state, defaults, storage) {
       // Nothing saved to clear.
     }
     state.profile = defaults;
+    invalid = [];
+    renderStale(invalid);
     fillForm(form, defaults);
     $("save-note").textContent = "Back to the defaults from my-lifts.json.";
     render(rungsData, me, state);

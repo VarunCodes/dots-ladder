@@ -102,11 +102,18 @@ export function overClassLimit(profile) {
 
 const inRange = (value, [min, max]) => typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
 
+/** Names of the required values that are missing or out of range: "sex", "bodyweight", "squat", "bench", "deadlift". */
+export function invalidFields(raw) {
+  const bad = [];
+  if (!(raw?.sex in CLASSES)) bad.push("sex");
+  if (!inRange(raw?.bodyweight, LIMITS.bodyweight)) bad.push("bodyweight");
+  for (const lift of LIFTS) if (!inRange(raw?.[lift], LIMITS.lift)) bad.push(lift);
+  return bad;
+}
+
 /** A clean copy of the profile, or null if a required value is missing or out of range. A class that doesn't exist for the sex falls back to auto. */
 export function validProfile(raw) {
-  if (raw == null || typeof raw !== "object" || !(raw.sex in CLASSES)) return null;
-  if (!inRange(raw.bodyweight, LIMITS.bodyweight)) return null;
-  if (!LIFTS.every((lift) => inRange(raw[lift], LIMITS.lift))) return null;
+  if (raw == null || typeof raw !== "object" || invalidFields(raw).length) return null;
   const weightClass = weightClasses(raw.sex).includes(raw.weightClass) ? raw.weightClass : null;
   return { sex: raw.sex, bodyweight: raw.bodyweight, ...Object.fromEntries(LIFTS.map((l) => [l, raw[l]])), weightClass };
 }
