@@ -153,11 +153,6 @@ test("the default profile comes from the logged bodyweight and best lifts", () =
   assert.deepEqual(L.defaultProfile(me), me70);
 });
 
-test("the meet plan and projections apply only while the sex matches my-lifts.json", () => {
-  assert.equal(L.planApplies({ sex: "M" }, me70), true);
-  assert.equal(L.planApplies({ sex: "M" }, { ...me70, sex: "F" }), false);
-});
-
 test("saved profile round-trips through storage", () => {
   const storage = fakeStorage();
   assert.equal(L.saveProfile(storage, { ...me70, weightClass: "66" }), true);
@@ -179,6 +174,93 @@ test("an invalid profile isn't saved, and blocked storage reports failure", () =
   assert.equal(L.saveProfile(fakeStorage({}, { fail: true }), me70), false);
 });
 
+// --- Events --------------------------------------------------------------------
+
+const lifts = (squat, bench, deadlift) => ({ squat, bench, deadlift });
+const may = { id: "may", name: "", month: "2027-05", bodyweight: 70, conservative: lifts(138, 107, 168), optimistic: lifts(154, 111, 184) };
+const empty = lifts(NaN, NaN, NaN); // what an untouched form scenario reads as
+
+test("months: this month in local time, and the month after", () => {
+  assert.equal(L.monthOf(new Date(2026, 9, 28)), "2026-10");
+  assert.equal(L.nextMonth("2026-10"), "2026-11");
+  assert.equal(L.nextMonth("2026-12"), "2027-01");
+});
+
+test("a valid event is kept with only the known fields, and an empty scenario becomes null", () => {
+  assert.deepEqual(L.validEvent({ ...may, extra: 1 }), may);
+  assert.deepEqual(L.validEvent({ ...may, name: "  Spring test  ", optimistic: empty }), { ...may, name: "Spring test", optimistic: null });
+  assert.deepEqual(L.validEvent({ ...may, name: undefined }), may, "the name is optional");
+});
+
+test("event problems name each wrong value", () => {
+  assert.deepEqual(L.eventProblems(may), []);
+  assert.deepEqual(L.eventProblems({ ...may, month: "2027-13" }), ["month"]);
+  assert.deepEqual(L.eventProblems({ ...may, month: "" }), ["month"]);
+  assert.deepEqual(L.eventProblems({ ...may, bodyweight: 0 }), ["bodyweight"]);
+  assert.deepEqual(L.eventProblems({ ...may, name: "x".repeat(41) }), ["name"]);
+  assert.deepEqual(L.eventProblems({ ...may, optimistic: lifts(154, NaN, 0) }), ["optimistic.bench", "optimistic.deadlift"]);
+});
+
+test("an event needs at least one scenario", () => {
+  assert.deepEqual(L.eventProblems({ ...may, conservative: null, optimistic: empty }), ["scenarios"]);
+  assert.deepEqual(L.eventProblems({ ...may, conservative: null }), [], "optimistic alone is fine");
+  assert.equal(L.validEvent({ ...may, conservative: empty, optimistic: empty }), null);
+});
+
+test("an event without an id isn't valid", () => {
+  assert.equal(L.validEvent({ ...may, id: "" }), null);
+  assert.equal(L.validEvent({ ...may, id: undefined }), null);
+});
+
+test("event scores use the event's bodyweight, one per scenario given", () => {
+  const scores = L.eventScores(may, "M");
+  assert.deepEqual(scores.map((s) => [s.scenario, s.total]), [["conservative", 413], ["optimistic", 449]]);
+  assert.equal(scores[0].dots.toFixed(1), "310.2");
+  const lighter = L.eventScores({ ...may, bodyweight: 66, optimistic: null }, "M");
+  assert.equal(lighter.length, 1);
+  assert.ok(lighter[0].dots > scores[0].dots, "the same total at a lighter bodyweight scores higher");
+});
+
+test("the ladder shows the next three events from this month on, soonest first", () => {
+  const at = (id, month) => ({ ...may, id, month });
+  const events = [at("e", "2027-09"), at("past", "2026-09"), at("b", "2026-11"), at("now", "2026-10"), at("d", "2027-05"), at("c", "2027-01")];
+  assert.deepEqual(L.ladderEvents(events, "2026-10").map((e) => e.id), ["now", "b", "c"]);
+  assert.deepEqual(L.ladderEvents([at("past", "2026-09")], "2026-10"), []);
+});
+
+test("an event in a different class from the ladder is flagged", () => {
+  assert.equal(L.eventClass(may, me70), null);
+  assert.equal(L.eventClass({ ...may, bodyweight: 66 }, me70), "66");
+  assert.equal(L.eventClass({ ...may, bodyweight: 66 }, { ...me70, weightClass: "66" }), null);
+});
+
+test("rungBeaten is the highest rung at or below the score", () => {
+  const { rungs } = L.rungsFor(sample, "M", "74", "first meet");
+  assert.equal(L.rungBeaten(rungs, 299), null);
+  assert.equal(L.rungBeaten(rungs, 300).percentile, 25);
+  assert.equal(L.rungBeaten(rungs, 400).percentile, 75);
+});
+
+test("saved events round-trip; invalid entries are dropped; an empty list stays empty", () => {
+  const storage = fakeStorage();
+  assert.equal(L.saveEvents(storage, [may]), true);
+  assert.deepEqual(L.loadEvents(storage, []), [may]);
+  storage.data.set(L.EVENTS_KEY, JSON.stringify([may, { ...may, id: "bad", month: "nope" }]));
+  assert.deepEqual(L.loadEvents(storage, []), [may]);
+  assert.equal(L.saveEvents(storage, []), true);
+  assert.deepEqual(L.loadEvents(storage, [may]), [], "deleting every event is kept, not reset");
+});
+
+test("events fall back when nothing is saved, the JSON is corrupt or storage is blocked; invalid ones aren't saved", () => {
+  const fallback = [may];
+  assert.equal(L.loadEvents(fakeStorage(), fallback), fallback);
+  assert.equal(L.loadEvents(fakeStorage({ [L.EVENTS_KEY]: "{not json" }), fallback), fallback);
+  assert.equal(L.loadEvents(fakeStorage({ [L.EVENTS_KEY]: "{}" }), fallback), fallback);
+  assert.equal(L.loadEvents(fakeStorage({}, { fail: true }), fallback), fallback);
+  assert.equal(L.saveEvents(fakeStorage(), [{ ...may, bodyweight: -1 }]), false);
+  assert.equal(L.saveEvents(fakeStorage({}, { fail: true }), [may]), false);
+});
+
 // --- Contract: the committed JSON files work with the page ------------------------
 
 test("committed data files give the user a full ladder", () => {
@@ -193,11 +275,17 @@ test("committed data files give the user a full ladder", () => {
   }
 });
 
-test("committed meets are month-only, never an exact date", () => {
-  for (const meet of readJson("../data/my-lifts.json").meets) {
-    assert.match(meet.month, /^\d{4}-\d{2}$/);
-    assert.ok(!("date" in meet), "meets must not carry an exact date");
+test("committed meets and events are month-only, never an exact date", () => {
+  const me = readJson("../data/my-lifts.json");
+  for (const item of [...me.meets, ...(me.events ?? [])]) {
+    assert.match(item.month, /^\d{4}-\d{2}$/);
+    assert.ok(!("date" in item), "meets and events must not carry an exact date");
   }
+});
+
+test("every committed event is valid, so none is silently dropped", () => {
+  const me = readJson("../data/my-lifts.json");
+  assert.equal(L.defaultEvents(me).length, (me.events ?? []).length);
 });
 
 test("every committed rung is aggregate only", () => {

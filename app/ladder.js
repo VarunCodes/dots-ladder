@@ -123,11 +123,6 @@ export function defaultProfile(me) {
   return validProfile({ sex: me.sex, bodyweight: latestBodyweight(me.bodyweightLog), ...currentLifts(me.bests), weightClass: null });
 }
 
-/** Whether my-lifts.json's meet plan and projections apply: they're that lifter's, so not after a change of sex. */
-export function planApplies(me, profile) {
-  return me.sex === profile.sex;
-}
-
 /** The saved profile from storage (e.g. localStorage), or the fallback if there's none, it's unreadable or it's invalid. */
 export function loadProfile(storage, fallback) {
   try {
@@ -143,6 +138,112 @@ export function saveProfile(storage, profile) {
   if (!clean) return false;
   try {
     storage.setItem(PROFILE_KEY, JSON.stringify(clean));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// --- Events: upcoming meets or test days, with conservative and optimistic lifts ---------
+// An event is { id, name, month: "YYYY-MM", bodyweight, conservative, optimistic };
+// each scenario is { squat, bench, deadlift } or null, and at least one is given.
+
+export const EVENTS_KEY = "dots-ladder:events";
+export const SCENARIOS = ["conservative", "optimistic"];
+export const MAX_LADDER_EVENTS = 3;
+export const MAX_NAME = 40;
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+// An empty form field reads as NaN; a stored scenario that wasn't given is null.
+const blank = (value) => value == null || Number.isNaN(value);
+const scenarioGiven = (lifts) => lifts != null && typeof lifts === "object" && !LIFTS.every((lift) => blank(lifts[lift]));
+
+/** "YYYY-MM" for a date, in local time. */
+export function monthOf(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** The month after a "YYYY-MM" month. */
+export function nextMonth(month) {
+  const [year, m] = month.split("-").map(Number);
+  return m === 12 ? `${year + 1}-01` : `${year}-${String(m + 1).padStart(2, "0")}`;
+}
+
+/** Names of the event's values that are wrong: "name", "month", "bodyweight", "conservative.squat", ..., or "scenarios" if none is given. A scenario left fully empty is fine. */
+export function eventProblems(raw) {
+  const bad = [];
+  if (raw?.name != null && (typeof raw.name !== "string" || raw.name.length > MAX_NAME)) bad.push("name");
+  if (typeof raw?.month !== "string" || !MONTH.test(raw.month)) bad.push("month");
+  if (!inRange(raw?.bodyweight, LIMITS.bodyweight)) bad.push("bodyweight");
+  const given = SCENARIOS.filter((scenario) => scenarioGiven(raw?.[scenario]));
+  for (const scenario of given) {
+    for (const lift of LIFTS) if (!inRange(raw[scenario][lift], LIMITS.lift)) bad.push(`${scenario}.${lift}`);
+  }
+  if (!given.length) bad.push("scenarios");
+  return bad;
+}
+
+/** A clean copy of the event, or null if it has no id or any problem. */
+export function validEvent(raw) {
+  if (raw == null || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id || eventProblems(raw).length) return null;
+  const pick = (lifts) => (scenarioGiven(lifts) ? Object.fromEntries(LIFTS.map((lift) => [lift, lifts[lift]])) : null);
+  return {
+    id: raw.id,
+    name: (raw.name ?? "").trim(),
+    month: raw.month,
+    bodyweight: raw.bodyweight,
+    ...Object.fromEntries(SCENARIOS.map((scenario) => [scenario, pick(raw[scenario])])),
+  };
+}
+
+/** Total and DOTS for each scenario the event has, at the event's bodyweight. */
+export function eventScores(event, sex) {
+  return SCENARIOS.filter((scenario) => event[scenario]).map((scenario) => {
+    const total = sumLifts(event[scenario]);
+    return { scenario, total, dots: dots(sex, event.bodyweight, total) };
+  });
+}
+
+/** The events shown on the ladder: this month or later, soonest first, at most MAX_LADDER_EVENTS. */
+export function ladderEvents(events, thisMonth) {
+  return events
+    .filter((event) => event.month >= thisMonth)
+    .sort((x, y) => x.month.localeCompare(y.month))
+    .slice(0, MAX_LADDER_EVENTS);
+}
+
+/** The class the event's bodyweight falls in, if it isn't the class the ladder shows; else null. */
+export function eventClass(event, profile) {
+  const wclass = weightClass(profile.sex, event.bodyweight);
+  return wclass === effectiveClass(profile) ? null : wclass;
+}
+
+/** Highest rung at or below the score, or null if it's below every rung. */
+export function rungBeaten(rungs, score) {
+  return rungs.findLast((r) => r.dots <= score) ?? null;
+}
+
+/** The starting events from my-lifts.json (any invalid ones are skipped). */
+export function defaultEvents(me) {
+  return (me.events ?? []).map(validEvent).filter(Boolean);
+}
+
+/** The saved events from storage, or the fallback if there are none or they're unreadable. Invalid entries are dropped; an empty saved list stays empty. */
+export function loadEvents(storage, fallback) {
+  try {
+    const raw = JSON.parse(storage.getItem(EVENTS_KEY));
+    return Array.isArray(raw) ? raw.map(validEvent).filter(Boolean) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Saves the events if every one is valid; returns whether they were saved. */
+export function saveEvents(storage, events) {
+  const clean = events.map(validEvent);
+  if (clean.includes(null)) return false;
+  try {
+    storage.setItem(EVENTS_KEY, JSON.stringify(clean));
     return true;
   } catch {
     return false;

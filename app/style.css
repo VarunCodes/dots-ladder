@@ -155,7 +155,7 @@ a { color: var(--accent); }
 }
 
 /* Edit form: collapsed by default so the ladder stays the focus. */
-.edit { position: relative; }
+.edit, .events { position: relative; }
 .edit summary { cursor: pointer; margin: 0; list-style-position: inside; }
 
 /* Reset sits out of the way in the corner (only while the card is open), and asks before replacing anything. */
@@ -196,3 +196,42 @@ a { color: var(--accent); }
 .fields input:focus-visible, .fields select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .fields input:invalid { border-color: var(--accent); background: var(--accent-soft); }
 .fields input::placeholder { color: var(--muted); opacity: 0.7; }
+
+/* Events: one collapsible row per event, its DOTS on the right. */
+.event { border-top: 1px solid var(--line); }
+.event summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.event summary::-webkit-details-marker { display: none; }
+.event-title::before { content: "▸ "; color: var(--muted); }
+.event[open] .event-title::before { content: "▾ "; }
+.event-dots { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--plan); white-space: nowrap; }
+.event[data-invalid="true"] .event-dots { color: var(--accent); }
+.event .fields { padding-bottom: 12px; }
+
+.scenario { margin: 0; padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.scenario legend { padding: 0 4px; font-size: 0.85rem; color: var(--text); }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+
+.event-preview span { display: block; font-variant-numeric: tabular-nums; }
+.event-preview, .event-info, .event-note { margin: 0; }
+.event-info:empty, .event-note:empty, #events-note:empty { display: none; }
+
+.add { width: 100%; margin-top: 8px; }
+
+.link-button {
+  justify-self: start;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  cursor: pointer;
+}

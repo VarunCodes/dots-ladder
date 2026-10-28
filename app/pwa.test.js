@@ -62,7 +62,17 @@ test("the service worker caches every file the page loads, so it opens offline",
   const htmlRefs = [...indexHtml.matchAll(/(?:href|src)="([^"]+)"/g)].map((m) => m[1]).filter(isRelative);
   const appJs = read("app/app.js").toString();
   const dataFiles = [...appJs.matchAll(/loadJson\("([^"]+)"\)/g)].map((m) => m[1]);
-  const imports = [...appJs.matchAll(/from "\.\/([^"]+)"/g)].map((m) => `app/${m[1]}`);
+  // Every module app.js pulls in, following imports through each module (all live in app/).
+  const imports = new Set();
+  const follow = (path) => {
+    for (const [, file] of read(path).toString().matchAll(/from "\.\/([^"]+)"/g)) {
+      const module = `app/${file}`;
+      if (imports.has(module)) continue;
+      imports.add(module);
+      follow(module);
+    }
+  };
+  follow("app/app.js");
   assert.ok(dataFiles.length > 0, "found no data files in app.js");
   for (const path of [...htmlRefs, ...dataFiles, ...imports, ...manifest.icons.map((icon) => icon.src)]) {
     assert.ok(cached.has(path), `sw.js doesn't cache ${path}`);

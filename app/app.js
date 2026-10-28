@@ -1,21 +1,10 @@
 // Page wiring: loads the two data files, then renders with the pure logic in ladder.js.
 import * as L from "./ladder.js";
-
-const $ = (id) => document.getElementById(id);
-
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text != null) node.textContent = text;
-  return node;
-}
+import { $, el } from "./dom.js";
+import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 
 const fmtDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-
-// Meets are stored to the month only ("YYYY-MM"), so the page never shows the day.
-const fmtMonth = (yearMonth) =>
-  new Date(`${yearMonth}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 
 const rungLabel = ({ percentile }) => (percentile === 50 ? "Median" : `Beats ${percentile}%`);
 
@@ -25,21 +14,15 @@ async function loadJson(path) {
   return response.json();
 }
 
-/** Scores to place on the ladder alongside the rungs: now, the meet plan, projections. */
-function markers(me, profile) {
-  const { sex, bodyweight: bw } = profile;
-  const list = [{ label: "You now", dots: L.dots(sex, bw, L.sumLifts(profile)), kind: "now" }];
-  if (!L.planApplies(me, profile)) return list;
-
-  const meet = me.meets.find((m) => m.result == null && m.plannedAttempts);
-  if (meet) {
-    const thirds = Object.fromEntries(L.LIFTS.map((lift) => [lift, meet.plannedAttempts[lift].at(-1)]));
-    list.push({ label: `Meet plan, ${fmtMonth(meet.month)}`, dots: L.dots(sex, bw, L.sumLifts(thirds)), kind: "plan" });
-  }
-
-  for (const [name, projection] of Object.entries(me.projections ?? {})) {
-    if (!projection.May2027) continue;
-    list.push({ label: `May 2027, ${name}`, dots: L.dots(sex, bw, L.sumLifts(projection.May2027)), kind: "projection" });
+/** Scores to place on the ladder alongside the rungs: you now, then each upcoming event's scenarios. */
+function markers(state) {
+  const { profile, events, thisMonth } = state;
+  const list = [{ label: "You now", dots: L.dots(profile.sex, profile.bodyweight, L.sumLifts(profile)), kind: "now" }];
+  for (const event of L.ladderEvents(events, thisMonth)) {
+    const scores = L.eventScores(event, profile.sex);
+    for (const { scenario, dots } of scores) {
+      list.push({ label: eventLabel(event, scores.length > 1 ? scenario : null), dots, kind: "projection" });
+    }
   }
   return list;
 }
@@ -108,6 +91,7 @@ function render(rungsData, me, state) {
   const chosen = profile.weightClass ? " (chosen)" : "";
   $("subtitle").textContent = `${me.equipment} · ${wclass} kg class${chosen} · ${profile.bodyweight} kg bodyweight`;
 
+  refreshEvents(state, group, experience);
   if (!group) {
     $("group-note").textContent = `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
     $("ladder").replaceChildren();
@@ -117,7 +101,7 @@ function render(rungsData, me, state) {
   $("group-note").textContent =
     `${profile.sex === "M" ? "Men" : "Women"}, ${wclass} kg class, ${experience}: ${group.lifters} lifters.`;
   renderNext(profile, score, group, experience);
-  renderLadder(group, markers(me, profile), score);
+  renderLadder(group, markers(state), score);
 }
 
 /** localStorage, or null where the browser blocks it; the ladder.js helpers treat null as "nothing saved". */
@@ -232,9 +216,12 @@ try {
   const defaults = L.defaultProfile(me);
   const profile = L.loadProfile(storage, defaults);
   if (!profile) throw new Error("my-lifts.json needs a sex, bodyweight, squat, bench and deadlift");
-  const state = { profile, experience: L.experienceBucket(me.meets) };
+  const thisMonth = L.monthOf(new Date());
+  const defaultEvents = L.defaultEvents(me);
+  const state = { profile, events: L.loadEvents(storage, defaultEvents), thisMonth, experience: L.experienceBucket(me.meets) };
   if (rungsData.snapshot) $("snapshot").textContent = `, snapshot ${fmtDate(rungsData.snapshot)}`;
   setupForm(rungsData, me, state, defaults, storage);
+  setupEvents({ state, storage, defaults: defaultEvents, thisMonth, onChange: () => render(rungsData, me, state) });
   render(rungsData, me, state);
 } catch (error) {
   $("error").hidden = false;
