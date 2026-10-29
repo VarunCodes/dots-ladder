@@ -33,11 +33,14 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 - **GL against an independent source**: one result for each of the 8 sex, equipment and event combinations must match OpenPowerlifting's own GL score (its `Goodlift` column, from its separate implementation) to 2 decimal places, so a wrong or swapped coefficient fails. Numbers only, no lifters: each bodyweight and total is shared by 2+ lifters. The 24 coefficients were also checked against the IPF's 2020 GL table.
 - **Helpers**: the total for a score inverts the score, kg to the next rung rounds up to a multiple of 2.5 kg for both formulas, the same total at a lighter bodyweight, and display precision (DOTS 1 decimal place, GL 2).
 
+`app/chart.test.js` checks the Progress chart's layout in `app/chart.js`: which rung lines are drawn (those in your range plus the next one above), one test centred with the next rung above it, tests left to right and higher scores higher, everything inside the plot, flat and same-day histories with no NaN, dense mode from 10 tests, month labels (every 2nd past 7 months, January with the year, December rolling over) and the nearest test to a tap.
+
 `app/ladder.test.js` checks the page's logic in `app/ladder.js`:
 
 - **Parity with the pipeline**: the same weight-class boundaries as the Python tests, so the page and the rungs never disagree.
 - **Page logic**: the rungs for a group in one formula (never mixed, and none when the group lacks that formula), the next rung to beat, and the ladder's rows (highest first, the next rung marked, cleared rungs, the gap from your score, ties putting the rung above the marker). Every published percentile must have a name.
 - **Formula setting**: a profile saved without a formula loads as DOTS, GL is kept and round-trips, and the profile's score follows it.
+- **Progress**: the weight-class lever's default target (the next lighter class), the target bodyweight kept only when valid, the lever's score, change and the rung it would clear (in DOTS and GL), and the "between P10 and P25" position.
 - **Test history**: each test keeps its own sex (older ones take the profile's, new saves need one) and is scored in it, the profile's sex following the latest test, real calendar days only, no future dates or dates before 1990, stored tests surviving a clock change, sorting by date (same-day tests in save order), the last test on or before a date (none for an older backfill), the profile taking the latest test's numbers, numbers saved before the history becoming its first test, and saving and loading (invalid tests dropped, corrupt or blocked storage falling back).
 - **Events**: month handling, the optional exact date (a real day inside the event's month; older events without one still load), the "Meet in N days" countdown (soonest dated event, today included) and calendar-day counting across clock changes and leap years, which values are wrong (including "fill in at least one scenario"), clean copies with empty scenarios as null, scores at the event's bodyweight, the next 3 upcoming events for the ladder, the class note when an event's bodyweight is in another class, the rung an event beats, and saving and loading (invalid saved events dropped, deleting every event kept, corrupt or blocked storage falling back).
 - **Screens and Log test**: the route from the URL hash (unknown or query-suffixed hashes handled), stepper presses (one decimal place, kept in range, an empty field starting at the minimum), and how many rungs a new result climbs or drops.
@@ -61,7 +64,7 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
 What can't run in Node (the browser installing the app and swapping in the service worker) is checked by hand: install from Chrome on Android, then reopen in aeroplane mode. To debug the phone, connect it over USB and open `chrome://inspect` on the computer.
 
-The DOM code in `app/app.js`, `app/log.js` and `app/events.js` isn't unit tested; it only renders what `ladder.js` and `scoring.js` work out. So far it has been checked by hand and with headless Chrome runs outside the repo, so nothing in CI exercises the page in a real browser yet.
+The DOM code in `app/app.js`, `app/log.js`, `app/progress.js` and `app/events.js` isn't unit tested; it only renders what `ladder.js`, `scoring.js` and `chart.js` work out. So far it has been checked by hand and with headless Chrome runs outside the repo, so nothing in CI exercises the page in a real browser yet.
 
 ## CI: GitHub Actions
 

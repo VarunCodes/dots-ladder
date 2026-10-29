@@ -56,7 +56,7 @@ test("nextRung is the first rung strictly above the score", () => {
 
 // --- Editable profile ------------------------------------------------------------
 
-const me70 = { sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150, weightClass: null, formula: "dots" };
+const me70 = { sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150, weightClass: null, formula: "dots", targetBw: null };
 
 /** A stand-in for localStorage; `fail` makes every call throw, like blocked storage. */
 function fakeStorage(initial = {}, { fail = false } = {}) {
@@ -160,6 +160,38 @@ test("an invalid profile isn't saved, and blocked storage reports failure", () =
   assert.equal(L.saveProfile(storage, { ...me70, bench: 0 }), false);
   assert.equal(storage.data.size, 0);
   assert.equal(L.saveProfile(fakeStorage({}, { fail: true }), me70), false);
+});
+
+// --- Progress: weight-class lever and rung position ---------------------------------
+
+test("the lever's default target is the top of the next lighter class", () => {
+  assert.deepEqual([70, 66, 66.1, 59, 50, 130, 120].map((bw) => L.defaultTargetBw("M", bw)), [66, 59, 66, 59, 59, 120, 105]);
+  assert.deepEqual([60, 47, 90].map((bw) => L.defaultTargetBw("F", bw)), [57, 47, 84]);
+});
+
+test("a target bodyweight is kept when it's a real bodyweight, otherwise it's the default (null)", () => {
+  assert.equal(L.validProfile({ ...me70, targetBw: 66 }).targetBw, 66);
+  for (const bad of [0, 251, "66", NaN, undefined]) assert.equal(L.validProfile({ ...me70, targetBw: bad }).targetBw, null, String(bad));
+});
+
+test("the lever scores the same total at the target and names the rung that would clear", () => {
+  const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 285 }, { percentile: 50, score: 338 }];
+  const result = L.lever(me70, rungs);
+  assert.equal(result.targetBw, 66);
+  assert.equal(result.then.toFixed(1), "289.9");
+  assert.equal(result.delta.toFixed(1), "12.0");
+  assert.equal(result.cleared.percentile, 25);
+  assert.equal(L.lever({ ...me70, targetBw: 69.5 }, rungs).cleared, null, "a small cut clears nothing");
+  assert.ok(L.lever({ ...me70, targetBw: 74 }, rungs).delta < 0, "a heavier target scores lower");
+  assert.equal(L.lever({ ...me70, formula: "gl" }, []).then.toFixed(2), "57.68");
+});
+
+test("rung position: between, below, above, or nothing without rungs", () => {
+  const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }];
+  assert.equal(L.rungPosition(rungs, 277.9), "between P10 and P25");
+  assert.equal(L.rungPosition(rungs, 300), "above P25", "reaching a rung clears it");
+  assert.equal(L.rungPosition(rungs, 200), "below P10");
+  assert.equal(L.rungPosition([], 277.9), "");
 });
 
 // --- Test history ----------------------------------------------------------------

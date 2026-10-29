@@ -4,6 +4,7 @@ import * as S from "./scoring.js";
 import { $, el, formulaButtons } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 import { FIELD_TEXT, openLog, setupLog } from "./log.js";
+import { openProgress, setupProgress } from "./progress.js";
 
 const fmtDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -46,16 +47,6 @@ function markers(state, points) {
   return list;
 }
 
-/** "between P10 and P25", "below P10" or "above P90", from the rungs' states. */
-function position(rows) {
-  const rungs = rows.filter((r) => r.kind === "rung");
-  const cleared = rungs.find((r) => r.state === "cleared"); // rows are highest first
-  const next = rungs.find((r) => r.state === "next");
-  if (cleared && next) return `between P${cleared.percentile} and P${next.percentile}`;
-  if (next) return `below P${next.percentile}`;
-  return cleared ? `above P${cleared.percentile}` : "";
-}
-
 /** "Meet in N days" for the soonest event with an exact date, today or later; hidden without one. */
 function renderMeetPill(state) {
   const next = L.nextMeet(state.events, state.today);
@@ -77,10 +68,10 @@ function scenarioWords(scenario) {
   return words;
 }
 
-function renderHero(profile, points, rows) {
+function renderHero(profile, points, rungs) {
   $("now-score").textContent = S.formatScore(profile.formula, points);
   $("now-unit").textContent = `your ${S.FORMULAS[profile.formula].label}`;
-  $("now-caption").textContent = [`${L.sumLifts(profile)} kg total`, `${profile.bodyweight} kg bodyweight`, position(rows)]
+  $("now-caption").textContent = [`${L.sumLifts(profile)} kg total`, `${profile.bodyweight} kg bodyweight`, L.rungPosition(rungs, points)]
     .filter(Boolean)
     .join(" · ");
 }
@@ -176,7 +167,7 @@ function render(rungsData, state, storage) {
     : group
       ? `${group.lifters} lifters in this group.`
       : `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
-  renderHero(profile, points, rows);
+  renderHero(profile, points, group?.rungs ?? []);
   renderMeetPill(state);
   renderNext(profile, points, group, missing);
   $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
@@ -260,6 +251,7 @@ try {
     if (!hasNumbers) return;
     if (screen === "log") openLog({ focusClass: location.hash.endsWith("?class") });
     else render(rungsData, state, storage);
+    if (screen === "progress") openProgress();
   };
   const askForNumbers = () => {
     $("onboarding").reset();
@@ -275,6 +267,7 @@ try {
   });
   setupLog({ rungsData, state, storage, onSaved: () => { location.hash = "#/ladder"; }, onCleared: askForNumbers });
   setupEvents({ state, storage, thisMonth, onChange: () => render(rungsData, state, storage) });
+  setupProgress({ rungsData, state, storage, onChange: () => render(rungsData, state, storage) });
   window.addEventListener("hashchange", route);
   route();
 } catch (error) {

@@ -413,6 +413,63 @@ a:hover { color: var(--accent-hover); }
 }
 .add { width: 100%; margin-top: 12px; }
 
+/* --- Progress: chart, weight-class lever, lift split, tests ------------------------------- */
+
+.chart-card { display: flex; flex-direction: column; gap: 10px; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.chart-score { display: flex; align-items: baseline; gap: 8px; }
+#chart-now { font-family: var(--display); font-size: 2.75rem; font-weight: 700; line-height: 0.95; }
+#chart-change { font-size: 0.875rem; font-weight: 600; color: var(--muted); text-align: right; }
+#chart-change.up { color: var(--accent); }
+/* The plot keeps one height from one test to many, so the page doesn't jump as data grows. */
+.chart-plot { position: relative; }
+#chart { display: block; width: 100%; height: auto; aspect-ratio: 340 / 170; overflow: visible; }
+.chart-hit { position: absolute; inset: 0; border: 0; border-radius: 12px; background: transparent; cursor: pointer; }
+.chart-rung { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 5 5; opacity: 0.7; }
+.chart-rung.next { stroke: var(--accent); stroke-width: 1.5; opacity: 1; }
+.chart-rung-label { fill: var(--muted); font-family: var(--body); font-size: 11px; font-weight: 600; }
+.chart-rung-label.next { fill: var(--accent); }
+.chart-tick { fill: var(--muted); font-family: var(--body); font-size: 11px; }
+.chart-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart-line.dense { stroke-width: 2; }
+.chart-dot { fill: var(--accent); }
+/* A test done in your other sex category: hollow, so it's never mistaken for one of this category's. */
+.chart-dot.other { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.chart-ring { fill: none; stroke: var(--accent); stroke-width: 2; }
+.chart-detail { border-top: 1px solid var(--divider); padding-top: 10px; }
+.chart-detail-top { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 0.9375rem; }
+#chart-delta { color: var(--muted); white-space: nowrap; }
+#chart-delta.up { color: var(--accent); }
+
+.lever, .split { margin-top: 24px; display: flex; flex-direction: column; gap: 6px; }
+.lever { padding: 16px; border: 1px solid var(--border); border-radius: 16px; }
+.lever-score { color: var(--accent); font-family: var(--display); font-size: 1.375rem; font-weight: 700; }
+.lever-field { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: 0.8125rem; color: var(--muted); }
+.lever-field input {
+  max-width: 140px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+.lever-field input:invalid { border-color: var(--error); }
+#lever-note { color: var(--error); }
+#lever-note:empty { display: none; }
+
+.split-list { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 0; padding: 0; list-style: none; }
+.split-row { display: grid; grid-template-columns: 24px 72px 1fr auto; align-items: center; gap: 10px; }
+.split-icon { width: 24px; height: 24px; color: var(--muted); }
+.split-track { height: 10px; border-radius: 5px; background: var(--divider); overflow: hidden; }
+.split-fill { display: block; height: 100%; border-radius: 5px; background: var(--text-2); }
+.split-kg { font-family: var(--display); font-size: 1.125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.test-head { display: flex; flex-direction: column; gap: 2px; }
+.link-button:disabled { color: var(--muted); text-decoration: none; cursor: not-allowed; }
+
 .link-button {
   justify-self: start;
   min-height: 44px;
