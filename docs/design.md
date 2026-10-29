@@ -78,10 +78,11 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 
 1. **Header**
    - Eyebrow "DOTS LADDER" on the left (the app's name, so it stays "DOTS" in either formula).
-   - Next to it, on the right, the **score toggle**: a two-option segmented control, "DOTS" and "GL".
+   - Next to it, top right, the **score toggle**: a two-option segmented control, "DOTS" and "GL".
      - Real `<button>`s with `aria-pressed`, in a group labelled "Score shown".
+     - It's out of the layout flow, so it doesn't push the score down: the eyebrow and hero keep their spacing. Below 360px wide it would overlap the score, so there it stays in the row.
      - Selected: `--accent` fill, `--on-accent` text. Unselected: `--surface-2` fill, `--muted` text. Each at least 44px tall.
-     - The choice is global and saved (`profile.formula`, section 6). Changing it updates everything at once: the hero score and its label ("your DOTS" / "your GL"), the next-rung card, the rung list, the Log result card, and event scores (and the Progress screen once it's built).
+     - The choice is global and saved (`profile.formula`, section 6). Changing it updates everything at once: the hero score and its label ("your DOTS" / "your GL"), the next-rung card, the rung list, the Log result card (which has its own toggle), and event scores (and the Progress screen once it's built).
    - Also on the right, a pill showing "Meet in N days" (`--accent` background, `--on-accent` text). Show the pill only when a meet date is saved and is in the future.
    - Hero: your latest score (84px) followed by "your DOTS" or "your GL" in `--muted`.
    - Caption: `{total} kg total · {bw} kg bodyweight · {position among the rungs}`.
@@ -109,7 +110,7 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - Values can't go below the minimum.
 3. **Live result card** (1px `--border` outline), which updates on every change:
    - Top row: "Total {n} kg" on the left. On the right, "+x vs last test" in `--accent` when you've improved, or "−x vs last test" in `--muted` when you haven't (at the formula's precision).
-   - The score (68px), followed by "DOTS" or "GL".
+   - The score (68px), with the same DOTS / GL toggle beside it (it names the score, so the unit is for screen readers only). Here the accent belongs to Save, so the selected option is `--text` fill with `--bg` text, like the experience tabs. Switching saves the formula only, never the draft's numbers.
    - A rung line: "Climbs N rung(s). Next rung needs X more {DOTS|GL}." or "Clears every rung."
 4. **Save test** button: full width, 52px tall, `--accent` fill, `--on-accent` text, 17px / 600. It saves the test and returns you to `#/ladder`.
 

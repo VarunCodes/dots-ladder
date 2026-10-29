@@ -1,7 +1,7 @@
 // Page wiring: loads the rungs, routes between the three screens, and renders the Ladder with the pure logic in ladder.js.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
-import { $, el } from "./dom.js";
+import { $, el, formulaButtons } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 import { FIELD_TEXT, openLog, setupLog } from "./log.js";
 
@@ -124,17 +124,10 @@ function render(rungsData, state, storage) {
   const missing = rungsData.rungs.some((r) => r[formula]) ? "" : `${S.FORMULAS[formula].label} rungs coming soon.`;
 
   $("formula").replaceChildren(
-    ...S.FORMULA_IDS.map((id) => {
-      const button = el("button", "formula-option", S.FORMULAS[id].label);
-      button.type = "button";
-      button.setAttribute("aria-pressed", id === formula);
-      button.addEventListener("click", () => {
-        if (id === formula) return;
-        state.profile = { ...profile, formula: id };
-        L.saveProfile(storage, state.profile);
-        render(rungsData, state, storage);
-      });
-      return button;
+    ...formulaButtons(formula, (id) => {
+      state.profile = { ...profile, formula: id };
+      L.saveProfile(storage, state.profile);
+      render(rungsData, state, storage);
     }),
   );
 

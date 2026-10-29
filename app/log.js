@@ -2,7 +2,7 @@
 // result. Edits are a draft until "Save test". Logic lives in ladder.js; this file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
-import { $ } from "./dom.js";
+import { $, formulaButtons } from "./dom.js";
 
 export const FIELD_TEXT = {
   sex: "Choose men or women.",
@@ -58,6 +58,14 @@ function renderResult() {
   const { formula } = ctx.state.profile;
   const unit = S.FORMULAS[formula].label;
   $("result-unit").textContent = unit;
+  // The toggle changes only the saved formula, never the draft's numbers.
+  $("log-formula").replaceChildren(
+    ...formulaButtons(formula, (id) => {
+      ctx.state.profile = { ...ctx.state.profile, formula: id };
+      L.saveProfile(ctx.storage, ctx.state.profile);
+      renderResult();
+    }),
+  );
   if (!draft) {
     $("result-total").textContent = "Total –";
     $("result-delta").textContent = "";

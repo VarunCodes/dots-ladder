@@ -63,7 +63,12 @@ a:hover { color: var(--accent-hover); }
 /* --- Ladder: hero, next rung, the rungs ------------------------------------------- */
 
 .hero { display: flex; flex-direction: column; gap: 4px; }
-.hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* The toggle sits top right, out of the flow, so its 44px buttons don't push the score down. Under 360px it
+   would overlap the score's digits, so there it stays in the row. */
+.hero-top { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+@media (min-width: 360px) {
+  .hero-top .formula-toggle { position: absolute; top: 0; right: 0; }
+}
 
 /* DOTS / GL: which score every screen shows. The chosen one is accent, as your next action is. */
 .formula-toggle { display: flex; padding: 3px; gap: 3px; border-radius: 12px; background: var(--surface-2); }
@@ -82,6 +87,9 @@ a:hover { color: var(--accent-hover); }
   cursor: pointer;
 }
 .formula-option[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+/* On Log test the accent belongs to Save, so the chosen score is chalk, like the experience tabs. */
+.formula-quiet .formula-option { min-width: 48px; padding: 0 10px; }
+.formula-quiet .formula-option[aria-pressed="true"] { background: var(--text); color: var(--bg); }
 .hero-score { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
 #now-score { font-family: var(--display); font-weight: 700; font-size: 5.25rem; line-height: 0.9; letter-spacing: -0.01em; }
 .hero-unit { font-size: 0.875rem; color: var(--muted); }
@@ -308,6 +316,7 @@ a:hover { color: var(--accent-hover); }
 .result-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.875rem; }
 #result-delta { font-weight: 600; color: var(--muted); }
 #result-delta.up { color: var(--accent); }
+.result-score-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .result-score { display: flex; align-items: baseline; gap: 10px; }
 #result-score { font-family: var(--display); font-size: 4.25rem; font-weight: 700; line-height: 0.95; }
 #result-rungs { font-size: 0.875rem; color: var(--text-2); }
