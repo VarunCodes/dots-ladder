@@ -72,9 +72,12 @@
 
       <div id="standing" hidden>
         <header class="hero">
-          <p class="eyebrow">DOTS Ladder</p>
+          <div class="hero-top">
+            <p class="eyebrow">DOTS Ladder</p>
+            <div id="formula" class="formula-toggle" role="group" aria-label="Score shown"></div>
+          </div>
           <h2 id="board-heading" class="visually-hidden">Where you stand</h2>
-          <p class="hero-score"><span id="now-dots">–</span> <span class="hero-unit">your DOTS</span></p>
+          <p class="hero-score"><span id="now-score">–</span> <span id="now-unit" class="hero-unit">your DOTS</span></p>
           <p id="now-caption" class="muted">Loading…</p>
         </header>
 
@@ -144,7 +147,11 @@
 
         <section class="result-card" aria-label="Result" aria-live="polite">
           <p class="result-top"><span id="result-total" class="muted"></span><span id="result-delta"></span></p>
-          <p class="result-score"><span id="result-dots">–</span> <span class="muted">DOTS</span></p>
+          <div class="result-score-row">
+            <!-- The toggle beside the number names the score, so the unit is for screen readers only. -->
+            <p class="result-score"><span id="result-score">–</span> <span id="result-unit" class="visually-hidden">DOTS</span></p>
+            <div id="log-formula" class="formula-toggle formula-quiet" role="group" aria-label="Score shown"></div>
+          </div>
           <p id="result-rungs"></p>
         </section>
         <p id="log-note" role="status"></p>

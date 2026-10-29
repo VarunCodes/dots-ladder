@@ -1,14 +1,15 @@
 // Page wiring: loads the rungs, routes between the three screens, and renders the Ladder with the pure logic in ladder.js.
 import * as L from "./ladder.js";
-import { $, el } from "./dom.js";
+import * as S from "./scoring.js";
+import { $, el, formulaButtons } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 import { FIELD_TEXT, openLog, setupLog } from "./log.js";
 
 const fmtDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-// "+22.1" or "−77.9" (a real minus sign), for gaps from your score.
-const signed = (n) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}`;
+// "+22.1" or "−77.9" (a real minus sign), for gaps from your score, at the formula's precision.
+const signed = (n, formula) => `${n >= 0 ? "+" : "−"}${S.formatScore(formula, Math.abs(n))}`;
 
 /** An inline icon from the sprite in index.html; decorative unless given a label. */
 function icon(id, label) {
@@ -31,17 +32,15 @@ async function loadJson(path) {
   return response.json();
 }
 
-/** Rows to place among the rungs: you, the gym-goer estimate, and each upcoming event's scenarios. */
-function markers(state, score) {
+/** Rows to place among the rungs: you, the gym-goer estimate (DOTS only), and each upcoming event's scenarios. */
+function markers(state, points) {
   const { profile, events, thisMonth } = state;
-  const list = [
-    { kind: "you", label: "You", dots: score },
-    { kind: "reference", ...L.referenceMarker(profile.sex) },
-  ];
+  const reference = L.referenceMarker(profile.sex, profile.formula);
+  const list = [{ kind: "you", label: "You", score: points }, ...(reference ? [{ kind: "reference", ...reference }] : [])];
   for (const event of L.ladderEvents(events, thisMonth)) {
-    const scores = L.eventScores(event, profile.sex);
-    for (const { scenario, dots } of scores) {
-      list.push({ kind: "event", label: eventLabel(event, scores.length > 1 ? scenario : null), dots });
+    const scores = L.eventScores(event, profile.sex, profile.formula);
+    for (const { scenario, score } of scores) {
+      list.push({ kind: "event", label: eventLabel(event, scores.length > 1 ? scenario : null), score });
     }
   }
   return list;
@@ -57,24 +56,31 @@ function position(rows) {
   return cleared ? `above P${cleared.percentile}` : "";
 }
 
-function renderHero(profile, score, rows) {
-  $("now-dots").textContent = score.toFixed(1);
+function renderHero(profile, points, rows) {
+  $("now-score").textContent = S.formatScore(profile.formula, points);
+  $("now-unit").textContent = `your ${S.FORMULAS[profile.formula].label}`;
   $("now-caption").textContent = [`${L.sumLifts(profile)} kg total`, `${profile.bodyweight} kg bodyweight`, position(rows)]
     .filter(Boolean)
     .join(" · ");
 }
 
-function renderNext(profile, score, group) {
-  const next = group && L.nextRung(group.rungs, score);
+function renderNext(profile, points, group, missing) {
+  const { formula } = profile;
+  const next = group && L.nextRung(group.rungs, points);
+  const kg = next && S.kgToNextRung(formula, { total: L.sumLifts(profile), bw: profile.bodyweight, sex: profile.sex }, next.score);
   $("next-label").textContent = next ? `Next rung · P${next.percentile}` : "Next rung";
-  $("next-value").textContent = !group
-    ? "Not enough lifters in this group to publish rungs."
-    : next
-      ? `+${(next.dots - score).toFixed(1)} DOTS ≈ +${L.kgToReach(profile.sex, profile.bodyweight, L.sumLifts(profile), next.dots)} kg on your total`
-      : "Top rung reached";
+  $("next-value").textContent = missing
+    ? missing
+    : !group
+      ? "Not enough lifters in this group to publish rungs."
+      : next
+        ? `+${S.formatScore(formula, next.score - points)} ${S.FORMULAS[formula].label} ≈ +${kg} kg on your total`
+        : "Top rung reached";
 }
 
 function renderRow(row, profile) {
+  const { formula } = profile;
+  const unit = S.FORMULAS[formula].label;
   const li = el("li", `row row-${row.kind}${row.state ? ` row-${row.state}` : ""}`);
   const key = el("span", "row-key");
   const main = el("span", "row-main");
@@ -83,43 +89,54 @@ function renderRow(row, profile) {
   if (row.kind === "rung") {
     key.textContent = `P${row.percentile}`;
     const title = row.state === "next" ? "Next rung" : row.state === "cleared" ? "Cleared" : L.RUNG_NAMES[row.percentile];
-    main.append(el("span", "row-title", title), el("span", "row-sub", `${row.dots} DOTS`));
+    main.append(el("span", "row-title", title), el("span", "row-sub", `${S.formatRung(formula, row.score)} ${unit}`));
     if (row.state === "cleared") end.append(icon("icon-check", "Cleared"));
-    else end.textContent = signed(row.gap);
+    else end.textContent = signed(row.gap, formula);
   } else if (row.kind === "you") {
     key.textContent = "You";
     main.append(
-      el("span", "row-title", `${row.dots.toFixed(1)} DOTS`),
+      el("span", "row-title", `${S.formatScore(formula, row.score)} ${unit}`),
       el("span", "row-sub", `${L.sumLifts(profile)} kg @ ${profile.bodyweight} kg`),
     );
     end.append(icon("icon-person"));
   } else if (row.kind === "event") {
     key.append(icon("icon-flag"));
-    main.append(el("span", "row-title", row.label), el("span", "row-sub", `${row.dots.toFixed(1)} DOTS`));
-    end.textContent = signed(row.gap);
+    main.append(el("span", "row-title", row.label), el("span", "row-sub", `${S.formatScore(formula, row.score)} ${unit}`));
+    end.textContent = signed(row.gap, formula);
   } else {
     key.textContent = "≈";
-    main.append(el("span", "row-title", row.label), el("span", "row-sub", `~${row.dots} DOTS`));
-    end.textContent = signed(row.gap);
+    main.append(el("span", "row-title", row.label), el("span", "row-sub", `~${row.score} ${unit}`));
+    end.textContent = signed(row.gap, formula);
   }
   li.append(key, main, end);
   return li;
 }
 
-/** Redraws the Ladder for the current profile and experience group. */
-function render(rungsData, state) {
+/** Redraws the Ladder for the current profile, formula and experience group. */
+function render(rungsData, state, storage) {
   const { profile, experience } = state;
+  const { formula } = profile;
   const wclass = L.effectiveClass(profile);
-  const score = L.dots(profile.sex, profile.bodyweight, L.sumLifts(profile));
-  const group = L.rungsFor(rungsData, profile.sex, wclass, experience);
-  const rows = L.ladderRows(group?.rungs ?? [], score, markers(state, score));
+  const points = L.profileScore(profile);
+  const group = L.rungsFor(rungsData, formula, profile.sex, wclass, experience);
+  const rows = L.ladderRows(group?.rungs ?? [], points, markers(state, points));
+  // Rungs built before this formula was added have none of its percentiles; say so rather than show nothing.
+  const missing = rungsData.rungs.some((r) => r[formula]) ? "" : `${S.FORMULAS[formula].label} rungs coming soon.`;
+
+  $("formula").replaceChildren(
+    ...formulaButtons(formula, (id) => {
+      state.profile = { ...profile, formula: id };
+      L.saveProfile(storage, state.profile);
+      render(rungsData, state, storage);
+    }),
+  );
 
   $("experience").replaceChildren(
     ...L.EXPERIENCE.map((name) => {
       const button = el("button", "tab", name);
       button.type = "button";
       button.setAttribute("aria-pressed", name === experience);
-      button.addEventListener("click", () => render(rungsData, Object.assign(state, { experience: name })));
+      button.addEventListener("click", () => render(rungsData, Object.assign(state, { experience: name }), storage));
       return button;
     }),
   );
@@ -131,11 +148,13 @@ function render(rungsData, state) {
   $("class-chip").setAttribute("aria-label", `${sexWord}, ${wclass} kg class${profile.weightClass ? " (chosen)" : ""}. Change weight class`);
 
   refreshEvents(state, group, experience);
-  $("group-note").textContent = group
-    ? `${group.lifters} lifters in this group.`
-    : `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
-  renderHero(profile, score, rows);
-  renderNext(profile, score, group);
+  $("group-note").textContent = missing
+    ? missing
+    : group
+      ? `${group.lifters} lifters in this group.`
+      : `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
+  renderHero(profile, points, rows);
+  renderNext(profile, points, group, missing);
   $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
 }
 
@@ -202,7 +221,7 @@ try {
     showScreen(screen);
     if (!hasNumbers) return;
     if (screen === "log") openLog({ focusClass: location.hash.endsWith("?class") });
-    else render(rungsData, state);
+    else render(rungsData, state, storage);
   };
   const askForNumbers = () => {
     $("onboarding").reset();
@@ -217,7 +236,7 @@ try {
     else route();
   });
   setupLog({ rungsData, state, storage, onSaved: () => { location.hash = "#/ladder"; }, onCleared: askForNumbers });
-  setupEvents({ state, storage, thisMonth, onChange: () => render(rungsData, state) });
+  setupEvents({ state, storage, thisMonth, onChange: () => render(rungsData, state, storage) });
   window.addEventListener("hashchange", route);
   route();
 } catch (error) {

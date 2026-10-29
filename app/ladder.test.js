@@ -4,27 +4,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import * as L from "./ladder.js";
+import { FORMULA_IDS } from "./scoring.js";
 
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url)));
 
-const near = (actual, expected, tolerance) =>
-  assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} not within ${tolerance} of ${expected}`);
-
-// --- DOTS: same values as pipeline/test_build_rungs.py ----------------------
-
-test("DOTS matches the pipeline for men and women", () => {
-  near(L.dots("M", 70, 370), 277.93, 0.01);
-  near(L.dots("F", 60, 300), 332.56, 0.01);
-});
-
-test("DOTS clamps bodyweight like the pipeline", () => {
-  assert.equal(L.dots("M", 20, 300), L.dots("M", 40, 300));
-  assert.equal(L.dots("M", 250, 300), L.dots("M", 210, 300));
-});
-
-test("totalForDots inverts dots", () => {
-  near(L.totalForDots("M", 70, L.dots("M", 70, 412.5)), 412.5, 1e-9);
-});
+// The formulas themselves are tested in scoring.test.js.
 
 // --- Grouping ------------------------------------------------------------------
 
@@ -41,19 +25,30 @@ test("weight class boundaries match the pipeline", () => {
 
 const sample = {
   rungs: [
-    { sex: "M", weightClassKg: "74", experience: "first meet", lifters: 30, p25: 300, p50: 338, p75: 368 },
+    {
+      sex: "M", weightClassKg: "74", experience: "first meet", lifters: 30,
+      dots: { p25: 300, p50: 338, p75: 368 },
+      gl: { p75: 73.6, p25: 60.1, p50: 67.6 },
+    },
+    { sex: "F", weightClassKg: "57", experience: "first meet", lifters: 25, dots: { p25: 280, p50: 320, p75: 350 } },
   ],
 };
 
-test("rungsFor returns the group's percentiles lowest first", () => {
-  const group = L.rungsFor(sample, "M", "74", "first meet");
+test("rungsFor returns the group's percentiles in one formula, lowest first", () => {
+  const group = L.rungsFor(sample, "dots", "M", "74", "first meet");
   assert.equal(group.lifters, 30);
-  assert.deepEqual(group.rungs.map((r) => r.percentile), [25, 50, 75]);
-  assert.equal(L.rungsFor(sample, "F", "74", "first meet"), null);
+  assert.deepEqual(group.rungs, [{ percentile: 25, score: 300 }, { percentile: 50, score: 338 }, { percentile: 75, score: 368 }]);
+  assert.deepEqual(L.rungsFor(sample, "gl", "M", "74", "first meet").rungs.map((r) => r.score), [60.1, 67.6, 73.6]);
+  assert.equal(L.rungsFor(sample, "dots", "F", "74", "first meet"), null);
+});
+
+test("rungsFor never mixes formulas: a group without that formula's percentiles has no rungs", () => {
+  assert.equal(L.rungsFor(sample, "gl", "F", "57", "first meet"), null);
+  assert.equal(L.rungsFor(sample, "wilks", "M", "74", "first meet"), null);
 });
 
 test("nextRung is the first rung strictly above the score", () => {
-  const { rungs } = L.rungsFor(sample, "M", "74", "first meet");
+  const { rungs } = L.rungsFor(sample, "dots", "M", "74", "first meet");
   assert.equal(L.nextRung(rungs, 250).percentile, 25);
   assert.equal(L.nextRung(rungs, 300).percentile, 50);
   assert.equal(L.nextRung(rungs, 400), null);
@@ -61,7 +56,7 @@ test("nextRung is the first rung strictly above the score", () => {
 
 // --- Editable profile ------------------------------------------------------------
 
-const me70 = { sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150, weightClass: null };
+const me70 = { sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150, weightClass: null, formula: "dots" };
 
 /** A stand-in for localStorage; `fail` makes every call throw, like blocked storage. */
 function fakeStorage(initial = {}, { fail = false } = {}) {
@@ -119,6 +114,26 @@ test("a first-time form only flags values that have been entered", () => {
   assert.deepEqual(L.enteredProblems({ ...empty, bodyweight: 0, squat: 120 }), ["bodyweight"]);
   assert.deepEqual(L.enteredProblems({ ...empty, bench: 900 }), ["bench"]);
   assert.equal(L.validProfile({ ...empty, bodyweight: 70, squat: 120, bench: 100 }), null, "not complete until all five are in");
+});
+
+test("the formula defaults to DOTS when it's missing or unknown, and GL is kept", () => {
+  const { formula, ...old } = me70; // a profile saved before the toggle existed
+  assert.equal(L.validProfile(old).formula, "dots");
+  assert.equal(L.validProfile({ ...me70, formula: "wilks" }).formula, "dots");
+  assert.equal(L.validProfile({ ...me70, formula: "gl" }).formula, "gl");
+});
+
+test("a saved profile without a formula loads as DOTS; GL round-trips", () => {
+  const { formula, ...old } = me70;
+  assert.deepEqual(L.loadProfile(fakeStorage({ [L.PROFILE_KEY]: JSON.stringify(old) }), null), me70);
+  const storage = fakeStorage();
+  L.saveProfile(storage, { ...me70, formula: "gl" });
+  assert.equal(L.loadProfile(storage, null).formula, "gl");
+});
+
+test("the profile's score follows its formula", () => {
+  assert.equal(L.profileScore(me70).toFixed(1), "277.9");
+  assert.equal(L.profileScore({ ...me70, formula: "gl" }).toFixed(2), "55.92");
 });
 
 test("a class that doesn't exist for the sex falls back to working it out from bodyweight", () => {
@@ -185,13 +200,15 @@ test("an event without an id isn't valid", () => {
   assert.equal(L.validEvent({ ...may, id: undefined }), null);
 });
 
-test("event scores use the event's bodyweight, one per scenario given", () => {
-  const scores = L.eventScores(may, "M");
+test("event scores use the event's bodyweight and the chosen formula, one per scenario given", () => {
+  const scores = L.eventScores(may, "M", "dots");
   assert.deepEqual(scores.map((s) => [s.scenario, s.total]), [["conservative", 413], ["optimistic", 449]]);
-  assert.equal(scores[0].dots.toFixed(1), "310.2");
-  const lighter = L.eventScores({ ...may, bodyweight: 66, optimistic: null }, "M");
+  assert.equal(scores[0].score.toFixed(1), "310.2");
+  const lighter = L.eventScores({ ...may, bodyweight: 66, optimistic: null }, "M", "dots");
   assert.equal(lighter.length, 1);
-  assert.ok(lighter[0].dots > scores[0].dots, "the same total at a lighter bodyweight scores higher");
+  assert.ok(lighter[0].score > scores[0].score, "the same total at a lighter bodyweight scores higher");
+  const inGl = L.eventScores(may, "M", "gl");
+  assert.ok(inGl[0].score > 50 && inGl[0].score < 80, `GL, not DOTS: ${inGl[0].score}`);
 });
 
 test("the ladder shows the next three events from this month on, soonest first", () => {
@@ -208,7 +225,7 @@ test("an event in a different class from the ladder is flagged", () => {
 });
 
 test("rungBeaten is the highest rung at or below the score", () => {
-  const { rungs } = L.rungsFor(sample, "M", "74", "first meet");
+  const { rungs } = L.rungsFor(sample, "dots", "M", "74", "first meet");
   assert.equal(L.rungBeaten(rungs, 299), null);
   assert.equal(L.rungBeaten(rungs, 300).percentile, 25);
   assert.equal(L.rungBeaten(rungs, 400).percentile, 75);
@@ -237,38 +254,28 @@ test("events fall back when nothing is saved, the JSON is corrupt or storage is 
 // --- Reference marker ------------------------------------------------------------
 
 test("the reference marker is the gym-goer estimate for the selected sex, named by sex and labelled as an estimate", () => {
-  assert.deepEqual(L.referenceMarker("M"), { label: "Male gym-goer (estimate)", dots: 200 });
-  assert.deepEqual(L.referenceMarker("F"), { label: "Female gym-goer (estimate)", dots: 160 });
+  assert.deepEqual(L.referenceMarker("M", "dots"), { label: "Male gym-goer (estimate)", score: 200 });
+  assert.deepEqual(L.referenceMarker("F", "dots"), { label: "Female gym-goer (estimate)", score: 160 });
 });
 
-test("the gym-goer estimates stay below every published rung, so they never pass for one", () => {
+test("the gym-goer estimate is DOTS only: GL gets no marker rather than a second estimate", () => {
+  assert.equal(L.referenceMarker("M", "gl"), null);
+  assert.equal(L.referenceMarker("F", "gl"), null);
+});
+
+test("the gym-goer estimates stay below every published DOTS rung, so they never pass for one", () => {
   for (const rung of readJson("../data/rungs.json").rungs) {
-    assert.ok(L.GYM_GOER_ESTIMATE[rung.sex] < (rung.p10 ?? rung.p25), `${rung.sex} ${rung.weightClassKg} ${rung.experience}`);
+    assert.ok(L.GYM_GOER_ESTIMATE[rung.sex] < (rung.dots.p10 ?? rung.dots.p25), `${rung.sex} ${rung.weightClassKg} ${rung.experience}`);
   }
 });
 
 // --- Ladder rows and the design spec's required cases --------------------------------
 
-test("DOTS matches the design spec's required cases", () => {
-  assert.equal(L.dots("M", 70, 370).toFixed(1), "277.9");
-  assert.equal(L.dots("M", 66, 370).toFixed(1), "289.9");
-  assert.equal(L.dots("M", 93, 500).toFixed(1), "318.1");
-  assert.equal(L.dots("F", 60, 300).toFixed(1), "332.6");
-  assert.equal(L.dots("M", 70, 0).toFixed(1), "0.0");
-  for (const bw of [10, 39, 250, 1000]) assert.ok(Number.isFinite(L.dots("M", bw, 370)), `bodyweight ${bw}`);
-});
-
-test("kg to the next rung rounds up to 2.5 kg, because attempts go up in 2.5 kg steps", () => {
-  assert.equal(L.kgToReach("M", 70, 370, 282.7), 7.5, "raw 6.35 kg");
-  assert.equal(L.kgToReach("M", 70, 370, L.dots("M", 70, 375)), 5, "exactly 5 kg stays 5");
-  assert.equal(L.kgToReach("M", 70, 370, 270), 0, "already above");
-});
-
 test("ladder rows: highest first, the next rung marked, cleared rungs below you, gaps from your score", () => {
-  const rungs = [{ percentile: 10, dots: 266 }, { percentile: 25, dots: 300 }, { percentile: 50, dots: 338 }];
+  const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
   const rows = L.ladderRows(rungs, 277.9, [
-    { kind: "you", label: "You", dots: 277.9 },
-    { kind: "reference", label: "Male gym-goer (estimate)", dots: 200 },
+    { kind: "you", label: "You", score: 277.9 },
+    { kind: "reference", label: "Male gym-goer (estimate)", score: 200 },
   ]);
   assert.deepEqual(rows.map((r) => r.percentile ?? r.kind), [50, 25, "you", 10, "reference"]);
   assert.deepEqual(rows.filter((r) => r.kind === "rung").map((r) => r.state), ["above", "next", "cleared"]);
@@ -277,17 +284,17 @@ test("ladder rows: highest first, the next rung marked, cleared rungs below you,
 });
 
 test("ladder rows: above every rung there is no next rung; a tie puts the rung above the marker", () => {
-  const rungs = [{ percentile: 50, dots: 300 }];
+  const rungs = [{ percentile: 50, score: 300 }];
   assert.equal(L.ladderRows(rungs, 400, []).find((r) => r.state === "next"), undefined);
-  const tie = L.ladderRows(rungs, 300, [{ kind: "you", label: "You", dots: 300 }]);
+  const tie = L.ladderRows(rungs, 300, [{ kind: "you", label: "You", score: 300 }]);
   assert.deepEqual(tie.map((r) => r.kind), ["rung", "you"]);
   assert.equal(tie[0].state, "cleared", "reaching a rung's score clears it");
 });
 
 test("every published percentile has a name", () => {
   for (const rung of readJson("../data/rungs.json").rungs) {
-    for (const key of Object.keys(rung).filter((k) => /^p\d+$/.test(k))) {
-      assert.ok(L.RUNG_NAMES[Number(key.slice(1))], `no name for ${key}`);
+    for (const formula of FORMULA_IDS) {
+      for (const key of Object.keys(rung[formula])) assert.ok(L.RUNG_NAMES[Number(key.slice(1))], `no name for ${formula} ${key}`);
     }
   }
 });
@@ -312,7 +319,7 @@ test("a stepper press moves by its step, keeps one decimal place and stays in ra
 });
 
 test("rungs climbed counts rungs passed, positive up and negative down", () => {
-  const rungs = [{ percentile: 10, dots: 266 }, { percentile: 25, dots: 300 }, { percentile: 50, dots: 338 }];
+  const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
   assert.equal(L.rungsClimbed(rungs, 277.9, 310), 1);
   assert.equal(L.rungsClimbed(rungs, 250, 340), 3);
   assert.equal(L.rungsClimbed(rungs, 277.9, 300), 1, "reaching a rung's score clears it");
@@ -322,12 +329,31 @@ test("rungs climbed counts rungs passed, positive up and negative down", () => {
 
 // --- Contract: the committed JSON files work with the page ------------------------
 
-test("every committed rung is aggregate only", () => {
-  const allowed = new Set(["sex", "weightClassKg", "experience", "lifters", "p10", "p25", "p50", "p75", "p90"]);
+test("every committed rung is aggregate only, with the same percentiles in every formula", () => {
+  const allowed = new Set(["sex", "weightClassKg", "experience", "lifters", ...FORMULA_IDS]);
+  const percentiles = new Set(["p10", "p25", "p50", "p75", "p90"]);
   for (const rung of readJson("../data/rungs.json").rungs) {
+    const where = `${rung.sex} ${rung.weightClassKg} ${rung.experience}`;
     for (const key of Object.keys(rung)) assert.ok(allowed.has(key), `unexpected field ${key}`);
     assert.ok(rung.lifters >= 20, "group under 20 lifters");
-    if ("p10" in rung || "p90" in rung) assert.ok(rung.lifters >= 50, "p10/p90 on a group under 50");
+    const keys = Object.keys(rung.dots);
+    for (const formula of FORMULA_IDS) {
+      assert.deepEqual(Object.keys(rung[formula]).sort(), [...keys].sort(), `${where}: ${formula} has different percentiles`);
+    }
+    for (const key of keys) assert.ok(percentiles.has(key), `${where}: unexpected percentile ${key}`);
+    if ("p10" in rung.dots || "p90" in rung.dots) assert.ok(rung.lifters >= 50, "p10/p90 on a group under 50");
+  }
+});
+
+test("committed rungs are rounded: DOTS to whole points, GL to 1 decimal place, rising with the percentile", () => {
+  for (const rung of readJson("../data/rungs.json").rungs) {
+    const where = `${rung.sex} ${rung.weightClassKg} ${rung.experience}`;
+    for (const value of Object.values(rung.dots)) assert.ok(Number.isInteger(value), `${where}: DOTS ${value}`);
+    for (const value of Object.values(rung.gl)) assert.equal(Math.round(value * 10) / 10, value, `${where}: GL ${value}`);
+    for (const formula of FORMULA_IDS) {
+      const scores = L.rungsFor({ rungs: [rung] }, formula, rung.sex, rung.weightClassKg, rung.experience).rungs.map((r) => r.score);
+      assert.deepEqual(scores, [...scores].sort((x, y) => x - y), `${where}: ${formula} percentiles out of order`);
+    }
   }
 });
 

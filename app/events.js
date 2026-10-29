@@ -1,6 +1,7 @@
 // "Your events" card: upcoming meets or test days with conservative and optimistic lifts.
 // Logic lives in ladder.js; this file only builds and updates the card.
 import * as L from "./ladder.js";
+import * as S from "./scoring.js";
 import { $, el } from "./dom.js";
 
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
@@ -75,7 +76,7 @@ function eventItem(event, open) {
   item.open = open;
 
   const summary = el("summary");
-  summary.append(el("span", "event-title"), el("span", "event-dots"));
+  summary.append(el("span", "event-title"), el("span", "event-score"));
 
   const form = el("form", "fields");
   form.autocomplete = "off";
@@ -198,25 +199,26 @@ function deleteEvent(id) {
   ctx.onChange();
 }
 
-/** Updates each event's title, DOTS and notes for the current profile and ladder group, without touching its fields. */
+/** Updates each event's title, scores and notes for the current profile, formula and ladder group, without touching its fields. */
 export function refreshEvents(state, group, experience) {
+  const { formula } = state.profile;
   const onLadder = new Set(L.ladderEvents(state.events, ctx.thisMonth).map((e) => e.id));
   for (const item of $("event-list").querySelectorAll("details.event")) {
     const event = state.events.find((e) => e.id === item.dataset.id);
-    const scores = L.eventScores(event, state.profile.sex);
+    const scores = L.eventScores(event, state.profile.sex, formula);
     item.querySelector(".event-title").textContent = eventLabel(event);
     // Two scores read as "276.0 to 293.0": a plain "to" keeps them apart in the condensed face.
-    const values = scores.map((s) => el("span", null, s.dots.toFixed(1)));
-    item.querySelector(".event-dots").replaceChildren(
+    const values = scores.map((s) => el("span", null, S.formatScore(formula, s.score)));
+    item.querySelector(".event-score").replaceChildren(
       ...(item.dataset.invalid ? ["not saved"] : values.flatMap((v, i) => (i ? [el("span", "to", " to "), v] : [v]))),
     );
 
     // While the fields hold invalid values, the saved scores would look current, so only the "Not saved" note shows.
     item.querySelector(".event-preview").replaceChildren(
-      ...(item.dataset.invalid ? [] : scores).map(({ scenario, total, dots }) => {
-        const beaten = group && L.rungBeaten(group.rungs, dots);
+      ...(item.dataset.invalid ? [] : scores).map(({ scenario, total, score }) => {
+        const beaten = group && L.rungBeaten(group.rungs, score);
         const place = !group ? "" : beaten ? `, beats ${beaten.percentile}% of ${experience} lifters` : ", below every rung";
-        return el("span", null, `${capital(scenario)}: ${total} kg total, ${dots.toFixed(1)} DOTS${place}`);
+        return el("span", null, `${capital(scenario)}: ${total} kg total, ${S.formatScore(formula, score)} ${S.FORMULAS[formula].label}${place}`);
       }),
     );
 

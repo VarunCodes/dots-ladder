@@ -6,7 +6,8 @@ What it does
   1. Reads the OpenPowerlifting bulk CSV (the .zip as downloaded, or an unzipped .csv).
   2. Works out how many meets each lifter had competed in before each result.
   3. Keeps UK, raw, full-power (squat/bench/deadlift) results from adult lifters.
-  4. Groups lifters by sex, weight class and experience, and works out DOTS percentiles.
+  4. Groups lifters by sex, weight class and experience, and works out DOTS and IPF GL percentiles
+     (both from each lifter's same result, so the two sets describe the same people).
   5. Writes rungs.json: a small file of group statistics with no names in it.
 
 Only rungs.json belongs in your repo. Never commit the downloaded zip/CSV.
@@ -23,6 +24,7 @@ import argparse
 import csv
 import io
 import json
+import math
 import re
 import sys
 import urllib.request
@@ -81,6 +83,24 @@ def dots(sex, bodyweight, total):
         bodyweight = min(max(bodyweight, 40.0), 150.0)
     denom = a * bodyweight**4 + b * bodyweight**3 + c * bodyweight**2 + d * bodyweight + e
     return total * 500 / denom
+
+
+# IPF GL points, classic (raw) full power: A, B, C. The rungs are raw SBD only, so this is the one row needed;
+# the page's app/scoring.js has the full table. Men's C is 0.00921 (some copies of the IPF PDF misprint 0.09210).
+GL_CLASSIC_FULL = {"M": (1199.72839, 1025.18162, 0.00921), "F": (610.32796, 1045.59282, 0.03048)}
+GL_MIN_BW = {"M": 40.0, "F": 35.0}
+
+
+def gl(sex, bodyweight, total):
+    """IPF GL points (classic, full power), used only when the CSV's own Goodlift value is missing."""
+    if not total:
+        return 0.0
+    a, b, c = GL_CLASSIC_FULL[sex]
+    return total * 100 / (a - b * math.exp(-c * max(bodyweight, GL_MIN_BW[sex])))
+
+
+# Rounding of the published percentiles: GL is about a fifth of the DOTS scale, so it keeps one decimal place.
+ROUNDING = {"dots": 0, "gl": 1}
 
 
 def to_float(value):
@@ -165,7 +185,7 @@ def build(path, since="2024-01-01", min_group=20, min_group_extremes=50, tested_
     del history
 
     # Pass 2: eligible results. One value per lifter per group: their most recent result.
-    latest = {}  # (sex, class, experience, lifter) -> (date, DOTS)
+    latest = {}  # (sex, class, experience, lifter) -> (date, {"dots": ..., "gl": ...})
     seen = set()
     for row in open_rows(path):
         sex = row.get("Sex")
@@ -191,26 +211,30 @@ def build(path, since="2024-01-01", min_group=20, min_group_extremes=50, tested_
         seen.add((name, meet))
 
         prior = order[name].index(meet)
-        score = to_float(row.get("Dots")) or dots(sex, bw, total)
+        scores = {
+            "dots": to_float(row.get("Dots")) or dots(sex, bw, total),
+            "gl": to_float(row.get("Goodlift")) or gl(sex, bw, total),
+        }
         key = (sex, weight_class(sex, bw), experience_bucket(prior), name)
         if key not in latest or row["Date"] > latest[key][0]:
-            latest[key] = (row["Date"], score)
+            latest[key] = (row["Date"], scores)
 
     # Group, apply the minimum group sizes, and drop names.
     groups = defaultdict(list)
-    for (sex, wclass, exp, _name), (_date, score) in latest.items():
-        groups[(sex, wclass, exp)].append(score)
+    for (sex, wclass, exp, _name), (_date, scores) in latest.items():
+        groups[(sex, wclass, exp)].append(scores)
 
     rungs, skipped = [], 0
-    for (sex, wclass, exp), scores in sorted(groups.items()):
-        if len(scores) < min_group:
+    for (sex, wclass, exp), lifters in sorted(groups.items()):
+        if len(lifters) < min_group:
             skipped += 1
             continue
-        scores.sort()
-        rung = {"sex": sex, "weightClassKg": wclass, "experience": exp, "lifters": len(scores)}
-        shown = CORE_PERCENTILES + (EXTREME_PERCENTILES if len(scores) >= min_group_extremes else [])
-        for p in sorted(shown):
-            rung[f"p{p}"] = round(percentile(scores, p))  # p50 is the median
+        rung = {"sex": sex, "weightClassKg": wclass, "experience": exp, "lifters": len(lifters)}
+        shown = sorted(CORE_PERCENTILES + (EXTREME_PERCENTILES if len(lifters) >= min_group_extremes else []))
+        for formula, digits in ROUNDING.items():
+            values = sorted(s[formula] for s in lifters)
+            # p50 is the median. ndigits=None gives whole numbers as ints (300, not 300.0).
+            rung[formula] = {f"p{p}": round(percentile(values, p), digits or None) for p in shown}
         rungs.append(rung)
 
     return {

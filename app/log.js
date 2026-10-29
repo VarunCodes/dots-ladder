@@ -1,7 +1,8 @@
 // "Log test" screen: steppers for bodyweight and the three lifts, sex and weight class, and a live
 // result. Edits are a draft until "Save test". Logic lives in ladder.js; this file only renders.
 import * as L from "./ladder.js";
-import { $ } from "./dom.js";
+import * as S from "./scoring.js";
+import { $, formulaButtons } from "./dom.js";
 
 export const FIELD_TEXT = {
   sex: "Choose men or women.",
@@ -15,7 +16,7 @@ let ctx; // { rungsData, state, storage, onSaved, onCleared }
 
 const form = () => $("log-form");
 
-/** The draft in the form, in the same shape as a saved profile. */
+/** The draft in the form, in the same shape as a saved profile; the formula isn't on this screen, so it's kept. */
 function read() {
   const f = form().elements;
   return {
@@ -23,6 +24,7 @@ function read() {
     bodyweight: f.bodyweight.valueAsNumber,
     ...Object.fromEntries(L.LIFTS.map((lift) => [lift, f[lift].valueAsNumber])),
     weightClass: f.weightClass.value || null,
+    formula: ctx.state.profile.formula,
   };
 }
 
@@ -53,26 +55,37 @@ function renderResult() {
   $("log-note").textContent = problems.map((name) => FIELD_TEXT[name]).join(" ");
   $("save-test").disabled = !draft;
   renderClassNote(draft);
+  const { formula } = ctx.state.profile;
+  const unit = S.FORMULAS[formula].label;
+  $("result-unit").textContent = unit;
+  // The toggle changes only the saved formula, never the draft's numbers.
+  $("log-formula").replaceChildren(
+    ...formulaButtons(formula, (id) => {
+      ctx.state.profile = { ...ctx.state.profile, formula: id };
+      L.saveProfile(ctx.storage, ctx.state.profile);
+      renderResult();
+    }),
+  );
   if (!draft) {
     $("result-total").textContent = "Total –";
     $("result-delta").textContent = "";
     $("result-delta").className = "";
-    $("result-dots").textContent = "–";
+    $("result-score").textContent = "–";
     $("result-rungs").textContent = "Fix the highlighted values to see your result.";
     return;
   }
 
   const saved = ctx.state.profile;
   const total = L.sumLifts(draft);
-  const score = L.dots(draft.sex, draft.bodyweight, total);
-  const savedScore = L.dots(saved.sex, saved.bodyweight, L.sumLifts(saved));
+  const score = L.profileScore(draft);
+  const savedScore = L.profileScore(saved);
   const delta = score - savedScore;
   $("result-total").textContent = `Total ${total} kg`;
-  $("result-delta").textContent = `${delta >= 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)} vs saved`;
+  $("result-delta").textContent = `${delta >= 0 ? "+" : "−"}${S.formatScore(formula, Math.abs(delta))} vs saved`;
   $("result-delta").className = delta > 0 ? "up" : "";
-  $("result-dots").textContent = score.toFixed(1);
+  $("result-score").textContent = S.formatScore(formula, score);
 
-  const group = L.rungsFor(ctx.rungsData, draft.sex, L.effectiveClass(draft), ctx.state.experience);
+  const group = L.rungsFor(ctx.rungsData, formula, draft.sex, L.effectiveClass(draft), ctx.state.experience);
   if (!group) {
     $("result-rungs").textContent = "Not enough lifters in this group to publish rungs.";
     return;
@@ -82,7 +95,7 @@ function renderResult() {
   const plural = (n) => `${n} rung${n === 1 ? "" : "s"}`;
   $("result-rungs").textContent = [
     moved > 0 ? `Climbs ${plural(moved)}.` : moved < 0 ? `Drops ${plural(-moved)}.` : "",
-    next ? `Next rung needs ${(next.dots - score).toFixed(1)} more DOTS.` : "Clears every rung.",
+    next ? `Next rung needs ${S.formatScore(formula, next.score - score)} more ${unit}.` : "Clears every rung.",
   ].filter(Boolean).join(" ");
 }
 

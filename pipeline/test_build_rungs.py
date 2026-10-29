@@ -10,12 +10,12 @@ import pytest
 import build_rungs as br
 
 COLUMNS = ["Name", "Sex", "Event", "Equipment", "Age", "AgeClass", "Division", "BodyweightKg",
-           "TotalKg", "Place", "Dots", "Tested", "Federation", "MeetCountry", "Date", "MeetName"]
+           "TotalKg", "Place", "Dots", "Goodlift", "Tested", "Federation", "MeetCountry", "Date", "MeetName"]
 
 
 def row(name, date, meet="Meet", total=400, bw=70.0, **overrides):
     base = dict(Name=name, Sex="M", Event="SBD", Equipment="Raw", Age="", AgeClass="",
-                Division="Open", BodyweightKg=bw, TotalKg=total, Place="1", Dots="",
+                Division="Open", BodyweightKg=bw, TotalKg=total, Place="1", Dots="", Goodlift="",
                 Tested="Yes", Federation="EPA", MeetCountry="England", Date=date, MeetName=meet)
     base.update(overrides)
     return base
@@ -52,6 +52,28 @@ def test_dots_female_regression():
 def test_dots_clamps_bodyweight():
     assert br.dots("M", 20, 300) == br.dots("M", 40, 300)
     assert br.dots("M", 250, 300) == br.dots("M", 210, 300)
+
+
+# --- GL: the same cases as app/scoring.test.js -------------------------------
+
+@pytest.mark.parametrize("bw,expected", [(66, 57.68), (70, 55.92), (74, 54.32), (83, 51.22)])
+def test_gl_men_classic_full(bw, expected):
+    assert round(br.gl("M", bw, 370), 2) == expected
+
+
+def test_gl_women_classic_full():
+    assert round(br.gl("F", 60, 300), 2) == 67.81
+
+
+def test_gl_not_the_misprinted_constant():
+    assert abs(br.gl("M", 70, 370) - 30.9) > 10
+
+
+def test_gl_zero_total_and_clamped_bodyweight():
+    assert br.gl("M", 70, 0) == 0
+    assert br.gl("M", 20, 370) == br.gl("M", 40, 370)
+    assert br.gl("F", 20, 300) == br.gl("F", 35, 300)
+    assert br.gl("F", 36, 300) != br.gl("F", 35, 300)
 
 
 # --- Minor detection ----------------------------------------------------------
@@ -146,9 +168,25 @@ def test_small_groups_are_skipped(tmp_path):
 
 def test_extreme_percentiles_need_a_bigger_group(tmp_path):
     small = rung(br.build(write_csv(tmp_path, first_timers(20)), min_group=20), "first meet")
-    assert set(small) >= {"p25", "p50", "p75"} and "p10" not in small and "p90" not in small
     big = rung(br.build(write_csv(tmp_path, first_timers(50)), min_group=20), "first meet")
-    assert "p10" in big and "p90" in big
+    for formula in ("dots", "gl"):
+        assert set(small[formula]) == {"p25", "p50", "p75"}
+        assert set(big[formula]) == {"p10", "p25", "p50", "p75", "p90"}
+
+
+def test_dots_and_gl_come_from_the_same_lifters(tmp_path):
+    result = rung(br.build(write_csv(tmp_path, first_timers(20)), min_group=20), "first meet")
+    assert set(result) == {"sex", "weightClassKg", "experience", "lifters", "dots", "gl"}
+    totals = sorted(300 + i * 5 for i in range(20))
+    assert result["dots"]["p50"] == round(br.percentile([br.dots("M", 70, t) for t in totals], 50))
+    assert result["gl"]["p50"] == round(br.percentile([br.gl("M", 70, t) for t in totals], 50), 1)
+
+
+def test_rounding_dots_whole_gl_one_decimal(tmp_path):
+    result = rung(br.build(write_csv(tmp_path, first_timers(20)), min_group=20), "first meet")
+    assert all(isinstance(v, int) for v in result["dots"].values())
+    assert all(round(v, 1) == v for v in result["gl"].values())
+    assert any(round(v) != v for v in result["gl"].values()), "GL keeps its decimal place"
 
 
 def test_latest_result_per_lifter_is_used(tmp_path):
@@ -159,7 +197,8 @@ def test_latest_result_per_lifter_is_used(tmp_path):
             vets.append(row(f"Vet {i}", date, f"Meet {j}", total=total))
     result = br.build(write_csv(tmp_path, vets), min_group=20)
     # 2024-06-01 (600) and 2025-06-01 (400) are both "3+ meets"; the later one wins.
-    assert rung(result, "3+ meets")["p50"] == round(br.dots("M", 70, 400))
+    assert rung(result, "3+ meets")["dots"]["p50"] == round(br.dots("M", 70, 400))
+    assert rung(result, "3+ meets")["gl"]["p50"] == round(br.gl("M", 70, 400), 1)
 
 
 def test_output_has_no_names(tmp_path):
@@ -167,9 +206,11 @@ def test_output_has_no_names(tmp_path):
     assert "New " not in json.dumps(result)
 
 
-def test_csv_dots_column_is_preferred(tmp_path):
-    rows = [row(f"New {i}", "2025-06-01", "Debut", Dots="300") for i in range(20)]
-    assert rung(br.build(write_csv(tmp_path, rows), min_group=20), "first meet")["p50"] == 300
+def test_csv_score_columns_are_preferred(tmp_path):
+    rows = [row(f"New {i}", "2025-06-01", "Debut", Dots="300", Goodlift="61.23") for i in range(20)]
+    result = rung(br.build(write_csv(tmp_path, rows), min_group=20), "first meet")
+    assert result["dots"]["p50"] == 300
+    assert result["gl"]["p50"] == 61.2
 
 
 # --- Input handling -----------------------------------------------------------
