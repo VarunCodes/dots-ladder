@@ -89,7 +89,7 @@ function renderResult() {
     return;
   }
 
-  // The last test is scored with today's settings (sex, formula), so only the numbers differ.
+  // The last test is scored in its own sex and the chosen formula.
   const last = L.previousTest(ctx.state.tests, raw.date);
   const total = L.sumLifts(draft);
   const score = L.profileScore(draft);

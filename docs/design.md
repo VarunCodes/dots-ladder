@@ -145,11 +145,12 @@ Everything stays on the device. Nothing the lifter enters is sent anywhere.
 Three keys. Each new field defaults when it's missing, so older saved data loads without a migration step.
 
 - `dots-ladder:profile`: `{ "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190, "weightClass": null, "formula": "dots" }`
-  - The settings (`sex`, `weightClass`, `formula`) plus the latest test's numbers, so the Ladder reads one place.
+  - The settings (`weightClass`, `formula`) plus the latest test's sex and numbers, so the Ladder reads one place.
   - `weightClass` is `null` when it's worked out from bodyweight.
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
-- `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }]`
+- `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }]`
   - Every saved test, oldest first; same-day tests keep their save order.
+  - Each test records its sex, so it's always scored in the category it was done in ("vs last test", and the chart later). A test saved before this takes the profile's sex, which it was saved under.
   - Numbers saved before the history existed become its first test, dated the day the app first loads with history (their real date wasn't recorded).
 - `dots-ladder:events`: `[{ "id": "uuid", "name": "Spring meet", "month": "2027-04", "date": "2027-04-10", "bodyweight": 82, "conservative": { "squat": 155, "bench": 107.5, "deadlift": 195 }, "optimistic": null }]`
   - `date` is optional (`null` for a month-only plan). Setting it sets the month; moving the month away from it clears it. It stays on the device, like everything else.

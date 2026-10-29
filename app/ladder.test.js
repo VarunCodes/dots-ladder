@@ -164,8 +164,8 @@ test("an invalid profile isn't saved, and blocked storage reports failure", () =
 
 // --- Test history ----------------------------------------------------------------
 
-const test1 = { id: "a", date: "2026-10-25", bodyweight: 70, squat: 120, bench: 100, deadlift: 150 };
-const test2 = { id: "b", date: "2026-12-01", bodyweight: 69.5, squat: 130, bench: 102.5, deadlift: 160 };
+const test1 = { id: "a", date: "2026-10-25", sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150 };
+const test2 = { id: "b", date: "2026-12-01", sex: "M", bodyweight: 69.5, squat: 130, bench: 102.5, deadlift: 160 };
 
 test("days: local date, real calendar days only", () => {
   assert.equal(L.dayOf(new Date(2026, 0, 5)), "2026-01-05");
@@ -183,10 +183,34 @@ test("a test needs a real day between 1990 and today, and valid numbers", () => 
 });
 
 test("a stored test keeps only its fields; one dated after today still loads (the clock may have changed)", () => {
-  assert.deepEqual(L.validTest({ ...test1, sex: "M", extra: 1 }), test1);
+  assert.deepEqual(L.validTest({ ...test1, extra: 1 }), test1);
   assert.deepEqual(L.validTest({ ...test1, date: "2099-01-01" }).date, "2099-01-01");
   assert.equal(L.validTest({ ...test1, id: "" }), null);
   assert.equal(L.validTest({ ...test1, date: "2026-02-30" }), null);
+});
+
+test("each test keeps its sex; one saved before tests recorded it takes the profile's", () => {
+  const { sex, ...older } = test1;
+  assert.deepEqual(L.validTest(older, "M"), test1);
+  assert.equal(L.validTest(older), null, "no sex and no fallback");
+  assert.equal(L.validTest({ ...test1, sex: "X" }), null);
+  assert.equal(L.validTest({ ...test1, sex: "F" }, "M").sex, "F", "a recorded sex wins over the fallback");
+  const storage = fakeStorage({ [L.TESTS_KEY]: JSON.stringify([older]) });
+  assert.deepEqual(L.loadTests(storage, { ...me70, sex: "M" }, "2026-10-29", []), [test1]);
+  assert.equal(L.saveTests(fakeStorage(), [older]), false, "new saves must have a sex");
+});
+
+test("the profile's sex follows the latest test, so a backfill in another category doesn't flip the Ladder", () => {
+  const older = { ...test1, id: "w", date: "2026-01-01", sex: "F", bodyweight: 60 };
+  assert.equal(L.withLatestTest({ ...me70, sex: "F" }, [older, test2]).sex, "M");
+  assert.equal(L.withLatestTest(me70, [{ ...test2, sex: "F" }]).sex, "F");
+});
+
+test("a test is scored in its own sex, not the profile's", () => {
+  const women = { ...test1, sex: "F", bodyweight: 60 };
+  const asTested = L.profileScore(L.withLatestTest(me70, [women]));
+  assert.equal(asTested.toFixed(1), L.profileScore({ ...me70, sex: "F", bodyweight: 60 }).toFixed(1));
+  assert.notEqual(asTested, L.profileScore({ ...me70, bodyweight: 60 }), "men's DOTS for the same numbers differs");
 });
 
 test("tests sort by date; same-day tests keep the order they were saved in", () => {
@@ -208,7 +232,7 @@ test("the profile's numbers come from the latest test by date, not the last one 
   const profile = { ...me70, weightClass: "66", formula: "gl" };
   assert.deepEqual(L.withLatestTest(profile, [test2, test1]), { ...profile, bodyweight: 69.5, squat: 130, bench: 102.5, deadlift: 160 });
   assert.equal(L.withLatestTest(profile, []), profile);
-  assert.deepEqual(L.testFrom(profile, "2026-10-29", "x"), { id: "x", date: "2026-10-29", bodyweight: 70, squat: 120, bench: 100, deadlift: 150 });
+  assert.deepEqual(L.testFrom(profile, "2026-10-29", "x"), { id: "x", date: "2026-10-29", sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150 });
 });
 
 test("numbers saved before the history existed become its first test, dated today", () => {

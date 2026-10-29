@@ -110,13 +110,14 @@ export function saveProfile(storage, profile) {
 }
 
 // --- Test history: every saved 1RM test, dated --------------------------------------
-// A test is { id, date: "YYYY-MM-DD", bodyweight, squat, bench, deadlift }. Sex, class and formula are
-// settings on the profile; the profile's numbers mirror the latest test, so the Ladder reads one place.
+// A test is { id, date: "YYYY-MM-DD", sex, bodyweight, squat, bench, deadlift }. Each test keeps its own sex, so
+// it's always scored in the category it was done in. Class and formula are settings on the profile; the
+// profile's sex and numbers mirror the latest test, so the Ladder reads one place.
 
 export const TESTS_KEY = "dots-ladder:tests";
 export const EARLIEST_DATE = "1990-01-01";
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const NUMBERS = ["bodyweight", ...LIFTS];
+const TEST_FIELDS = ["sex", "bodyweight", ...LIFTS];
 
 /** "YYYY-MM-DD" for a date, in local time. */
 export function dayOf(date) {
@@ -139,11 +140,15 @@ export function testProblems(raw, today) {
   return bad;
 }
 
-/** A clean copy of a stored test, or null. The future-date rule is for entry only, so a stored test survives a clock change. */
-export function validTest(raw) {
+/**
+ * A clean copy of a stored test, or null. A test saved before tests recorded sex takes `fallbackSex` (the profile's,
+ * which it was saved under). The future-date rule is for entry only, so a stored test survives a clock change.
+ */
+export function validTest(raw, fallbackSex) {
   if (raw == null || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id) return null;
-  if (testProblems(raw, "9999-12-31").length) return null;
-  return { id: raw.id, date: raw.date, ...Object.fromEntries(NUMBERS.map((name) => [name, raw[name]])) };
+  const sex = raw.sex in CLASSES ? raw.sex : fallbackSex;
+  if (!(sex in CLASSES) || testProblems(raw, "9999-12-31").length) return null;
+  return { id: raw.id, date: raw.date, ...Object.fromEntries(TEST_FIELDS.map((name) => [name, raw[name]])), sex };
 }
 
 /** Tests oldest first by date; tests on the same day keep the order they were saved in. */
@@ -161,10 +166,10 @@ export function latestTest(tests) {
   return sortTests(tests).at(-1) ?? null;
 }
 
-/** The profile with its numbers taken from the latest test (unchanged if there are none). */
+/** The profile with its sex and numbers taken from the latest test (unchanged if there are none). */
 export function withLatestTest(profile, tests) {
   const latest = latestTest(tests);
-  return latest ? { ...profile, ...Object.fromEntries(NUMBERS.map((name) => [name, latest[name]])) } : profile;
+  return latest ? { ...profile, ...Object.fromEntries(TEST_FIELDS.map((name) => [name, latest[name]])) } : profile;
 }
 
 /** A unique id for a saved test or event. */
@@ -172,9 +177,9 @@ export function newId(prefix) {
   return globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** A new test from the profile's numbers. */
+/** A new test from the profile's sex and numbers. */
 export function testFrom(profile, date, id) {
-  return { id, date, ...Object.fromEntries(NUMBERS.map((name) => [name, profile[name]])) };
+  return { id, date, ...Object.fromEntries(TEST_FIELDS.map((name) => [name, profile[name]])) };
 }
 
 /**
@@ -184,7 +189,7 @@ export function testFrom(profile, date, id) {
 export function loadTests(storage, profile, today, fallback) {
   try {
     const raw = JSON.parse(storage.getItem(TESTS_KEY));
-    if (Array.isArray(raw)) return sortTests(raw.map(validTest).filter(Boolean));
+    if (Array.isArray(raw)) return sortTests(raw.map((test) => validTest(test, profile?.sex)).filter(Boolean));
     return profile ? [testFrom(profile, today, "first")] : fallback;
   } catch {
     return fallback;
@@ -193,7 +198,7 @@ export function loadTests(storage, profile, today, fallback) {
 
 /** Saves the tests if every one is valid; returns whether they were saved. */
 export function saveTests(storage, tests) {
-  const clean = tests.map(validTest);
+  const clean = tests.map((test) => validTest(test));
   if (clean.includes(null)) return false;
   try {
     storage.setItem(TESTS_KEY, JSON.stringify(sortTests(clean)));
