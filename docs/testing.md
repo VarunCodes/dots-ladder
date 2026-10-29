@@ -30,6 +30,7 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
 - **DOTS**: the spec's values, parity with the pipeline, clamping with no NaN or Infinity, and ignoring equipment and event.
 - **GL**: men's classic 370 kg at 66, 70, 74 and 83 kg; women's 300 kg at 60 kg; not the misprinted constant; a total of 0; clamping at the minimum bodyweight for every sex, equipment and event; and the right coefficients picked.
+- **GL against an independent source**: one result for each of the 8 sex, equipment and event combinations must match OpenPowerlifting's own GL score (its `Goodlift` column, from its separate implementation) to 2 decimal places, so a wrong or swapped coefficient fails. Numbers only, no lifters: each bodyweight and total is shared by 2+ lifters. The 24 coefficients were also checked against the IPF's 2020 GL table.
 - **Helpers**: the total for a score inverts the score, kg to the next rung rounds up to a multiple of 2.5 kg for both formulas, the same total at a lighter bodyweight, and display precision (DOTS 1 decimal place, GL 2).
 
 `app/ladder.test.js` checks the page's logic in `app/ladder.js`:

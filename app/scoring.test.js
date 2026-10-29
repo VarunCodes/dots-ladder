@@ -74,6 +74,26 @@ test("GL: a total of 0 is 0, and bodyweight below the minimum is clamped, with n
   }
 });
 
+// One result per sex, equipment and event, checked against OpenPowerlifting's own GL score (its Goodlift column,
+// from its separate implementation), so a wrong or swapped coefficient set fails here. Numbers only: each
+// bodyweight and total is shared by 2+ lifters near that combination's median bodyweight (Oct 2026 snapshot).
+const OPENPOWERLIFTING_GL = [
+  { sex: "M", equipment: "classic", event: "full", bw: 87.72, total: 545, expected: "73.38" },
+  { sex: "M", equipment: "classic", event: "bench", bw: 88.7, total: 140, expected: "68.00" },
+  { sex: "M", equipment: "equipped", event: "full", bw: 82.5, total: 570, expected: "66.06" },
+  { sex: "M", equipment: "equipped", event: "bench", bw: 89.75, total: 167.5, expected: "56.60" },
+  { sex: "F", equipment: "classic", event: "full", bw: 66.9, total: 347.5, expected: "73.27" },
+  { sex: "F", equipment: "classic", event: "bench", bw: 63.3, total: 52.5, expected: "43.69" },
+  { sex: "F", equipment: "equipped", event: "full", bw: 62.4, total: 270, expected: "49.01" },
+  { sex: "F", equipment: "equipped", event: "bench", bw: 62.46, total: 110, expected: "66.74" },
+];
+
+test("GL matches OpenPowerlifting's independent scores for every sex, equipment and event", () => {
+  for (const { sex, equipment, event, bw, total, expected } of OPENPOWERLIFTING_GL) {
+    assert.equal(shown("gl", gl(total, bw, sex, { equipment, event })), expected, `${sex} ${equipment} ${event}`);
+  }
+});
+
 test("GL picks the coefficients for equipment and event", () => {
   const classicFull = gl(370, 70, "M");
   assert.notEqual(gl(370, 70, "M", { equipment: "equipped" }), classicFull);
