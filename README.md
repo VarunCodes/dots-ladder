@@ -12,8 +12,8 @@ The app can also show **IPF GL points** (the IPF's "Goodlift" formula) instead: 
 
 - **First visit:** the app asks for your sex, bodyweight and squat, bench and deadlift 1RMs, then shows your DOTS and where you sit on the ladder. Nothing else appears until you've entered them.
 - **Ladder:** your DOTS (or GL), the next rung and how many kg it takes, and the rungs for your class and meet experience (first meet, second meet, 3+ meets), with your events and a gym-goer estimate alongside (DOTS only: it's an estimate, and there's no GL version of it).
-- **Log test:** after a training block or 1RM test, step your bodyweight and lifts up or down and see your new DOTS and rungs before you save. Your weight class is worked out from your bodyweight, or you can pick one to compare against, such as a class you plan to cut to.
-- **Progress → your events:** add upcoming meets or test days, each with a month, the bodyweight you expect, and conservative and optimistic squat, bench and deadlift targets. The next 3 show on the ladder, so you can see which rungs each target would reach.
+- **Log test:** after a training block or 1RM test, step your bodyweight and lifts up or down and see your new DOTS, how it compares with your last test, and the rungs it climbs before you save. Each saved test is dated (today, or an earlier day to backfill an old test) and kept in your history. Your weight class is worked out from your bodyweight, or you can pick one to compare against, such as a class you plan to cut to.
+- **Progress → your events:** add upcoming meets or test days, each with a month (or an exact date, which counts down as "Meet in N days" on the ladder), the bodyweight you expect, and conservative and optimistic squat, bench and deadlift targets. The next 3 show on the ladder, so you can see which rungs each target would reach.
 - **Private to your phone:** everything you enter is saved in the browser on that device, and never sent anywhere or committed.
 
 ## How it works

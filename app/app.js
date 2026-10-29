@@ -32,7 +32,7 @@ async function loadJson(path) {
   return response.json();
 }
 
-/** Rows to place among the rungs: you, the gym-goer estimate (DOTS only), and each upcoming event's scenarios. */
+/** Rows to place among the rungs: you, the gym-goer estimate (DOTS only), and each upcoming event's scenarios (named only when there are two). */
 function markers(state, points) {
   const { profile, events, thisMonth } = state;
   const reference = L.referenceMarker(profile.sex, profile.formula);
@@ -40,7 +40,7 @@ function markers(state, points) {
   for (const event of L.ladderEvents(events, thisMonth)) {
     const scores = L.eventScores(event, profile.sex, profile.formula);
     for (const { scenario, score } of scores) {
-      list.push({ kind: "event", label: eventLabel(event, scores.length > 1 ? scenario : null), score });
+      list.push({ kind: "event", label: eventLabel(event), scenario: scores.length > 1 ? scenario : null, score });
     }
   }
   return list;
@@ -54,6 +54,27 @@ function position(rows) {
   if (cleared && next) return `between P${cleared.percentile} and P${next.percentile}`;
   if (next) return `below P${next.percentile}`;
   return cleared ? `above P${cleared.percentile}` : "";
+}
+
+/** "Meet in N days" for the soonest event with an exact date, today or later; hidden without one. */
+function renderMeetPill(state) {
+  const next = L.nextMeet(state.events, state.today);
+  $("meet-pill").hidden = !next;
+  if (!next) return;
+  const { days, event } = next;
+  $("meet-pill").textContent = days === 0 ? "Meet today" : `Meet in ${days} day${days === 1 ? "" : "s"}`;
+  $("meet-pill").title = eventLabel(event);
+}
+
+const SCENARIO_SHORT = { conservative: "cons.", optimistic: "opt." };
+
+/** " (conservative)", shortened to " (cons.)" on narrow screens; the stylesheet picks, and screen readers get the full word. */
+function scenarioWords(scenario) {
+  const words = el("span", "scenario-name");
+  const short = el("span", "scenario-short", SCENARIO_SHORT[scenario]);
+  short.setAttribute("aria-hidden", "true");
+  words.append(" (", el("span", "scenario-full", scenario), short, ")");
+  return words;
 }
 
 function renderHero(profile, points, rows) {
@@ -101,7 +122,9 @@ function renderRow(row, profile) {
     end.append(icon("icon-person"));
   } else if (row.kind === "event") {
     key.append(icon("icon-flag"));
-    main.append(el("span", "row-title", row.label), el("span", "row-sub", `${S.formatScore(formula, row.score)} ${unit}`));
+    const title = el("span", "row-title", row.label);
+    if (row.scenario) title.append(scenarioWords(row.scenario));
+    main.append(title, el("span", "row-sub", `${S.formatScore(formula, row.score)} ${unit}`));
     end.textContent = signed(row.gap, formula);
   } else {
     key.textContent = "≈";
@@ -154,6 +177,7 @@ function render(rungsData, state, storage) {
       ? `${group.lifters} lifters in this group.`
       : `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
   renderHero(profile, points, rows);
+  renderMeetPill(state);
   renderNext(profile, points, group, missing);
   $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
 }
@@ -194,12 +218,14 @@ function setupOnboarding(state, storage, onDone) {
     button.disabled = !L.validProfile(raw);
   });
 
+  // The first numbers are the first test in the history, dated today.
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const profile = L.validProfile(read());
     if (!profile) return;
     state.profile = profile;
-    onDone(L.saveProfile(storage, profile));
+    state.tests = [L.testFrom(profile, state.today, L.newId("test"))];
+    onDone(L.saveProfile(storage, profile) && L.saveTests(storage, state.tests));
   });
 }
 
@@ -207,8 +233,20 @@ try {
   const rungsData = await loadJson("data/rungs.json");
   const storage = deviceStorage();
   const thisMonth = L.monthOf(new Date());
-  // New visitors start blank: no saved numbers means the onboarding form, and events start empty.
-  const state = { profile: L.loadProfile(storage, null), events: L.loadEvents(storage, []), thisMonth, experience: L.EXPERIENCE[0] };
+  const today = L.dayOf(new Date());
+  // New visitors start blank: no saved numbers means the onboarding form, and events and tests start empty.
+  const saved = L.loadProfile(storage, null);
+  const tests = L.loadTests(storage, saved, today, []);
+  // Numbers saved before the history existed become its first test; saving now keeps that test's date.
+  if (saved && tests.length) L.saveTests(storage, tests);
+  const state = {
+    profile: saved && L.withLatestTest(saved, tests),
+    tests,
+    events: L.loadEvents(storage, []),
+    thisMonth,
+    today,
+    experience: L.EXPERIENCE[0],
+  };
   if (rungsData.snapshot) $("snapshot").textContent = `, snapshot ${fmtDate(rungsData.snapshot)}`;
 
   // Routing: "#/ladder" (default), "#/log" and "#/progress". Without saved numbers, everything is the first-visit form.

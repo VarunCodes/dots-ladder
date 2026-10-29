@@ -79,6 +79,7 @@
           <h2 id="board-heading" class="visually-hidden">Where you stand</h2>
           <p class="hero-score"><span id="now-score">–</span> <span id="now-unit" class="hero-unit">your DOTS</span></p>
           <p id="now-caption" class="muted">Loading…</p>
+          <p id="meet-pill" class="pill" hidden></p>
         </header>
 
         <section class="card next-card" aria-label="Next rung">
@@ -109,6 +110,10 @@
         <h1 id="log-title">New 1RMs</h1>
       </header>
       <form id="log-form" autocomplete="off">
+        <label class="class-field date-field">Test date
+          <input id="log-date" name="date" type="date" required>
+        </label>
+        <p id="date-note" class="muted small"></p>
         <fieldset class="segmented">
           <legend class="visually-hidden">Sex</legend>
           <label><input type="radio" name="sex" value="M"><svg class="sex-icon" aria-hidden="true"><use href="#icon-male"/></svg>Men</label>

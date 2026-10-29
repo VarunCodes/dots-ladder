@@ -65,6 +65,25 @@ a:hover { color: var(--accent-hover); }
 .hero { display: flex; flex-direction: column; gap: 4px; }
 /* The toggle sits top right, out of the flow, so its 44px buttons don't push the score down. Under 360px it
    would overlap the score's digits, so there it stays in the row. */
+/* "Meet in N days": the soonest dated event. Accent, because it's your next action. */
+.pill {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* Event scenarios: the full word, or "cons." / "opt." under 400px. The full word stays readable to screen readers. */
+.scenario-short { display: none; }
+@media (max-width: 399px) {
+  .scenario-full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .scenario-short { display: inline; }
+}
+
 .hero-top { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 @media (min-width: 360px) {
   .hero-top .formula-toggle { position: absolute; top: 0; right: 0; }
@@ -293,7 +312,7 @@ a:hover { color: var(--accent-hover); }
 .stepper input:invalid { border-color: var(--error); background: color-mix(in srgb, var(--error) 12%, transparent); }
 
 .class-field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 0.8125rem; color: var(--muted); }
-.class-field select {
+.class-field select, .class-field input {
   min-height: 44px;
   padding: 8px 12px;
   border: 1px solid var(--border);
@@ -303,6 +322,9 @@ a:hover { color: var(--accent-hover); }
   font: inherit;
   font-size: 1rem;
 }
+
+.date-field { margin-top: 0; }
+.date-field input:invalid { border-color: var(--error); }
 
 .result-card {
   display: flex;

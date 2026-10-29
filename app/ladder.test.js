@@ -162,10 +162,104 @@ test("an invalid profile isn't saved, and blocked storage reports failure", () =
   assert.equal(L.saveProfile(fakeStorage({}, { fail: true }), me70), false);
 });
 
+// --- Test history ----------------------------------------------------------------
+
+const test1 = { id: "a", date: "2026-10-25", sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150 };
+const test2 = { id: "b", date: "2026-12-01", sex: "M", bodyweight: 69.5, squat: 130, bench: 102.5, deadlift: 160 };
+
+test("days: local date, real calendar days only", () => {
+  assert.equal(L.dayOf(new Date(2026, 0, 5)), "2026-01-05");
+  assert.ok(L.isDay("2028-02-29"));
+  for (const bad of ["2026-02-29", "2026-13-01", "2026-1-05", "", null, "yesterday"]) assert.ok(!L.isDay(bad), String(bad));
+});
+
+test("a test needs a real day between 1990 and today, and valid numbers", () => {
+  assert.deepEqual(L.testProblems(test1, "2026-10-29"), []);
+  assert.deepEqual(L.testProblems(test1, "2026-10-25"), [], "today is fine");
+  assert.deepEqual(L.testProblems(test1, "2026-10-24"), ["date"], "no future dates");
+  assert.deepEqual(L.testProblems({ ...test1, date: "" }, "2026-10-29"), ["date"]);
+  assert.deepEqual(L.testProblems({ ...test1, date: "1989-12-31" }, "2026-10-29"), ["date"]);
+  assert.deepEqual(L.testProblems({ ...test1, bench: 0 }, "2026-10-29"), ["bench"]);
+});
+
+test("a stored test keeps only its fields; one dated after today still loads (the clock may have changed)", () => {
+  assert.deepEqual(L.validTest({ ...test1, extra: 1 }), test1);
+  assert.deepEqual(L.validTest({ ...test1, date: "2099-01-01" }).date, "2099-01-01");
+  assert.equal(L.validTest({ ...test1, id: "" }), null);
+  assert.equal(L.validTest({ ...test1, date: "2026-02-30" }), null);
+});
+
+test("each test keeps its sex; one saved before tests recorded it takes the profile's", () => {
+  const { sex, ...older } = test1;
+  assert.deepEqual(L.validTest(older, "M"), test1);
+  assert.equal(L.validTest(older), null, "no sex and no fallback");
+  assert.equal(L.validTest({ ...test1, sex: "X" }), null);
+  assert.equal(L.validTest({ ...test1, sex: "F" }, "M").sex, "F", "a recorded sex wins over the fallback");
+  const storage = fakeStorage({ [L.TESTS_KEY]: JSON.stringify([older]) });
+  assert.deepEqual(L.loadTests(storage, { ...me70, sex: "M" }, "2026-10-29", []), [test1]);
+  assert.equal(L.saveTests(fakeStorage(), [older]), false, "new saves must have a sex");
+});
+
+test("the profile's sex follows the latest test, so a backfill in another category doesn't flip the Ladder", () => {
+  const older = { ...test1, id: "w", date: "2026-01-01", sex: "F", bodyweight: 60 };
+  assert.equal(L.withLatestTest({ ...me70, sex: "F" }, [older, test2]).sex, "M");
+  assert.equal(L.withLatestTest(me70, [{ ...test2, sex: "F" }]).sex, "F");
+});
+
+test("a test is scored in its own sex, not the profile's", () => {
+  const women = { ...test1, sex: "F", bodyweight: 60 };
+  const asTested = L.profileScore(L.withLatestTest(me70, [women]));
+  assert.equal(asTested.toFixed(1), L.profileScore({ ...me70, sex: "F", bodyweight: 60 }).toFixed(1));
+  assert.notEqual(asTested, L.profileScore({ ...me70, bodyweight: 60 }), "men's DOTS for the same numbers differs");
+});
+
+test("tests sort by date; same-day tests keep the order they were saved in", () => {
+  const sameDay = { ...test1, id: "a2", squat: 125 };
+  assert.deepEqual(L.sortTests([test2, test1, sameDay]).map((t) => t.id), ["a", "a2", "b"]);
+  assert.equal(L.latestTest([test2, test1]).id, "b");
+  assert.equal(L.latestTest([]), null);
+});
+
+test("the last test is the latest on or before the new test's date", () => {
+  const tests = [test1, test2];
+  assert.equal(L.previousTest(tests, "2026-12-15").id, "b");
+  assert.equal(L.previousTest(tests, "2026-12-01").id, "b", "a test the same day counts");
+  assert.equal(L.previousTest(tests, "2026-11-10").id, "a", "backfilling compares with the test before it");
+  assert.equal(L.previousTest(tests, "2026-01-01"), null, "earlier than every test: nothing to compare with");
+});
+
+test("the profile's numbers come from the latest test by date, not the last one saved", () => {
+  const profile = { ...me70, weightClass: "66", formula: "gl" };
+  assert.deepEqual(L.withLatestTest(profile, [test2, test1]), { ...profile, bodyweight: 69.5, squat: 130, bench: 102.5, deadlift: 160 });
+  assert.equal(L.withLatestTest(profile, []), profile);
+  assert.deepEqual(L.testFrom(profile, "2026-10-29", "x"), { id: "x", date: "2026-10-29", sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150 });
+});
+
+test("numbers saved before the history existed become its first test, dated today", () => {
+  assert.deepEqual(L.loadTests(fakeStorage(), me70, "2026-10-29", []), [L.testFrom(me70, "2026-10-29", "first")]);
+  assert.deepEqual(L.loadTests(fakeStorage(), null, "2026-10-29", []), [], "a new visitor has no tests");
+});
+
+test("tests round-trip sorted; invalid ones are dropped; corrupt or blocked storage falls back", () => {
+  const storage = fakeStorage();
+  assert.equal(L.saveTests(storage, [test2, test1]), true);
+  assert.deepEqual(L.loadTests(storage, me70, "2026-10-29", []), [test1, test2]);
+  storage.data.set(L.TESTS_KEY, JSON.stringify([test1, { ...test2, squat: -5 }]));
+  assert.deepEqual(L.loadTests(storage, me70, "2026-10-29", []), [test1]);
+  assert.deepEqual(L.loadTests(fakeStorage({ [L.TESTS_KEY]: "{not json" }), me70, "2026-10-29", ["fallback"]), ["fallback"]);
+  assert.deepEqual(L.loadTests(fakeStorage({}, { fail: true }), me70, "2026-10-29", ["fallback"]), ["fallback"]);
+  assert.equal(L.saveTests(fakeStorage(), [{ ...test1, date: "nope" }]), false);
+  assert.equal(L.saveTests(fakeStorage({}, { fail: true }), [test1]), false);
+});
+
+test("ids are unique", () => {
+  assert.notEqual(L.newId("test"), L.newId("test"));
+});
+
 // --- Events --------------------------------------------------------------------
 
 const lifts = (squat, bench, deadlift) => ({ squat, bench, deadlift });
-const may = { id: "may", name: "", month: "2027-05", bodyweight: 70, conservative: lifts(138, 107, 168), optimistic: lifts(154, 111, 184) };
+const may = { id: "may", name: "", month: "2027-05", date: null, bodyweight: 70, conservative: lifts(138, 107, 168), optimistic: lifts(154, 111, 184) };
 const empty = lifts(NaN, NaN, NaN); // what an untouched form scenario reads as
 
 test("months: this month in local time, and the month after", () => {
@@ -187,6 +281,30 @@ test("event problems name each wrong value", () => {
   assert.deepEqual(L.eventProblems({ ...may, bodyweight: 0 }), ["bodyweight"]);
   assert.deepEqual(L.eventProblems({ ...may, name: "x".repeat(41) }), ["name"]);
   assert.deepEqual(L.eventProblems({ ...may, optimistic: lifts(154, NaN, 0) }), ["optimistic.bench", "optimistic.deadlift"]);
+});
+
+test("an event's exact date is optional, must be a real day, and must fall in its month", () => {
+  assert.deepEqual(L.validEvent({ ...may, date: "2027-05-15" }), { ...may, date: "2027-05-15" });
+  assert.deepEqual(L.validEvent({ ...may, date: "" }), may, "an empty date field is no date");
+  assert.deepEqual(L.eventProblems({ ...may, date: "2027-06-15" }), ["date"]);
+  assert.deepEqual(L.eventProblems({ ...may, date: "2027-05-32" }), ["date"]);
+  const { date, ...older } = may; // saved before exact dates existed
+  assert.deepEqual(L.validEvent(older), may);
+});
+
+test("the meet pill counts down to the soonest dated event, today included", () => {
+  const at = (id, date) => ({ ...may, id, month: date.slice(0, 7), date });
+  const events = [at("later", "2027-05-01"), at("past", "2026-10-01"), { ...may, id: "undated", month: "2026-11" }, at("soon", "2026-11-14")];
+  assert.deepEqual(L.nextMeet(events, "2026-10-29"), { event: events[3], days: 16 });
+  assert.equal(L.nextMeet(events, "2026-11-14").days, 0);
+  assert.equal(L.nextMeet(events, "2027-05-02"), null);
+  assert.equal(L.nextMeet([], "2026-10-29"), null);
+});
+
+test("days between dates count calendar days, across month ends and clock changes", () => {
+  assert.equal(L.daysBetween("2026-10-24", "2026-10-26"), 2, "UK clocks go back on 25 Oct 2026");
+  assert.equal(L.daysBetween("2026-12-31", "2027-01-01"), 1);
+  assert.equal(L.daysBetween("2028-02-28", "2028-03-01"), 2, "leap year");
 });
 
 test("an event needs at least one scenario", () => {

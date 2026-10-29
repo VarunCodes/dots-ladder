@@ -1,10 +1,13 @@
-// "Log test" screen: steppers for bodyweight and the three lifts, sex and weight class, and a live
-// result. Edits are a draft until "Save test". Logic lives in ladder.js; this file only renders.
+// "Log test" screen: the test date, steppers for bodyweight and the three lifts, sex and weight class, and a
+// live result against your last test. Edits are a draft until "Save test", which adds the test to your
+// history. Logic lives in ladder.js; this file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
 import { $, formulaButtons } from "./dom.js";
+import { fmtDay } from "./events.js";
 
 export const FIELD_TEXT = {
+  date: "Pick the day of the test (not a future one).",
   sex: "Choose men or women.",
   bodyweight: `Bodyweight must be ${L.LIMITS.bodyweight.join("–")} kg.`,
   ...Object.fromEntries(L.LIFTS.map((lift) => [lift, `${lift[0].toUpperCase()}${lift.slice(1)} must be ${L.LIMITS.lift.join("–")} kg.`])),
@@ -12,7 +15,7 @@ export const FIELD_TEXT = {
 
 const LIMITS_FOR = { bodyweight: L.LIMITS.bodyweight, squat: L.LIMITS.lift, bench: L.LIMITS.lift, deadlift: L.LIMITS.lift };
 
-let ctx; // { rungsData, state, storage, onSaved, onCleared }
+let ctx; // { rungsData, state, storage, onSaved, onCleared }; state has profile, tests and today
 
 const form = () => $("log-form");
 
@@ -25,6 +28,7 @@ function read() {
     ...Object.fromEntries(L.LIFTS.map((lift) => [lift, f[lift].valueAsNumber])),
     weightClass: f.weightClass.value || null,
     formula: ctx.state.profile.formula,
+    date: f.date.value,
   };
 }
 
@@ -47,13 +51,23 @@ function renderClassNote(profile) {
         : "Worked out from your bodyweight. Pick a class to compare against a different one.";
 }
 
-/** The live result card and the Save button, for the current draft against the saved numbers. */
+/** Under the date: what happens to a test dated before your latest one. */
+function renderDateNote(date) {
+  const latest = L.latestTest(ctx.state.tests);
+  $("date-note").textContent = latest && L.isDay(date) && date < latest.date
+    ? `Earlier than your latest test (${fmtDay(latest.date)}), so it goes into your history and the Ladder keeps showing the latest.`
+    : "";
+}
+
+/** The live result card and the Save button, for the current draft against your last test on or before its date. */
 function renderResult() {
   const raw = read();
-  const draft = L.validProfile(raw);
-  const problems = L.invalidFields(raw);
+  const dateOk = !L.testProblems(raw, ctx.state.today).includes("date");
+  const draft = dateOk ? L.validProfile(raw) : null;
+  const problems = [...(dateOk ? [] : ["date"]), ...L.invalidFields(raw)];
   $("log-note").textContent = problems.map((name) => FIELD_TEXT[name]).join(" ");
   $("save-test").disabled = !draft;
+  renderDateNote(raw.date);
   renderClassNote(draft);
   const { formula } = ctx.state.profile;
   const unit = S.FORMULAS[formula].label;
@@ -75,14 +89,15 @@ function renderResult() {
     return;
   }
 
-  const saved = ctx.state.profile;
+  // The last test is scored in its own sex and the chosen formula.
+  const last = L.previousTest(ctx.state.tests, raw.date);
   const total = L.sumLifts(draft);
   const score = L.profileScore(draft);
-  const savedScore = L.profileScore(saved);
-  const delta = score - savedScore;
+  const lastScore = last ? L.profileScore(L.withLatestTest(draft, [last])) : score;
+  const delta = score - lastScore;
   $("result-total").textContent = `Total ${total} kg`;
-  $("result-delta").textContent = `${delta >= 0 ? "+" : "−"}${S.formatScore(formula, Math.abs(delta))} vs saved`;
-  $("result-delta").className = delta > 0 ? "up" : "";
+  $("result-delta").textContent = last ? `${delta >= 0 ? "+" : "−"}${S.formatScore(formula, Math.abs(delta))} vs last test` : "First test";
+  $("result-delta").className = last && delta > 0 ? "up" : "";
   $("result-score").textContent = S.formatScore(formula, score);
 
   const group = L.rungsFor(ctx.rungsData, formula, draft.sex, L.effectiveClass(draft), ctx.state.experience);
@@ -90,7 +105,7 @@ function renderResult() {
     $("result-rungs").textContent = "Not enough lifters in this group to publish rungs.";
     return;
   }
-  const moved = L.rungsClimbed(group.rungs, savedScore, score);
+  const moved = L.rungsClimbed(group.rungs, lastScore, score);
   const next = L.nextRung(group.rungs, score);
   const plural = (n) => `${n} rung${n === 1 ? "" : "s"}`;
   $("result-rungs").textContent = [
@@ -99,10 +114,13 @@ function renderResult() {
   ].filter(Boolean).join(" ");
 }
 
-/** Fills the form from the saved numbers; called each time the screen opens, so an unsaved draft is dropped. */
+/** Fills the form from your latest test, dated today; called each time the screen opens, so an unsaved draft is dropped. */
 export function openLog({ focusClass = false } = {}) {
   const profile = ctx.state.profile;
   const f = form().elements;
+  f.date.value = ctx.state.today;
+  f.date.max = ctx.state.today;
+  f.date.min = L.EARLIEST_DATE;
   f.sex.value = profile.sex;
   for (const name of ["bodyweight", ...L.LIFTS]) f[name].value = profile[name];
   fillClassSelect(profile);
@@ -131,23 +149,29 @@ export function setupLog(context) {
     renderResult();
   });
 
+  // Saving adds the test to the history; the profile keeps the sex, class and formula, and the latest test's numbers.
   form().addEventListener("submit", (event) => {
     event.preventDefault();
-    const profile = L.validProfile(read());
-    if (!profile) return;
-    ctx.state.profile = profile;
-    ctx.onSaved(L.saveProfile(ctx.storage, profile));
+    const raw = read();
+    const draft = L.validProfile(raw);
+    if (!draft || L.testProblems(raw, ctx.state.today).length) return;
+    const tests = L.sortTests([...ctx.state.tests, L.testFrom(draft, raw.date, L.newId("test"))]);
+    ctx.state.tests = tests;
+    ctx.state.profile = L.withLatestTest(draft, tests);
+    ctx.onSaved(L.saveTests(ctx.storage, tests) && L.saveProfile(ctx.storage, ctx.state.profile));
   });
 
   // Clearing goes back to the first-visit form; there are no default numbers to fall back to.
   $("clear-numbers").addEventListener("click", () => {
-    if (!window.confirm("Clear your numbers from this phone? You'll be asked for them again.")) return;
+    if (!window.confirm("Clear your numbers and test history from this phone? You'll be asked for them again.")) return;
     try {
       ctx.storage?.removeItem(L.PROFILE_KEY);
+      ctx.storage?.removeItem(L.TESTS_KEY);
     } catch {
       // Nothing saved to clear.
     }
     ctx.state.profile = null;
+    ctx.state.tests = [];
     ctx.onCleared();
   });
 }
