@@ -18,26 +18,35 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
 `pipeline/test_build_rungs.py` checks `build_rungs.py` against the privacy rules and the data logic:
 
-- **DOTS**: known values for men and women, and bodyweight clamping.
+- **DOTS and GL**: known values for men and women, bodyweight clamping (GL: 40 kg men, 35 kg women), a total of 0, and a guard against the misprinted men's GL constant. The same values as `app/scoring.test.js`.
+- **DOTS and GL rungs**: both come from the same lifters' same results, have the same percentiles, and are rounded (DOTS whole numbers, GL 1 decimal place); the CSV's own `Dots` and `Goodlift` values are preferred.
 - **Minors**: sub-junior, teen and under-18 divisions, ages and age classes are excluded; "Submasters" and adult divisions are kept.
 - **Filters**: non-UK, non-raw, non-SBD, disqualified, pre-`--since` and nameless rows are dropped; `--tested-only` works.
 - **Experience**: meets in any country or event count; no-shows don't; a lifter entered in two divisions at one meet counts once.
 - **Anonymity**: groups under 20 lifters are skipped, p10/p90 appear only at 50+, and no names reach the output.
 - **Input and output**: reading the CSV from inside the zip, the snapshot date taken from the zip's file name, clear errors for bad zips, and the CLI writing JSON.
 
+`app/scoring.test.js` checks the formulas in `app/scoring.js`, including every case in `docs/design.md` section 7:
+
+- **DOTS**: the spec's values, parity with the pipeline, clamping with no NaN or Infinity, and ignoring equipment and event.
+- **GL**: men's classic 370 kg at 66, 70, 74 and 83 kg; women's 300 kg at 60 kg; not the misprinted constant; a total of 0; clamping at the minimum bodyweight for every sex, equipment and event; and the right coefficients picked.
+- **Helpers**: the total for a score inverts the score, kg to the next rung rounds up to a multiple of 2.5 kg for both formulas, the same total at a lighter bodyweight, and display precision (DOTS 1 decimal place, GL 2).
+
 `app/ladder.test.js` checks the page's logic in `app/ladder.js`:
 
-- **Parity with the pipeline**: the same DOTS values, bodyweight clamping and weight-class boundaries as the Python tests, so the page and the rungs never disagree.
-- **Page logic**: the rungs for a group, the next rung to beat, and the ladder's rows (highest first, the next rung marked, cleared rungs, the gap from your score, ties putting the rung above the marker). The kg to the next rung rounds up to 2.5 kg. The design spec's required DOTS cases are tests too, and every published percentile must have a name.
+- **Parity with the pipeline**: the same weight-class boundaries as the Python tests, so the page and the rungs never disagree.
+- **Page logic**: the rungs for a group in one formula (never mixed, and none when the group lacks that formula), the next rung to beat, and the ladder's rows (highest first, the next rung marked, cleared rungs, the gap from your score, ties putting the rung above the marker). Every published percentile must have a name.
+- **Formula setting**: a profile saved without a formula loads as DOTS, GL is kept and round-trips, and the profile's score follows it.
 - **Events**: month handling, which values are wrong (including "fill in at least one scenario"), clean copies with empty scenarios as null, scores at the event's bodyweight, the next 3 upcoming events for the ladder, the class note when an event's bodyweight is in another class, the rung an event beats, and saving and loading (invalid saved events dropped, deleting every event kept, corrupt or blocked storage falling back).
 - **Screens and Log test**: the route from the URL hash (unknown or query-suffixed hashes handled), stepper presses (one decimal place, kept in range, an empty field starting at the minimum), and how many rungs a new result climbs or drops.
 - **First visit**: the onboarding form only flags values that have been entered, and isn't complete until all five are valid.
 - **Editable numbers**: the class list per sex, the class worked out from bodyweight or chosen, the "weigh in at X kg or under" check, rejecting missing or out-of-range values and naming which ones (so the page can say what to fix), and saving to and loading from browser storage (with a fake storage: nothing saved, corrupt JSON, invalid values and blocked storage all fall back).
-- **Gym-goer marker**: the estimate and label for each sex ("Male gym-goer (estimate)" ~200, "Female gym-goer (estimate)" ~160).
+- **Gym-goer marker**: the estimate and label for each sex ("Male gym-goer (estimate)" ~200, "Female gym-goer (estimate)" ~160), in DOTS only: GL gets no marker.
 - **Contract tests on the committed data** (`data/rungs.json`, the only data file the page loads):
-  - Every rung must be aggregate only: no unexpected fields, 20+ lifters, and p10/p90 only at 50+.
+  - Every rung must be aggregate only: no unexpected fields, 20+ lifters, and p10/p90 only at 50+, with the same percentiles in DOTS and GL.
+  - Rungs are rounded (DOTS whole numbers, GL 1 decimal place) and rise with the percentile.
   - Every class in the rungs must be choosable in the class dropdown.
-  - The gym-goer estimates must stay below every published rung, so the marker never passes for one (see `docs/population-estimates.md`).
+  - The gym-goer estimates must stay below every published DOTS rung, so the marker never passes for one (see `docs/population-estimates.md`).
 
   If a pipeline change or a data edit would break the page or the privacy rules, CI fails.
 
@@ -50,7 +59,7 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
 What can't run in Node (the browser installing the app and swapping in the service worker) is checked by hand: install from Chrome on Android, then reopen in aeroplane mode. To debug the phone, connect it over USB and open `chrome://inspect` on the computer.
 
-The DOM code in `app/app.js` and `app/events.js` isn't unit tested; it only renders what `ladder.js` works out. So far it has been checked by hand and with headless Chrome runs outside the repo, so nothing in CI exercises the page in a real browser yet.
+The DOM code in `app/app.js`, `app/log.js` and `app/events.js` isn't unit tested; it only renders what `ladder.js` and `scoring.js` work out. So far it has been checked by hand and with headless Chrome runs outside the repo, so nothing in CI exercises the page in a real browser yet.
 
 ## CI: GitHub Actions
 

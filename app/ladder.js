@@ -1,10 +1,6 @@
 // Pure logic for the DOTS ladder: no DOM, so it runs in the browser and under `node --test`.
-// Weight classes and DOTS coefficients mirror pipeline/build_rungs.py.
-
-const COEFFS = {
-  M: { a: -0.000001093, b: 0.0007391293, c: -0.1918759221, d: 24.0900756, e: -307.75076, maxBw: 210 },
-  F: { a: -0.0000010706, b: 0.0005158568, c: -0.1126655495, d: 13.6175032, e: -57.96288, maxBw: 150 },
-};
+// Weight classes mirror pipeline/build_rungs.py; the scoring formulas live in scoring.js.
+import { DEFAULT_FORMULA, FORMULA_IDS, score } from "./scoring.js";
 
 const CLASSES = {
   M: [59, 66, 74, 83, 93, 105, 120],
@@ -13,21 +9,6 @@ const CLASSES = {
 
 export const EXPERIENCE = ["first meet", "second meet", "3+ meets"];
 export const LIFTS = ["squat", "bench", "deadlift"];
-
-function denominator(sex, bodyweight) {
-  const { a, b, c, d, e, maxBw } = COEFFS[sex];
-  const bw = Math.min(Math.max(bodyweight, 40), maxBw);
-  return a * bw ** 4 + b * bw ** 3 + c * bw ** 2 + d * bw + e;
-}
-
-export function dots(sex, bodyweight, total) {
-  return (total * 500) / denominator(sex, bodyweight);
-}
-
-/** Total (kg) needed to reach a DOTS score at a given bodyweight. */
-export function totalForDots(sex, bodyweight, score) {
-  return (score * denominator(sex, bodyweight)) / 500;
-}
 
 export function weightClass(sex, bodyweight) {
   const limit = CLASSES[sex].find((l) => bodyweight <= l);
@@ -38,27 +19,31 @@ export function sumLifts(lifts) {
   return LIFTS.reduce((sum, lift) => sum + lifts[lift], 0);
 }
 
-/** The group's rungs, lowest first: [{ percentile: 25, dots: 300 }, ...]. */
-export function rungsFor(data, sex, wclass, experience) {
+/** The profile's score in its chosen formula (the rungs are raw full power, so always classic, full). */
+export function profileScore(profile) {
+  return score(profile.formula, { total: sumLifts(profile), bw: profile.bodyweight, sex: profile.sex });
+}
+
+/** The group's rungs in one formula, lowest first: [{ percentile: 25, score: 300 }, ...]; null if there's no such group. */
+export function rungsFor(data, formula, sex, wclass, experience) {
   const group = data.rungs.find(
     (r) => r.sex === sex && r.weightClassKg === wclass && r.experience === experience,
   );
-  if (!group) return null;
-  const rungs = Object.entries(group)
-    .filter(([key]) => /^p\d+$/.test(key))
-    .map(([key, value]) => ({ percentile: Number(key.slice(1)), dots: value }))
+  if (!group?.[formula]) return null;
+  const rungs = Object.entries(group[formula])
+    .map(([key, value]) => ({ percentile: Number(key.slice(1)), score: value }))
     .sort((x, y) => x.percentile - y.percentile);
   return { lifters: group.lifters, rungs };
 }
 
 /** First rung strictly above the score, or null if every rung is beaten. */
-export function nextRung(rungs, score) {
-  return rungs.find((r) => r.dots > score) ?? null;
+export function nextRung(rungs, points) {
+  return rungs.find((r) => r.score > points) ?? null;
 }
 
 // --- The lifter's editable numbers ---------------------------------------------------
-// A profile is { sex, bodyweight, squat, bench, deadlift, weightClass }, all kg.
-// weightClass null means "work it out from bodyweight".
+// A profile is { sex, bodyweight, squat, bench, deadlift, weightClass, formula }, all kg.
+// weightClass null means "work it out from bodyweight"; formula is the score shown everywhere ("dots" or "gl").
 
 export const PROFILE_KEY = "dots-ladder:profile";
 export const LIMITS = { bodyweight: [30, 250], lift: [1, 600] };
@@ -95,11 +80,12 @@ export function enteredProblems(raw) {
   return invalidFields(raw).filter((name) => !blank(raw?.[name]));
 }
 
-/** A clean copy of the profile, or null if a required value is missing or out of range. A class that doesn't exist for the sex falls back to auto. */
+/** A clean copy of the profile, or null if a required value is missing or out of range. A class that doesn't exist for the sex falls back to auto; a missing or unknown formula is DOTS. */
 export function validProfile(raw) {
   if (raw == null || typeof raw !== "object" || invalidFields(raw).length) return null;
   const weightClass = weightClasses(raw.sex).includes(raw.weightClass) ? raw.weightClass : null;
-  return { sex: raw.sex, bodyweight: raw.bodyweight, ...Object.fromEntries(LIFTS.map((l) => [l, raw[l]])), weightClass };
+  const formula = FORMULA_IDS.includes(raw.formula) ? raw.formula : DEFAULT_FORMULA;
+  return { sex: raw.sex, bodyweight: raw.bodyweight, ...Object.fromEntries(LIFTS.map((l) => [l, raw[l]])), weightClass, formula };
 }
 
 /** The saved profile from storage (e.g. localStorage), or the fallback if there's none, it's unreadable or it's invalid. */
@@ -175,11 +161,11 @@ export function validEvent(raw) {
   };
 }
 
-/** Total and DOTS for each scenario the event has, at the event's bodyweight. */
-export function eventScores(event, sex) {
+/** Total and score for each scenario the event has, at the event's bodyweight. */
+export function eventScores(event, sex, formula) {
   return SCENARIOS.filter((scenario) => event[scenario]).map((scenario) => {
     const total = sumLifts(event[scenario]);
-    return { scenario, total, dots: dots(sex, event.bodyweight, total) };
+    return { scenario, total, score: score(formula, { total, bw: event.bodyweight, sex }) };
   });
 }
 
@@ -198,8 +184,8 @@ export function eventClass(event, profile) {
 }
 
 /** Highest rung at or below the score, or null if it's below every rung. */
-export function rungBeaten(rungs, score) {
-  return rungs.findLast((r) => r.dots <= score) ?? null;
+export function rungBeaten(rungs, points) {
+  return rungs.findLast((r) => r.score <= points) ?? null;
 }
 
 /** The saved events from storage, or the fallback if there are none or they're unreadable. Invalid entries are dropped; an empty saved list stays empty. */
@@ -227,43 +213,39 @@ export function saveEvents(storage, events) {
 // --- Reference marker: an estimate, not data ---------------------------------------
 // The rungs are measured OpenPowerlifting percentiles. This single marker is an estimate of a
 // regular gym-goer's DOTS, for scale only; see docs/population-estimates.md for the method.
+// It exists in DOTS only: a GL figure would be a second estimate, so in GL there's no marker.
 
 export const GYM_GOER_ESTIMATE = { M: 200, F: 160 };
 
-/** The gym-goer reference marker for the selected sex, named by sex so it's clear which estimate it is. */
-export function referenceMarker(sex) {
-  return { label: `${sex === "M" ? "Male" : "Female"} gym-goer (estimate)`, dots: GYM_GOER_ESTIMATE[sex] };
+/** The gym-goer reference marker for the selected sex, named by sex so it's clear which estimate it is; null outside DOTS. */
+export function referenceMarker(sex, formula) {
+  if (formula !== "dots") return null;
+  return { label: `${sex === "M" ? "Male" : "Female"} gym-goer (estimate)`, score: GYM_GOER_ESTIMATE[sex] };
 }
 
 // --- The ladder as rows: rungs, you, your events and the gym-goer estimate -----------
 
-/** Kg to add to the total to reach a DOTS score, rounded up to 2.5 kg because attempts go up in 2.5 kg steps; 0 if already there. */
-export function kgToReach(sex, bodyweight, total, targetDots) {
-  const raw = totalForDots(sex, bodyweight, targetDots) - total;
-  return raw > 0 ? Math.ceil(raw / 2.5 - 1e-9) * 2.5 : 0;
-}
-
 export const RUNG_NAMES = { 10: "Bottom 10%", 25: "Lower quartile", 50: "Median lifter", 75: "Upper quartile", 90: "Top 10%" };
 
 /**
- * Every row on the ladder, highest DOTS first. Rungs carry their state: "next" (the first one above you),
- * "above" or "cleared". Markers (you, events, the gym-goer estimate) pass through with their kind.
- * Every row has gap = its DOTS minus yours.
+ * Every row on the ladder, highest score first, all in one formula. Rungs carry their state: "next" (the first
+ * one above you), "above" or "cleared". Markers (you, events, the gym-goer estimate) pass through with their kind.
+ * Every row has gap = its score minus yours.
  */
-export function ladderRows(rungs, score, markers) {
-  const next = nextRung(rungs, score);
+export function ladderRows(rungs, points, markers) {
+  const next = nextRung(rungs, points);
   const rows = [
     ...rungs.map((r) => ({
       kind: "rung",
       percentile: r.percentile,
-      dots: r.dots,
-      state: r === next ? "next" : r.dots > score ? "above" : "cleared",
+      score: r.score,
+      state: r === next ? "next" : r.score > points ? "above" : "cleared",
     })),
     ...markers,
-  ].map((row) => ({ ...row, gap: row.dots - score }));
+  ].map((row) => ({ ...row, gap: row.score - points }));
   // Highest first; on a tie a rung sits above a marker, and you sit above other markers.
   const rank = (row) => (row.kind === "rung" ? 0 : row.kind === "you" ? 1 : 2);
-  return rows.sort((x, y) => y.dots - x.dots || rank(x) - rank(y));
+  return rows.sort((x, y) => y.score - x.score || rank(x) - rank(y));
 }
 
 // --- Screens and the Log test steppers ------------------------------------------------
@@ -285,6 +267,6 @@ export function stepValue(value, step, direction, [min, max]) {
 
 /** Rungs passed going from one score to another: positive when climbing, negative when dropping. Reaching a rung's score clears it. */
 export function rungsClimbed(rungs, fromScore, toScore) {
-  const passed = (low, high) => rungs.filter((r) => r.dots > low && r.dots <= high).length;
+  const passed = (low, high) => rungs.filter((r) => r.score > low && r.score <= high).length;
   return toScore >= fromScore ? passed(fromScore, toScore) : -passed(toScore, fromScore);
 }

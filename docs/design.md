@@ -1,0 +1,241 @@
+# DOTS Ladder: design and build spec
+
+The "chalk & iron" design: dark gym-floor background, chalk-white text, one chalk-yellow accent.
+Three screens behind a bottom tab bar: **Ladder**, **Log test**, **Progress**.
+
+This is the spec the app is built from, kept up to date as it's built. The original mockups stay private, because they hold personal details; the example values below are made up.
+
+> **Privacy rule:** rungs are anonymous percentiles (DOTS and IPF GL) of UK raw full-power results, built from groups of 20+ lifters. Never show an individual lifter's name, meet, or result. The mockups' per-lifter rows become percentile rungs (see the Ladder screen).
+
+---
+
+## 1. Design tokens
+
+Define these as CSS custom properties on `:root` (the top of `app/style.css`). Never hard-code the hex values elsewhere.
+
+| Token | Value | Use |
+|---|---|---|
+| `--bg` | `#111214` | Page background, tab bar |
+| `--surface` | `#1C1D20` | Cards (next-rung card, chart card, stepper rows) |
+| `--surface-2` | `#17181B` | List rows, stepper buttons, the unselected DOTS/GL option |
+| `--border` | `#34353A` | Outlined cards, button borders |
+| `--divider` | `#26272B` | Tab bar top border, bar-chart tracks |
+| `--grid` | `#2A2B30` | Chart gridlines |
+| `--text` | `#F2F0EA` | Primary text (warm chalk white, not pure white) |
+| `--text-2` | `#D6D3CB` | Secondary emphasis, bar fills |
+| `--muted` | `#A9A69E` | Labels, captions, inactive tabs |
+| `--accent` | `#E8C547` | "You", current tab, primary button, goal line, the selected DOTS/GL option |
+| `--accent-hover` | `#F3DA7A` | Link / button hover |
+| `--on-accent` | `#111214` | Text and icons on an accent background |
+| `--error` | `#FF6B5E` | Errors only |
+
+**Accent rule:** the accent marks only *you* and *your next action*: your ladder row, the next-rung gain, the active tab, the Save button, the goal line, and the score you've chosen to see. Everything else is greyscale. Don't add a second accent colour.
+
+Set `<meta name="theme-color" content="#111214">`. Dark only: there's no light mode.
+
+## 2. Typography
+
+Barlow and Barlow Condensed, self-hosted in `fonts/` (SIL OFL). No font CDN.
+
+| Role | Font | Size / weight | Notes |
+|---|---|---|---|
+| Hero number (your score) | Barlow Condensed | 84px / 700, line-height 0.9 | Ladder screen only |
+| Result number (Log) | Barlow Condensed | 68px / 700 | |
+| Screen title | Barlow Condensed | 34px / 700, uppercase | |
+| Section heading | Barlow Condensed | 22px / 600, uppercase, letter-spacing 0.02em | |
+| Rung score value | Barlow Condensed | 22px / 600 (26px / 700 on your row) | |
+| Eyebrow label | Barlow | 13px, uppercase, letter-spacing 0.14em, `--muted` | e.g. "DOTS LADDER" |
+| Body | Barlow | 16–17px / 400–600 | |
+| Caption | Barlow | 13px, `--muted` | |
+| Tab label | Barlow | 12px (600 when active) | |
+
+Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so values don't jitter while you step them.
+
+## 3. Layout
+
+- Mobile-first, designed at 390 × 844. Content column max-width 480px, centred on wider screens.
+- Side gutter 20px. Card radius 16px. Row radius 12px. Pill radius 999px.
+- Header top padding 56px (allow for the iOS safe area: `padding-top: max(56px, env(safe-area-inset-top))`).
+- Vertical rhythm: 6px between list rows, 8px between stepper rows, 16–22px between sections.
+- Touch targets must be at least 44 × 44px.
+- Icons: inline stroke SVGs (24px, stroke 1.8, round caps), `aria-hidden="true"` when next to a text label. No emoji.
+
+## 4. Bottom tab bar
+
+- Fixed to the bottom of the screen, full width. Background `--bg`, 1px top border `--divider`, padding `8px 8px max(28px, env(safe-area-inset-bottom))`.
+- Three equal columns: **Ladder** (rungs icon), **Log test** (plus-in-circle icon), **Progress** (trend-arrow icon).
+- Each tab has its icon above its label and is at least 48px tall.
+- Active tab: `--accent`, label weight 600, `aria-current="page"`. Inactive tabs: `--muted`.
+- Wrap the bar in `<nav aria-label="Main">` and make each tab a real `<a href>`.
+- **Routing:** hash routes `#/ladder` (default), `#/log`, `#/progress`. Listen for `hashchange`; unknown hashes go to `#/ladder`. Hash routes work on GitHub Pages without server config.
+- Pad the main content at the bottom so the fixed bar never covers the last list row.
+
+## 5. Screens
+
+"Score" below means whichever formula is selected, DOTS or GL (see 5.1). Every screen shows the same one, and never mixes the two.
+
+### 5.1 Ladder (`#/ladder`)
+
+1. **Header**
+   - Eyebrow "DOTS LADDER" on the left (the app's name, so it stays "DOTS" in either formula).
+   - Next to it, on the right, the **score toggle**: a two-option segmented control, "DOTS" and "GL".
+     - Real `<button>`s with `aria-pressed`, in a group labelled "Score shown".
+     - Selected: `--accent` fill, `--on-accent` text. Unselected: `--surface-2` fill, `--muted` text. Each at least 44px tall.
+     - The choice is global and saved (`profile.formula`, section 6). Changing it updates everything at once: the hero score and its label ("your DOTS" / "your GL"), the next-rung card, the rung list, the Log result card, and event scores (and the Progress screen once it's built).
+   - Also on the right, a pill showing "Meet in N days" (`--accent` background, `--on-accent` text). Show the pill only when a meet date is saved and is in the future.
+   - Hero: your latest score (84px) followed by "your DOTS" or "your GL" in `--muted`.
+   - Caption: `{total} kg total · {bw} kg bodyweight · {position among the rungs}`.
+2. **Next-rung card** (`--surface`, 16px padding)
+   - Up-arrow icon in `--accent`, then "Next rung" in `--muted`, then **"+{Δscore} {DOTS|GL} ≈ +{kg} kg on your total"**.
+   - If you're above every rung: "Top rung reached".
+3. **"THE RUNGS"** heading, with chips for who you're compared with: UK · Raw · Full power · {sex} {class} (the class chip opens Log test at the class picker), and tabs for meet experience: first meet, second meet, 3+ meets.
+4. **Rung list**:
+   - Rungs are per formula. DOTS percentiles don't map onto GL percentiles, so `rungs.json` holds a separate set for each, from the same lifters.
+   - Rung row (`--surface-2`): P-label | percentile name (e.g. "Upper quartile") with the rung's score underneath | the gap from your score (`+13.5` / `−4.4`) in `--muted`.
+   - The **next** rung up is dashed in `--accent`, with its gap in `--accent`, weight 600.
+   - **Your row:** `--accent` background, `--on-accent` text. It shows your score (26px / 700), "You", "{total} kg @ {bw} kg", and a person icon.
+   - Events are dashed rows with a flag. The gym-goer estimate is muted italic with "≈"; it's a DOTS estimate, so it shows in DOTS only.
+   - Use a semantic `<ol>`, ordered from the highest rung down.
+
+### 5.2 Log test (`#/log`)
+
+1. Header: eyebrow "LOG A TEST", title "NEW 1RMS".
+2. **Four stepper rows** (`--surface` cards). Each row is a grid of label | − | value | +:
+   - Bodyweight: steps of 0.1 kg, 1 decimal place, caption "Morning weigh-in".
+   - Squat, Bench, Deadlift: steps of 2.5 kg, caption "kg · 2.5 steps".
+   - − and + are real `<button>`s, 44 × 44px, with `--surface-2` fill and a `--border` outline. Each has an aria-label such as "Increase squat".
+   - The value (28px Barlow Condensed) is also directly editable: tapping it opens a numeric input.
+   - Prefill every field from your latest saved test.
+   - Values can't go below the minimum.
+3. **Live result card** (1px `--border` outline), which updates on every change:
+   - Top row: "Total {n} kg" on the left. On the right, "+x vs last test" in `--accent` when you've improved, or "−x vs last test" in `--muted` when you haven't (at the formula's precision).
+   - The score (68px), followed by "DOTS" or "GL".
+   - A rung line: "Climbs N rung(s). Next rung needs X more {DOTS|GL}." or "Clears every rung."
+4. **Save test** button: full width, 52px tall, `--accent` fill, `--on-accent` text, 17px / 600. It saves the test and returns you to `#/ladder`.
+
+### 5.3 Progress (`#/progress`)
+
+1. Header: eyebrow "PROGRESS", title "THE CLIMB".
+2. **Chart card** (`--surface`)
+   - Caption row: the score and date range ("DOTS · Oct → Mar") on the left, "Goal {n}" on the right.
+   - Line chart of the score for every saved test: `--accent` dots joined by a line.
+   - Gridlines in `--grid`, with axis labels at 11px in `--muted`.
+   - A dashed `--accent` goal line, labelled with the goal's name.
+   - Upcoming meets appear as hollow `--muted` circles.
+   - Give the SVG `role="img"` and an aria-label that sums up the trend.
+3. **"Weight-class lever" card** (outlined)
+   - "Same {total} kg total at {targetBw} kg = **{score} {DOTS|GL}**", with the number in accent.
+   - Caption: "+{delta} from bodyweight alone".
+   - The target bodyweight is a setting (default 66).
+4. **"LIFT SPLIT"**: three horizontal bars (Squat, Bench, Deadlift).
+   - Track `--divider`, fill `--text-2`, height 10px, radius 5px.
+   - Width is relative to your best lift; the kg value sits on the right.
+5. **"TESTS & MEETS"**: a list newest-first, one `--surface-2` row per entry.
+   - Each row shows the date and label, a caption of "{total} kg @ {bw} kg", and the score on the right.
+   - Meets in the future show "—".
+   - Events (with conservative and optimistic targets) can be edited here.
+
+## 6. Data model (localStorage)
+
+Everything stays on the device. Nothing the lifter enters is sent anywhere.
+
+**Today:**
+
+- `dots-ladder:profile`: `{ "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190, "weightClass": null, "formula": "dots" }`
+  - `weightClass` is `null` when it's worked out from bodyweight.
+  - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"` when it's missing, so profiles saved before the toggle need no migration.
+- `dots-ladder:events`: `[{ "id": "uuid", "name": "Spring meet", "month": "2027-04", "bodyweight": 82, "conservative": { "squat": 155, "bench": 107.5, "deadlift": 195 }, "optimistic": null }]`
+
+**Next (dated test history and meet dates):** one versioned key, migrating the profile above into the first test.
+
+```json
+{
+  "version": 1,
+  "profile": { "sex": "M", "weightClass": "83", "targetBw": 80, "formula": "dots" },
+  "tests": [
+    { "id": "uuid", "date": "2027-01-15", "label": "Gym 1RM test", "type": "test",
+      "bw": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }
+  ],
+  "meets": [ { "id": "uuid", "date": "2027-04-10", "label": "Spring meet" } ]
+}
+```
+
+- Calculate scores whenever they're displayed. Never store them.
+- Wrap every localStorage read and write in try/catch. If storage is empty or unavailable, start with an empty state. A screen with no tests shows an empty state that links to `#/log`.
+
+## 7. Calculations (unit-test these)
+
+All formulas live in `app/scoring.js`: each is a coefficient table plus a function, so adding one (Wilks, say) is one more entry.
+
+```
+score(formula, { total, bw, sex, equipment = "classic", event = "full" })
+```
+
+- `formula`: `"dots"` or `"gl"`. `sex`: `"M"` or `"F"`. `equipment`: `"classic"` or `"equipped"`. `event`: `"full"` or `"bench"`.
+- The rungs are raw full power, so the app always uses classic, full.
+- Display precision: **DOTS to 1 decimal place, GL to 2.** Published rungs: DOTS whole numbers, GL 1 decimal place.
+
+**DOTS** = `500 / (a·bw⁴ + b·bw³ + c·bw² + d·bw + e) × total`. It ignores equipment and event.
+
+| | a | b | c | d | e | bw clamp |
+|---|---|---|---|---|---|---|
+| Men | −0.0000010930 | 0.0007391293 | −0.1918759221 | 24.0900756 | −307.75076 | 40–210 |
+| Women | −0.0000010706 | 0.0005158568 | −0.1126655495 | 13.6175032 | −57.96288 | 40–150 |
+
+**IPF GL points** = `total × 100 / (A − B·e^(−C·bw))`. "Total" is the bench result when `event` is `"bench"`. Minimum bodyweight 40 kg for men and 35 kg for women; a total of 0 scores 0.
+
+| Sex | Equipment | Event | A | B | C |
+|---|---|---|---|---|---|
+| M | classic | full | 1199.72839 | 1025.18162 | 0.00921 |
+| M | equipped | full | 1236.25115 | 1449.21864 | 0.01644 |
+| M | classic | bench | 320.98041 | 281.40258 | 0.01008 |
+| M | equipped | bench | 381.22073 | 733.79378 | 0.02398 |
+| F | classic | full | 610.32796 | 1045.59282 | 0.03048 |
+| F | equipped | full | 758.63878 | 949.31382 | 0.02435 |
+| F | classic | bench | 142.40398 | 442.52671 | 0.04724 |
+| F | equipped | bench | 221.82209 | 357.00377 | 0.02937 |
+
+Men's classic C is **0.00921**. Some copies of the IPF PDF misprint it as 0.09210; don't use that.
+
+**kg to next rung** = `kgToNextRung(formula, …)`: solve for the total that reaches the next rung's score, subtract the current total, and round **up** to the next 2.5 kg, because attempts go up in 2.5 kg steps.
+
+**Same total at the target bodyweight** = `scoreAtBodyweight(formula, total, targetBw, sex)`.
+
+### Required test cases
+
+| Input | Expected |
+|---|---|
+| DOTS(370, 70.0, M) | 277.9 |
+| DOTS(370, 66.0, M) | 289.9 |
+| DOTS(500, 93.0, M) | 318.1 |
+| DOTS(300, 60.0, F) | 332.6 |
+| DOTS kg to next rung: 277.9 → 282.7 at 70 kg, total 370 | raw 6.35, displayed **+7.5 kg** |
+| DOTS: bodyweight below 40 or above the clamp | clamped, no NaN or Infinity |
+| DOTS: total 0 | 0.0 |
+| GL, men's classic full, total 370 @ 66 / 70 / 74 / 83 | 57.68 / 55.92 / 54.32 / 51.22 |
+| GL, women's classic full, 300 @ 60 | 67.81 |
+| GL 370 @ 70, men | **not** about 30.9 (that's the misprinted C) |
+| GL: total 0 | 0 |
+| GL: bodyweight below the minimum | clamped, no NaN or Infinity |
+| kgToNextRung, both formulas | always a multiple of 2.5 |
+| You above every rung | "Top rung reached", no next-rung number |
+
+(The mockup showed "+6.5 kg". The 2.5 kg rounding rule makes that **+7.5 kg**. Follow the spec, not the mockup.)
+
+## 8. Accessibility
+
+- Text contrast is at least 4.5:1. All the token pairs above pass on `--bg` and `--surface`.
+- Every control is a real `<button>`, `<a>` or `<input>` with a `<label>`. Never put click handlers on a `div`.
+- Toggles (experience tabs, the DOTS/GL toggle) use `aria-pressed`.
+- Keep focus outlines visible: `outline: 2px solid var(--accent); outline-offset: 2px`.
+- Respect `prefers-reduced-motion` for any transitions.
+
+## 9. Build phases (one PR each, checked on the phone between them)
+
+1. ✅ **Tokens and type.** The CSS variables and fonts; the ladder restyled. (PR #11)
+2. ✅ **Tab bar and routing.** The three hash routes and the fixed bottom bar. (PR #12)
+3. ✅ **Scoring module and tests.** Pure functions for DOTS and GL, kg to the next rung and the same total at the target bodyweight, with the section 7 cases; the DOTS/GL toggle and GL rungs.
+4. ◐ **Log test.** Steppers, live result and saving are done (PR #12). Still to do: the dated test history ("vs last test") and meet dates for the "Meet in N days" pill.
+5. ☐ **Progress.** The chart, the weight-class lever, the lift split, and the tests-and-meets list.
+   *Done when:* the screen renders correctly with 0, 1 and 10+ saved tests.
+6. ✅ **PWA.** `manifest.webmanifest` and a network-first service worker that caches the app shell and the rung data; installs and works offline. (PR #3, before the redesign)

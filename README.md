@@ -6,17 +6,19 @@ Track my powerlifting DOTS score over time and climb a ladder of anonymous bench
 
 DOTS stands for **Dynamic Objective Team Scoring**. It turns a powerlifting total (squat + bench + deadlift) into a score adjusted for bodyweight and sex, so lifters of different sizes can be compared fairly: a heavier lifter needs a bigger total for the same score. Many federations use it in place of the older Wilks formula, and OpenPowerlifting lists it alongside meet results.
 
+The app can also show **IPF GL points** (the IPF's "Goodlift" formula) instead: a toggle next to the title switches every score, rung and gap between the two. The rungs are worked out separately for each formula, because a DOTS percentile isn't the same lifter as a GL percentile once bodyweight comes in.
+
 ## Using the app
 
 - **First visit:** the app asks for your sex, bodyweight and squat, bench and deadlift 1RMs, then shows your DOTS and where you sit on the ladder. Nothing else appears until you've entered them.
-- **Ladder:** your DOTS, the next rung and how many kg it takes, and the rungs for your class and meet experience (first meet, second meet, 3+ meets), with your events and a gym-goer estimate alongside.
+- **Ladder:** your DOTS (or GL), the next rung and how many kg it takes, and the rungs for your class and meet experience (first meet, second meet, 3+ meets), with your events and a gym-goer estimate alongside (DOTS only: it's an estimate, and there's no GL version of it).
 - **Log test:** after a training block or 1RM test, step your bodyweight and lifts up or down and see your new DOTS and rungs before you save. Your weight class is worked out from your bodyweight, or you can pick one to compare against, such as a class you plan to cut to.
 - **Progress → your events:** add upcoming meets or test days, each with a month, the bodyweight you expect, and conservative and optimistic squat, bench and deadlift targets. The next 3 show on the ladder, so you can see which rungs each target would reach.
 - **Private to your phone:** everything you enter is saved in the browser on that device, and never sent anywhere or committed.
 
 ## How it works
 
-1. `pipeline/build_rungs.py` turns OpenPowerlifting's public-domain bulk download into `data/rungs.json`: DOTS percentiles for each sex, weight class and experience group (first meet, second meet, 3+ meets). No names.
+1. `pipeline/build_rungs.py` turns OpenPowerlifting's public-domain bulk download into `data/rungs.json`: DOTS and GL percentiles for each sex, weight class and experience group (first meet, second meet, 3+ meets), both from the same lifters. No names.
 2. `index.html` + `app/` is a static page (plain HTML, CSS and JS, no build step) that shows where my DOTS sits on the ladder and the next rung to beat. It's hosted on GitHub Pages.
 3. `manifest.webmanifest`, `icons/` and `sw.js` make the page an installable app (a PWA). The service worker fetches every file from the network first and falls back to the last copy offline.
 
@@ -61,6 +63,7 @@ Details, coverage and CI: `docs/testing.md`.
 
 ## Docs
 
+- `docs/design.md`: the "chalk & iron" design and build spec (tokens, screens, data model, formulas and their test cases, build phases)
 - `docs/legal-ethics-audit.md`: legal and ethics review
 - `docs/testing.md`: running the tests, what they cover, and CI
 - `docs/federation-analysis.md`: why there's no federation or drug-tested switch (data per federation, Oct 2026)
@@ -70,6 +73,7 @@ Details, coverage and CI: `docs/testing.md`.
 
 - **Data:** [OpenPowerlifting](https://www.openpowerlifting.org/) bulk download, released into the public domain. The rungs are built only from this data.
 - **DOTS formula:** the coefficients OpenPowerlifting uses. The page and the pipeline share them, and tests keep the two in step.
+- **IPF GL points:** the International Powerlifting Federation's GL formula (2020 coefficients). The page has the full table in `app/scoring.js`; the pipeline uses the raw full-power row, with the same test values.
 - **Fonts:** [Barlow and Barlow Condensed](https://github.com/jpt/barlow) by the Barlow Project Authors, SIL Open Font License 1.1 (`fonts/OFL.txt`).
 - **Icons:** original pictograms drawn for this app; no third-party icons.
 - **Gym-goer estimate:** method and sources in `docs/population-estimates.md`.
