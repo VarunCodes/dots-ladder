@@ -7,19 +7,20 @@ import { $, el } from "./dom.js";
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
 const capital = (word) => word[0].toUpperCase() + word.slice(1);
 
-// Meets are stored to the month only ("YYYY-MM"), so the page never shows the day.
 export const fmtMonth = (yearMonth) =>
   new Date(`${yearMonth}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+export const fmtDay = (day) =>
+  new Date(`${day}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-/** "Meet plan, Nov 2026", or "May 2027 (optimistic)" when the event has both scenarios. */
-export function eventLabel(event, scenario) {
-  const base = [event.name, fmtMonth(event.month)].filter(Boolean).join(", ");
-  return scenario ? `${base} (${scenario})` : base;
+/** "Meet plan, Nov 2026", or "Meet plan, 14 Nov 2026" once the exact date is set. */
+export function eventLabel(event) {
+  return [event.name, event.date ? fmtDay(event.date) : fmtMonth(event.month)].filter(Boolean).join(", ");
 }
 
 function problemText(name) {
   if (name === "name") return `Keep the name to ${L.MAX_NAME} characters.`;
   if (name === "month") return "Pick a month.";
+  if (name === "date") return "The exact date must be a real day.";
   if (name === "bodyweight") return `Bodyweight must be ${L.LIMITS.bodyweight.join("–")} kg.`;
   if (name === "scenarios") return "Fill in at least one scenario.";
   const [scenario, lift] = name.split(".");
@@ -82,6 +83,7 @@ function eventItem(event, open) {
   form.autocomplete = "off";
   const name = Object.assign(el("input"), { name: "name", type: "text", maxLength: L.MAX_NAME, placeholder: "e.g. First meet" });
   const month = Object.assign(el("input"), { name: "month", type: "month", required: true });
+  const date = Object.assign(el("input"), { name: "date", type: "date" });
   const bodyweight = numberInput("bodyweight", L.LIMITS.bodyweight, "kg");
   bodyweight.required = true;
 
@@ -101,7 +103,8 @@ function eventItem(event, open) {
   form.append(
     labelled("Name (optional)", name, "wide"),
     labelled("Month", month),
-    labelled("Bodyweight (kg)", bodyweight),
+    labelled("Exact date (optional)", date),
+    labelled("Bodyweight (kg)", bodyweight, "wide"),
     ...scenarios,
     el("p", "event-preview small wide"),
     el("p", "event-info muted small wide"),
@@ -112,7 +115,7 @@ function eventItem(event, open) {
   item.append(summary, form);
   fillEvent(form, event);
 
-  form.addEventListener("input", () => onInput(item, form));
+  form.addEventListener("input", (input) => onInput(item, form, input));
   // Closing an event puts it back in date order, and undoes invalid values as the edit form does.
   item.addEventListener("toggle", () => {
     if (item.open) return;
@@ -130,6 +133,7 @@ function fillEvent(form, event) {
   const f = form.elements;
   f.name.value = event.name;
   f.month.value = event.month;
+  f.date.value = event.date ?? "";
   f.bodyweight.value = event.bodyweight;
   for (const scenario of L.SCENARIOS) {
     for (const lift of L.LIFTS) f[`${scenario}.${lift}`].value = event[scenario]?.[lift] ?? "";
@@ -144,6 +148,7 @@ function readEvent(form, id) {
     id,
     name: f.name.value,
     month: f.month.value,
+    date: f.date.value,
     bodyweight: f.bodyweight.valueAsNumber,
     ...Object.fromEntries(L.SCENARIOS.map((scenario) => [
       scenario,
@@ -152,7 +157,11 @@ function readEvent(form, id) {
   };
 }
 
-function onInput(item, form) {
+function onInput(item, form, input) {
+  // The exact date decides the month, so the two can't disagree; changing the month clears a date outside it.
+  const f = form.elements;
+  if (input?.target === f.date && f.date.value) f.month.value = f.date.value.slice(0, 7);
+  if (input?.target === f.month && f.date.value && !f.date.value.startsWith(`${f.month.value}-`)) f.date.value = "";
   const raw = readEvent(form, item.dataset.id);
   const problems = L.eventProblems(raw);
   // Custom validity drives the same :invalid highlight as the edit form. With no scenario, highlight the first one.
@@ -176,9 +185,10 @@ function onInput(item, form) {
 function addEvent() {
   const { profile } = ctx.state;
   const event = {
-    id: globalThis.crypto?.randomUUID?.() ?? `event-${Date.now()}`,
+    id: L.newId("event"),
     name: "",
     month: L.nextMonth(ctx.thisMonth),
+    date: null,
     bodyweight: profile.bodyweight,
     conservative: Object.fromEntries(L.LIFTS.map((lift) => [lift, profile[lift]])),
     optimistic: null,

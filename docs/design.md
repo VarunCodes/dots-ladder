@@ -83,7 +83,7 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
      - It's out of the layout flow, so it doesn't push the score down: the eyebrow and hero keep their spacing. Below 360px wide it would overlap the score, so there it stays in the row.
      - Selected: `--accent` fill, `--on-accent` text. Unselected: `--surface-2` fill, `--muted` text. Each at least 44px tall.
      - The choice is global and saved (`profile.formula`, section 6). Changing it updates everything at once: the hero score and its label ("your DOTS" / "your GL"), the next-rung card, the rung list, the Log result card (which has its own toggle), and event scores (and the Progress screen once it's built).
-   - Also on the right, a pill showing "Meet in N days" (`--accent` background, `--on-accent` text). Show the pill only when a meet date is saved and is in the future.
+   - Under the caption, a pill showing "Meet in N days" ("Meet in 1 day", "Meet today"; `--accent` background, `--on-accent` text) for the soonest event with an exact date, today or later. Hidden without one. (The mockup had it top right; the score toggle sits there now.)
    - Hero: your latest score (84px) followed by "your DOTS" or "your GL" in `--muted`.
    - Caption: `{total} kg total · {bw} kg bodyweight · {position among the rungs}`.
 2. **Next-rung card** (`--surface`, 16px padding)
@@ -95,24 +95,26 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - Rung row (`--surface-2`): P-label | percentile name (e.g. "Upper quartile") with the rung's score underneath | the gap from your score (`+13.5` / `−4.4`) in `--muted`.
    - The **next** rung up is dashed in `--accent`, with its gap in `--accent`, weight 600.
    - **Your row:** `--accent` background, `--on-accent` text. It shows your score (26px / 700), "You", "{total} kg @ {bw} kg", and a person icon.
-   - Events are dashed rows with a flag. The gym-goer estimate is muted italic with "≈"; it's a DOTS estimate, so it shows in DOTS only.
+   - Events are dashed rows with a flag, labelled "{name}, {14 Nov 2026 or Nov 2026}". An event with both scenarios shows two rows, named "(conservative)" and "(optimistic)", or "(cons.)" and "(opt.)" under 400px wide; screen readers always get the full word. No icons, by decision.
+   - The gym-goer estimate is muted italic with "≈"; it's a DOTS estimate, so it shows in DOTS only.
    - Use a semantic `<ol>`, ordered from the highest rung down.
 
 ### 5.2 Log test (`#/log`)
 
 1. Header: eyebrow "LOG A TEST", title "NEW 1RMS".
-2. **Four stepper rows** (`--surface` cards). Each row is a grid of label | − | value | +:
+2. **Test date**: a date field, defaulting to today, so an old test can be backfilled. No future dates and nothing before 1990. A date before your latest test gets a note: the test goes into your history, and the Ladder keeps showing the latest.
+3. **Four stepper rows** (`--surface` cards). Each row is a grid of label | − | value | +:
    - Bodyweight: steps of 0.1 kg, 1 decimal place, caption "Morning weigh-in".
    - Squat, Bench, Deadlift: steps of 2.5 kg, caption "kg · 2.5 steps".
    - − and + are real `<button>`s, 44 × 44px, with `--surface-2` fill and a `--border` outline. Each has an aria-label such as "Increase squat".
    - The value (28px Barlow Condensed) is also directly editable: tapping it opens a numeric input.
-   - Prefill every field from your latest saved test.
+   - Prefill every field from your latest test (by date).
    - Values can't go below the minimum.
-3. **Live result card** (1px `--border` outline), which updates on every change:
-   - Top row: "Total {n} kg" on the left. On the right, "+x vs last test" in `--accent` when you've improved, or "−x vs last test" in `--muted` when you haven't (at the formula's precision).
+4. **Live result card** (1px `--border` outline), which updates on every change:
+   - Top row: "Total {n} kg" on the left. On the right, "+x vs last test" in `--accent` when you've improved, or "−x vs last test" in `--muted` when you haven't (at the formula's precision). "Last test" is the latest one on or before the new test's date; with none (an older backfill), it says "First test".
    - The score (68px), with the same DOTS / GL toggle beside it (it names the score, so the unit is for screen readers only). Here the accent belongs to Save, so the selected option is `--text` fill with `--bg` text, like the experience tabs. Switching saves the formula only, never the draft's numbers.
    - A rung line: "Climbs N rung(s). Next rung needs X more {DOTS|GL}." or "Clears every rung."
-4. **Save test** button: full width, 52px tall, `--accent` fill, `--on-accent` text, 17px / 600. It saves the test and returns you to `#/ladder`.
+5. **Save test** button: full width, 52px tall, `--accent` fill, `--on-accent` text, 17px / 600. It adds the test to your history and returns you to `#/ladder`.
 
 ### 5.3 Progress (`#/progress`)
 
@@ -140,26 +142,19 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 
 Everything stays on the device. Nothing the lifter enters is sent anywhere.
 
-**Today:**
+Three keys. Each new field defaults when it's missing, so older saved data loads without a migration step.
 
 - `dots-ladder:profile`: `{ "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190, "weightClass": null, "formula": "dots" }`
+  - The settings (`sex`, `weightClass`, `formula`) plus the latest test's numbers, so the Ladder reads one place.
   - `weightClass` is `null` when it's worked out from bodyweight.
-  - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"` when it's missing, so profiles saved before the toggle need no migration.
-- `dots-ladder:events`: `[{ "id": "uuid", "name": "Spring meet", "month": "2027-04", "bodyweight": 82, "conservative": { "squat": 155, "bench": 107.5, "deadlift": 195 }, "optimistic": null }]`
+  - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
+- `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }]`
+  - Every saved test, oldest first; same-day tests keep their save order.
+  - Numbers saved before the history existed become its first test, dated the day the app first loads with history (their real date wasn't recorded).
+- `dots-ladder:events`: `[{ "id": "uuid", "name": "Spring meet", "month": "2027-04", "date": "2027-04-10", "bodyweight": 82, "conservative": { "squat": 155, "bench": 107.5, "deadlift": 195 }, "optimistic": null }]`
+  - `date` is optional (`null` for a month-only plan). Setting it sets the month; moving the month away from it clears it. It stays on the device, like everything else.
 
-**Next (dated test history and meet dates):** one versioned key, migrating the profile above into the first test.
-
-```json
-{
-  "version": 1,
-  "profile": { "sex": "M", "weightClass": "83", "targetBw": 80, "formula": "dots" },
-  "tests": [
-    { "id": "uuid", "date": "2027-01-15", "label": "Gym 1RM test", "type": "test",
-      "bw": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }
-  ],
-  "meets": [ { "id": "uuid", "date": "2027-04-10", "label": "Spring meet" } ]
-}
-```
+(The original mockup planned one versioned key with `profile`, `tests` and `meets`. Separate keys did the same job without moving the data people already had.)
 
 - Calculate scores whenever they're displayed. Never store them.
 - Wrap every localStorage read and write in try/catch. If storage is empty or unavailable, start with an empty state. A screen with no tests shows an empty state that links to `#/log`.
@@ -236,7 +231,7 @@ Men's classic C is **0.00921**. Some copies of the IPF PDF misprint it as 0.0921
 1. ✅ **Tokens and type.** The CSS variables and fonts; the ladder restyled. (PR #11)
 2. ✅ **Tab bar and routing.** The three hash routes and the fixed bottom bar. (PR #12)
 3. ✅ **Scoring module and tests.** Pure functions for DOTS and GL, kg to the next rung and the same total at the target bodyweight, with the section 7 cases; the DOTS/GL toggle and GL rungs.
-4. ◐ **Log test.** Steppers, live result and saving are done (PR #12). Still to do: the dated test history ("vs last test") and meet dates for the "Meet in N days" pill.
+4. ✅ **Log test.** Steppers, live result and saving (PR #12); the dated test history with an editable date, "vs last test", exact meet dates and the "Meet in N days" pill.
 5. ☐ **Progress.** The chart, the weight-class lever, the lift split, and the tests-and-meets list.
    *Done when:* the screen renders correctly with 0, 1 and 10+ saved tests.
 6. ✅ **PWA.** `manifest.webmanifest` and a network-first service worker that caches the app shell and the rung data; installs and works offline. (PR #3, before the redesign)
