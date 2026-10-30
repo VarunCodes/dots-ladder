@@ -60,6 +60,25 @@ export function rungPosition(rungs, points) {
   return cleared ? `above P${cleared.percentile}` : "";
 }
 
+/**
+ * What a save achieved, for the note on the Ladder: the lifts the new record set a PR on, and the highest rung
+ * your score newly cleared. A rung counts only when you're compared with the same group (sex, class, formula)
+ * before and after, so changing class isn't read as climbing.
+ */
+export function saveOutcome({ before, after, rungs, prLifts = [] }) {
+  const sameGroup =
+    before?.profile && before.profile.sex === after.profile.sex && before.profile.formula === after.profile.formula &&
+    effectiveClass(before.profile) === effectiveClass(after.profile);
+  const cleared = sameGroup ? rungs.findLast((r) => r.score > before.score && r.score <= after.score) ?? null : null;
+  return { prLifts, cleared };
+}
+
+/** "Saved", "Saved · PR on squat and bench", "Saved · PR on deadlift · Cleared P25". */
+export function savedText({ prLifts, cleared }) {
+  const lifts = prLifts.length > 1 ? `${prLifts.slice(0, -1).join(", ")} and ${prLifts.at(-1)}` : prLifts[0];
+  return ["Saved", lifts && `PR on ${lifts}`, cleared && `Cleared P${cleared.percentile}`].filter(Boolean).join(" · ");
+}
+
 /** First rung strictly above the score, or null if every rung is beaten. */
 export function nextRung(rungs, points) {
   return rungs.find((r) => r.score > points) ?? null;

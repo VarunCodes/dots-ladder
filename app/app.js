@@ -166,12 +166,14 @@ function render() {
 }
 
 let shownScreen = null;
+let savedNote = ""; // what the last save achieved, shown on the Ladder until anything else changes
 
 /**
  * Shows one screen; switching to another fades it in (not on first load). With nothing saved, only the Ladder's
  * first-visit form is reachable, and the tab bar stays hidden.
  */
 function showScreen(screen) {
+  if (shownScreen) $("tabbar").classList.add("animate"); // the tab icons cross-fade, but not on first load
   for (const name of L.ROUTES) $(`screen-${name}`).hidden = name !== screen;
   if (shownScreen && shownScreen !== screen) replay($(`screen-${screen}`), "enter");
   shownScreen = screen;
@@ -228,6 +230,7 @@ try {
     $("standing").hidden = !numbers;
     $("tabbar").hidden = !numbers;
     const screen = numbers ? L.routeFrom(location.hash) : "ladder";
+    if (screen !== "ladder") $("saved-note").hidden = true;
     showScreen(screen);
     if (!numbers) return;
     if (screen === "log") openLog({ focusClass: location.hash.endsWith("?class") });
@@ -238,6 +241,7 @@ try {
   // After every change: gaining or losing your numbers re-routes (into or out of the first-visit form); otherwise
   // the Ladder redraws (the events panel is on it) and the open screen refreshes in place, keeping what's typed.
   store.subscribe(() => {
+    $("saved-note").hidden = true; // any later change makes the note out of date
     if (hasNumbers() === $("onboarding").hidden) {
       render();
       const screen = L.routeFrom(location.hash);
@@ -255,7 +259,18 @@ try {
   });
 
   setupOnboarding();
-  setupLog({ onSaved: () => { location.hash = "#/ladder"; } });
+  // After a save: the Ladder, with a note of what it achieved (a PR, a rung cleared) and the score fading in.
+  setupLog({
+    onSaved: (before, id) => {
+      const d = derived(store.getState());
+      savedNote = L.savedText(L.saveOutcome({ before, after: d, rungs: d.group?.rungs ?? [], prLifts: d.prs.get(id) ?? [] }));
+      location.hash = "#/ladder";
+      $("saved-text").textContent = savedNote;
+      $("saved-note").hidden = false;
+      replay($("saved-note"), "enter");
+      if (before.score !== d.score) replay($("now-score"), "swap");
+    },
+  });
   setupEvents();
   setupProgress();
   window.addEventListener("hashchange", route);

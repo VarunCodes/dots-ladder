@@ -32,6 +32,8 @@
   --duration-fast: 250ms;
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: ease-in-out;
+  --ease-swap: cubic-bezier(0.2, 0, 0, 1); /* an icon swapping for another */
+  --duration-very-slow: 500ms; /* emphasis: the Saved check */
   --distance-micro: 4px;
   --distance-base: 8px;
   --scale-press: 0.96;
@@ -122,6 +124,13 @@ a:hover { color: var(--accent-hover); }
 /* A screen you switch to fades in and rises a little; not on first load. */
 .screen.enter { animation: rise-in var(--duration-fast) var(--ease-smooth-out); }
 @keyframes rise-in { from { opacity: 0; translate: 0 var(--distance-base); } }
+
+/* After a save: what it achieved, under the caption. The check draws itself; it's yours, so it's accent. */
+.saved-note { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.875rem; font-weight: 600; }
+.saved-note.enter { animation: rise-in var(--duration-fast) var(--ease-smooth-out); }
+.saved-check { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; }
+.saved-note.enter .saved-check { animation: draw-check var(--duration-very-slow) var(--ease-smooth-out) 80ms backwards; }
+@keyframes draw-check { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 
 /* A headline number that changes (another formula, a new record) fades the new value in. */
 #now-score, #chart-now { display: inline-block; }
@@ -337,6 +346,16 @@ a:hover { color: var(--accent-hover); }
 }
 .tabbar a[aria-current="page"] { color: var(--accent); font-weight: 600; }
 .tabbar svg { width: 24px; height: 24px; }
+/* Outline icons; the open tab's filled one cross-fades in (scale, blur and opacity). */
+.tab-icon { position: relative; width: 24px; height: 24px; }
+.tab-icon svg { position: absolute; inset: 0; }
+.tabbar.animate .tab-icon svg {
+  transition-property: opacity, scale, filter;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-swap);
+}
+.tab-icon .icon-fill, .tabbar a[aria-current="page"] .icon-out { opacity: 0; scale: 0.25; filter: blur(4px); }
+.tabbar a[aria-current="page"] .icon-fill { opacity: 1; scale: 1; filter: none; }
 
 /* --- Log test: steppers, weight class, live result ---------------------------------- */
 
@@ -665,4 +684,6 @@ a:hover { color: var(--accent-hover); }
   .event::details-content { transition: none; }
   @keyframes rise-in { from { opacity: 0; } }
   @keyframes swap-in { from { opacity: 0; } }
+  @keyframes draw-check { from { stroke-dashoffset: 0; } }
+  .tab-icon .icon-fill, .tabbar a[aria-current="page"] .icon-out { scale: 1; filter: none; }
 }

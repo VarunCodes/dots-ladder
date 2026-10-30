@@ -283,6 +283,8 @@ Restrained and quick: motion confirms a change, it never decorates. Plain CSS, u
 - **Screens** fade in and rise 8px when you switch to them, not on first load.
 - **Headline numbers** (the Ladder score, the chart's latest) fade the new value in when it changes. The Log result doesn't, as it changes with every keystroke.
 - **Events and records** open and close smoothly to their height (Chromium; other browsers snap).
+- **After a save**, the Ladder says what it achieved under the caption: "Saved", "Saved · PR on squat", "Saved · Cleared P25" (a rung counts only within the same group). Its accent check draws itself in (500ms), the score fades to its new value, and the note goes on the next change or when you leave the Ladder.
+- **Tab bar icons** are outlines; the open tab's filled version cross-fades in (scale, blur and opacity; not on first load).
 
 ## 9. Build phases (one PR each, checked on the phone between them)
 
