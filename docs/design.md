@@ -125,7 +125,7 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
 1. Header: eyebrow "PROGRESS", title "THE CLIMB", and the same DOTS / GL toggle as the Ladder's, top right and out of the layout flow (so the header keeps its spacing; under 360px it sits in the row). Switching it redraws Progress and is saved for every screen.
 2. **Chart controls**, above the card: **Score | Lifts | BW** on the left (chalk when chosen, like the experience tabs) and **3M | All** on the right (text, the chosen one underlined in `--accent`), each at least 44px. **Lifts** adds a second row underneath in the same underlined style: **Total | Squat | Bench | Deadlift**. All of it is remembered on the device (`dots-ladder:progress-view`).
    - **Score** plots your score with everything below (rungs, bands, rung-cleared rings). **Lifts** and **BW** plot kg ("370 kg total now", "120 kg bench now", "70 kg bodyweight now") with no rungs, since rungs are scores. A bodyweight change is never in the accent: lighter isn't automatically better. No change reads "±0 kg".
-   - **Total** has a point on every day you logged anything (the rest carried forward). **A single lift** has a point only on the days that lift was logged, never a carried value, and marks its PRs with the hollow ring ("PR" in the legend).
+   - **Total** has a point on every day you logged anything (the rest carried forward). **A single lift** has a point only on the days that lift was logged, never a carried value, and **draws that lift's own rungs in kg** ("Next rung · P25 · 130 kg", bands and rung-cleared rings as on Score). Its PRs get a small "PR" label above the point ("PR · Personal record" in the legend), so they don't clash with the hollow rung-cleared ring.
    - **3M** shows the last 3 months (from the same day 3 months ago; with no test that recent, the latest still shows). The header's "since", and the tiles, follow the range.
 3. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
    - Header: your latest score (44px) with "{DOTS|GL} now"; on the right "+x since {first test's date}" (`--accent` when up), or "Starting point" with one test. On a narrow screen the change drops onto its own line rather than squeezing the score. Under it, the first rung above the plot, e.g. "P50 · 338 ↑ off chart".
@@ -157,7 +157,7 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
    - "Same {total} kg total at {targetBw} kg = **{score} {DOTS|GL}**", with the number in accent.
    - Caption: "+{delta} from bodyweight alone", plus ", enough to clear P{n}" when it would clear a rung of the Ladder's group.
    - The target bodyweight is a field (saved as `profile.targetBw`; empty means the default). The default is the top of the next lighter class, i.e. cutting one class (66 kg at 70 kg), or the top of your class if it's the lightest.
-6. **"LIFT SPLIT"**: three horizontal bars (Squat, Bench, Deadlift).
+6. **"LIFT SPLIT"**: three horizontal bars (Squat, Bench, Deadlift). Under each bar, where that lift sits among its own rungs ("Between P50 and P75", "Above P90"), so the lift holding your total back stands out.
    - Track `--divider`, fill `--text-2`, height 10px, radius 5px.
    - Width is relative to your best lift; the kg value sits on the right.
 7. **"1RMs"**: every record, newest first: the date with a **PR** badge (chalk outline) when it beat your previous best on a lift, what it logged ("Squat 1RM · 150 kg", "1RM test · 370 kg @ 70 kg", "Bodyweight · 69.5 kg"; "· Women's" for the other category), and your score at it on the right.
@@ -191,6 +191,8 @@ Three keys. Each new field defaults when it's missing, so older saved data loads
 
 - Calculate scores whenever they're displayed. Never store them.
 - Wrap every localStorage read and write in try/catch. If storage is empty or unavailable, start with an empty state. A screen with no tests shows an empty state that links to `#/log`.
+
+**Rung data** (`data/rungs.json`, built by the pipeline, the only data the page loads): for each group (sex, class, experience), `dots` and `gl` percentiles and, under `lifts`, each lift's percentiles in kg rounded to the nearest 2.5 kg, all from the same lifters' same results. Each lift's set carries its own `lifters` count and follows the same rules (20+ lifters, p10/p90 only at 50+). Per-lift rungs come from full-power meets only, so all three lifts describe the same people as the score rungs; they don't change with the DOTS / GL toggle.
 
 ## 7. Calculations (unit-test these)
 

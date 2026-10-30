@@ -36,6 +36,21 @@ export function rungsFor(data, formula, sex, wclass, experience) {
   return { lifters: group.lifters, rungs };
 }
 
+/**
+ * The group's rungs for one lift, in kg, lowest first: [{ percentile: 50, score: 155 }, ...] with the lifters they
+ * come from; null if the group has none for that lift. From the same lifters' same results as the score rungs.
+ */
+export function liftRungsFor(data, lift, sex, wclass, experience) {
+  const group = data.rungs.find((r) => r.sex === sex && r.weightClassKg === wclass && r.experience === experience);
+  const set = group?.lifts?.[lift];
+  if (!set) return null;
+  const rungs = Object.entries(set)
+    .filter(([key]) => /^p\d+$/.test(key))
+    .map(([key, value]) => ({ percentile: Number(key.slice(1)), score: value }))
+    .sort((x, y) => x.percentile - y.percentile);
+  return { lifters: set.lifters, rungs };
+}
+
 /** "between P10 and P25", "below P10", "above P90", or "" without rungs. Reaching a rung's score clears it. */
 export function rungPosition(rungs, points) {
   const cleared = rungs.findLast((r) => r.score <= points);

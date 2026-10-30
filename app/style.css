@@ -499,6 +499,7 @@ a:hover { color: var(--accent-hover); }
 .key-rung { width: 16px; height: 0; border-radius: 0; border-top: 1.5px dashed var(--muted); background: none; }
 .key-cleared { width: 12px; height: 12px; border: 2.5px solid var(--accent); background: var(--surface); box-sizing: border-box; }
 .key-other { background: var(--text-2); }
+.key-pr { width: auto; height: auto; border-radius: 0; background: none; color: var(--text); font-size: 0.625rem; font-weight: 700; letter-spacing: 0.06em; }
 
 .stat-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .tile { padding: 14px 16px; border-radius: 16px; background: var(--surface); }
@@ -507,6 +508,8 @@ a:hover { color: var(--accent-hover); }
 .tile-sub { font-size: 0.8125rem; color: var(--muted); }
 .tile-sub.up { color: var(--accent); font-weight: 600; }
 .chart-ring { fill: none; stroke: var(--accent); stroke-width: 2; }
+/* A single lift's PR: a small label above its point (the hollow ring means a rung first cleared). */
+.chart-pr { fill: var(--text); font-family: var(--body); font-size: 9px; font-weight: 700; letter-spacing: 0.06em; }
 
 .lever, .split { margin-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 .lever { padding: 16px; border: 1px solid var(--border); border-radius: 16px; }
@@ -528,7 +531,9 @@ a:hover { color: var(--accent-hover); }
 #lever-note:empty { display: none; }
 
 .split-list { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 0; padding: 0; list-style: none; }
-.split-row { display: grid; grid-template-columns: 24px 72px 1fr auto; align-items: center; gap: 10px; }
+.split-row { display: grid; grid-template-columns: 24px 72px 1fr auto; align-items: center; gap: 4px 10px; }
+/* Where the lift sits among its rungs, under its bar. */
+.split-pos { grid-column: 3 / -1; margin-top: -2px; }
 .split-icon { width: 24px; height: 24px; color: var(--muted); }
 .split-track { height: 10px; border-radius: 5px; background: var(--divider); overflow: hidden; }
 .split-fill { display: block; height: 100%; border-radius: 5px; background: var(--text-2); }

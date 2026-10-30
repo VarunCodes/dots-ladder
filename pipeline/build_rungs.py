@@ -6,8 +6,9 @@ What it does
   1. Reads the OpenPowerlifting bulk CSV (the .zip as downloaded, or an unzipped .csv).
   2. Works out how many meets each lifter had competed in before each result.
   3. Keeps UK, raw, full-power (squat/bench/deadlift) results from adult lifters.
-  4. Groups lifters by sex, weight class and experience, and works out DOTS and IPF GL percentiles
-     (both from each lifter's same result, so the two sets describe the same people).
+  4. Groups lifters by sex, weight class and experience, and works out DOTS and IPF GL percentiles,
+     and percentiles of each lift (squat, bench, deadlift in kg), all from each lifter's same result,
+     so every set describes the same people.
   5. Writes rungs.json: a small file of group statistics with no names in it.
 
 Only rungs.json belongs in your repo. Never commit the downloaded zip/CSV.
@@ -101,6 +102,13 @@ def gl(sex, bodyweight, total):
 
 # Rounding of the published percentiles: GL is about a fifth of the DOTS scale, so it keeps one decimal place.
 ROUNDING = {"dots": 0, "gl": 1}
+# Each lift's percentiles, in kg rounded to the nearest 2.5 (the smallest jump you can load on a bar).
+LIFTS = {"squat": "Best3SquatKg", "bench": "Best3BenchKg", "deadlift": "Best3DeadliftKg"}
+PLATE_KG = 2.5
+
+
+def round_to_plate(kg):
+    return round(kg / PLATE_KG) * PLATE_KG
 
 
 def to_float(value):
@@ -214,6 +222,8 @@ def build(path, since="2024-01-01", min_group=20, min_group_extremes=50, tested_
         scores = {
             "dots": to_float(row.get("Dots")) or dots(sex, bw, total),
             "gl": to_float(row.get("Goodlift")) or gl(sex, bw, total),
+            # A lift without a positive best (rare: older records with only a total) is left out of that lift's set.
+            "lifts": {lift: kg for lift, column in LIFTS.items() if (kg := to_float(row.get(column))) and kg > 0},
         }
         key = (sex, weight_class(sex, bw), experience_bucket(prior), name)
         if key not in latest or row["Date"] > latest[key][0]:
@@ -235,6 +245,16 @@ def build(path, since="2024-01-01", min_group=20, min_group_extremes=50, tested_
             values = sorted(s[formula] for s in lifters)
             # p50 is the median. ndigits=None gives whole numbers as ints (300, not 300.0).
             rung[formula] = {f"p{p}": round(percentile(values, p), digits or None) for p in shown}
+        # Each lift by itself, under the same size rules counted on its own lifters.
+        lifts = {}
+        for lift in LIFTS:
+            values = sorted(s["lifts"][lift] for s in lifters if lift in s["lifts"])
+            if len(values) < min_group:
+                continue
+            lift_shown = sorted(CORE_PERCENTILES + (EXTREME_PERCENTILES if len(values) >= min_group_extremes else []))
+            lifts[lift] = {"lifters": len(values), **{f"p{p}": round_to_plate(percentile(values, p)) for p in lift_shown}}
+        if lifts:
+            rung["lifts"] = lifts
         rungs.append(rung)
 
     return {

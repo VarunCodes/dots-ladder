@@ -85,22 +85,22 @@ const kgChange = (n) => {
 const kgValue = (n) => String(Math.round(n * 10) / 10);
 
 /**
- * What the chart plots, and how to write it: your score in the chosen formula (with the rungs), your total or a
- * single lift (Lifts), or your bodyweight. Rungs are scores, so only the Score view draws them; a single lift
- * marks its PRs instead.
+ * What the chart plots, and how to write it: your score in the chosen formula (with its rungs), your total or a
+ * single lift (Lifts), or your bodyweight. Score draws the score rungs and a single lift its own rungs in kg
+ * (same lifters); the total and bodyweight have none. A single lift also marks its PRs.
  */
 function measure() {
   const { formula } = ctx.state.profile;
   const label = S.FORMULAS[formula].label;
   const scoreText = (n) => S.formatScore(formula, n);
   return {
-    score: { name: label, value: (e) => e.score, num: scoreText, text: scoreText, change: (n) => signed(formula, n), unit: `${label} now`, rungs: true },
+    score: { name: label, value: (e) => e.score, num: scoreText, text: scoreText, change: (n) => signed(formula, n), unit: `${label} now`, rungs: true, rungText: (n) => S.formatRung(formula, n) },
     total: { name: "Total", value: (e) => L.sumLifts(e.test), num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: "kg total now", rungs: false },
     bw: { name: "Bodyweight", value: (e) => e.test.bodyweight, num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: "kg bodyweight now", rungs: false },
     ...Object.fromEntries(
       L.LIFTS.map((lift) => [
         lift,
-        { name: LIFT_NAMES[lift], value: (e) => e.test[lift], num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: `kg ${lift} now`, rungs: false, lift },
+        { name: LIFT_NAMES[lift], value: (e) => e.test[lift], num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: `kg ${lift} now`, rungs: true, rungText: (n) => `${kgValue(n)} kg`, lift },
       ]),
     ),
   }[view.metric === "lifts" ? view.lift : view.metric];
@@ -110,7 +110,7 @@ function renderChart() {
   const m = measure();
   const list = chartDays();
   const scoreRungs = groupRungs();
-  const rungs = m.rungs ? scoreRungs : [];
+  const rungs = m.lift ? liftRungs(m.lift) : m.rungs ? scoreRungs : [];
   // A single lift marks the days it set a PR.
   const prDays = m.lift ? liftPrDays(m.lift) : new Set();
   // The plotted value is the chosen measure; the tiles below always work on the score.
@@ -127,6 +127,12 @@ function renderChart() {
   renderLegend(model, m);
   renderStats(rangeDays(), scoreRungs);
   $("chart-hit").hidden = list.length < 2;
+}
+
+/** One lift's rungs in kg for the group the Ladder is showing (empty if the group has none for that lift). */
+function liftRungs(lift) {
+  const { profile, experience } = ctx.state;
+  return L.liftRungsFor(ctx.rungsData, lift, profile.sex, L.effectiveClass(profile), experience)?.rungs ?? [];
 }
 
 /** The days a record set a PR on this lift. */
@@ -161,7 +167,6 @@ function renderControls() {
 
 /** The value now, the change since the first day in range ("Starting point" with one), and a rung too high to draw. */
 function renderHeader(list, model, m) {
-  const { formula } = ctx.state.profile;
   const latest = list.at(-1);
   $("chart-now").textContent = m.num(latest.score);
   $("chart-unit").textContent = m.unit;
@@ -171,12 +176,11 @@ function renderHeader(list, model, m) {
   $("chart-change").className = list.length > 1 && change > 0 && view.metric !== "bw" ? "up" : "";
   const off = model.offChart;
   $("chart-offchart").hidden = !off;
-  if (off) $("chart-offchart").textContent = `P${off.percentile} · ${S.formatRung(formula, off.score)} ↑ off chart`;
+  if (off) $("chart-offchart").textContent = `P${off.percentile} · ${m.rungText(off.score)} ↑ off chart`;
 }
 
 /** The SVG: bands, value gridlines and labels, rung lines with their values, month labels, the line, and the points. */
 function drawPlot(model, selected, next, m) {
-  const { formula } = ctx.state.profile;
   const { width, height, left, right, bottom } = CHART;
   const [first, latest] = [model.points[0], model.points.at(-1)];
   const plot = $("chart");
@@ -204,7 +208,7 @@ function drawPlot(model, selected, next, m) {
   }
   for (const rung of model.rungs) {
     const isNext = rung.percentile === next?.percentile;
-    const value = `P${rung.percentile} · ${S.formatRung(formula, rung.score)}`;
+    const value = `P${rung.percentile} · ${m.rungText(rung.score)}`;
     nodes.push(
       svg("line", { class: `chart-rung${isNext ? " next" : ""}`, x1: left, x2: width - right, y1: rung.y, y2: rung.y }),
       // The next rung is named above its line; others sit just below theirs.
@@ -221,14 +225,14 @@ function drawPlot(model, selected, next, m) {
   plot.replaceChildren(...nodes);
 }
 
-/** A test's dot: hollow where it first cleared a rung (or, for a single lift, set a PR), muted for your other sex category, ringed when selected, smaller when dense. */
+/** A test's dot: hollow where it first cleared a rung, muted for your other sex category, ringed when selected, smaller when dense; a single lift's PR gets a small "PR" above it. */
 function pointMarks(point, selected, dense) {
   const marks = [];
   if (selected) marks.push(svg("circle", { class: "chart-ring", cx: point.x, cy: point.y, r: 9.5 }));
-  const hollow = point.cleared || point.pr;
-  const kind = hollow ? " cleared" : point.otherSex ? " other" : "";
-  const r = hollow ? 6 : selected || !dense ? 5 : 3;
+  const kind = point.cleared ? " cleared" : point.otherSex ? " other" : "";
+  const r = point.cleared ? 6 : selected || !dense ? 5 : 3;
   marks.push(svg("circle", { class: `chart-dot${kind}`, cx: point.x, cy: point.y, r }));
+  if (point.pr) marks.push(svg("text", { class: "chart-pr", x: point.x, y: point.y - 13, "text-anchor": "middle" }, "PR"));
   return marks;
 }
 
@@ -300,13 +304,13 @@ function renderLegend(model, m) {
   const items = [["dot", "1RM"]];
   if (m.rungs) items.push(["rung", "Rung"]);
   if (model.points.some((p) => p.cleared)) items.push(["cleared", "Rung cleared"]);
-  if (model.points.some((p) => p.pr)) items.push(["cleared", "PR"]);
-  const other = model.points.find((p) => p.otherSex && !p.cleared && !p.pr);
+  if (model.points.some((p) => p.pr)) items.push(["pr", "Personal record"]); // the key itself reads "PR"
+  const other = model.points.find((p) => p.otherSex && !p.cleared);
   if (other) items.push(["other", `${SEX_WORDS[other.test.sex]} test`]);
   $("chart-legend").replaceChildren(
     ...items.map(([kind, text]) => {
       const li = el("li", null, text);
-      li.prepend(el("span", `key key-${kind}`));
+      li.prepend(el("span", `key key-${kind}`, kind === "pr" ? "PR" : null));
       li.firstChild.setAttribute("aria-hidden", "true");
       return li;
     }),
@@ -386,6 +390,7 @@ function renderLever() {
       : `${signed(formula, result.delta)} from bodyweight alone${result.cleared ? `, enough to clear P${result.cleared.percentile}` : ""}.`;
 }
 
+/** Each lift's bar, its kg, and where it sits among that lift's rungs ("Between P50 and P75"), when the group has them. */
 function renderSplit() {
   const { profile } = ctx.state;
   const best = Math.max(...L.LIFTS.map((lift) => profile[lift]));
@@ -401,6 +406,8 @@ function renderSplit() {
       fill.style.width = `${(profile[lift] / best) * 100}%`;
       track.append(fill);
       li.append(icon, el("span", "split-name", LIFT_NAMES[lift]), track, el("span", "split-kg", `${profile[lift]} kg`));
+      const where = L.rungPosition(liftRungs(lift), profile[lift]);
+      if (where) li.append(el("span", "split-pos muted small", capital(where)));
       return li;
     }),
   );

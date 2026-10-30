@@ -19,6 +19,7 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 `pipeline/test_build_rungs.py` checks `build_rungs.py` against the privacy rules and the data logic:
 
 - **DOTS and GL**: known values for men and women, bodyweight clamping (GL: 40 kg men, 35 kg women), a total of 0, and a guard against the misprinted men's GL constant. The same values as `app/scoring.test.js`.
+- **Per-lift rungs**: each lift's percentiles in kg, rounded to the nearest 2.5 kg; the size rules counted on each lift's own lifters (a lift missing for some lifters can lose p10/p90 while the others keep them, or be left out under 20).
 - **DOTS and GL rungs**: both come from the same lifters' same results, have the same percentiles, and are rounded (DOTS whole numbers, GL 1 decimal place); the CSV's own `Dots` and `Goodlift` values are preferred.
 - **Minors**: sub-junior, teen and under-18 divisions, ages and age classes are excluded; "Submasters" and adult divisions are kept.
 - **Filters**: non-UK, non-raw, non-SBD, disqualified, pre-`--since` and nameless rows are dropped; `--tested-only` works.
@@ -51,6 +52,7 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 - **Contract tests on the committed data** (`data/rungs.json`, the only data file the page loads):
   - Every rung must be aggregate only: no unexpected fields, 20+ lifters, and p10/p90 only at 50+, with the same percentiles in DOTS and GL.
   - Rungs are rounded (DOTS whole numbers, GL 1 decimal place) and rise with the percentile.
+  - Per-lift rungs are aggregate only too: 20+ lifters (never more than the group), p10/p90 only at 50+, in kg on a 2.5 kg step, rising.
   - Every class in the rungs must be choosable in the class dropdown.
   - The gym-goer estimates must stay below every published DOTS rung, so the marker never passes for one (see `docs/population-estimates.md`).
 
