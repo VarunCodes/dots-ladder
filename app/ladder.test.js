@@ -123,14 +123,6 @@ test("the formula defaults to DOTS when it's missing or unknown, and GL is kept"
   assert.equal(L.validProfile({ ...me70, formula: "gl" }).formula, "gl");
 });
 
-test("a saved profile without a formula loads as DOTS; GL round-trips", () => {
-  const { formula, ...old } = me70;
-  assert.deepEqual(L.loadProfile(fakeStorage({ [L.PROFILE_KEY]: JSON.stringify(old) }), null), me70);
-  const storage = fakeStorage();
-  L.saveProfile(storage, { ...me70, formula: "gl" });
-  assert.equal(L.loadProfile(storage, null).formula, "gl");
-});
-
 test("the profile's score follows its formula", () => {
   assert.equal(L.profileScore(me70).toFixed(1), "277.9");
   assert.equal(L.profileScore({ ...me70, formula: "gl" }).toFixed(2), "55.92");
@@ -141,25 +133,42 @@ test("a class that doesn't exist for the sex falls back to working it out from b
   assert.equal(L.validProfile({ ...me70, weightClass: 74 }).weightClass, null, "class labels are strings");
 });
 
-test("saved profile round-trips through storage", () => {
+test("only the settings are saved: your numbers live in your records", () => {
   const storage = fakeStorage();
-  assert.equal(L.saveProfile(storage, { ...me70, weightClass: "66" }), true);
-  assert.deepEqual(L.loadProfile(storage, me70), { ...me70, weightClass: "66" });
+  assert.equal(L.saveSettings(storage, { ...me70, weightClass: "66", formula: "gl", targetBw: 64 }), true);
+  assert.deepEqual(JSON.parse(storage.data.get(L.PROFILE_KEY)), { weightClass: "66", formula: "gl", targetBw: 64 }, "no sex, bodyweight or lifts");
+  assert.deepEqual(L.loadSaved(storage), { settings: { weightClass: "66", formula: "gl", targetBw: 64 }, legacy: null });
+  assert.equal(L.saveSettings(fakeStorage({}, { fail: true }), me70), false, "blocked storage reports failure");
 });
 
-test("loading falls back when nothing is saved, the JSON is corrupt, the values are invalid or storage is blocked", () => {
-  const fallback = { ...me70 };
-  assert.equal(L.loadProfile(fakeStorage(), fallback), fallback);
-  assert.equal(L.loadProfile(fakeStorage({ [L.PROFILE_KEY]: "{not json" }), fallback), fallback);
-  assert.equal(L.loadProfile(fakeStorage({ [L.PROFILE_KEY]: JSON.stringify({ ...me70, squat: -1 }) }), fallback), fallback);
-  assert.equal(L.loadProfile(fakeStorage({}, { fail: true }), fallback), fallback);
+test("settings default when missing or invalid; a profile saved without a formula is DOTS", () => {
+  assert.deepEqual(L.settingsOf(null), { weightClass: null, formula: "dots", targetBw: null });
+  assert.deepEqual(L.settingsOf({ weightClass: 66, formula: "wilks", targetBw: 500 }), { weightClass: null, formula: "dots", targetBw: null });
+  const { formula, ...old } = me70;
+  assert.equal(L.loadSaved(fakeStorage({ [L.PROFILE_KEY]: JSON.stringify(old) })).settings.formula, "dots");
 });
 
-test("an invalid profile isn't saved, and blocked storage reports failure", () => {
-  const storage = fakeStorage();
-  assert.equal(L.saveProfile(storage, { ...me70, bench: 0 }), false);
-  assert.equal(storage.data.size, 0);
-  assert.equal(L.saveProfile(fakeStorage({}, { fail: true }), me70), false);
+test("a record without a sex borrows the old profile's, or another record's, rather than being dropped", () => {
+  const { sex, ...older } = test1;
+  const storage = fakeStorage({ [L.TESTS_KEY]: JSON.stringify([older, test2]) });
+  assert.deepEqual(L.loadTests(storage, null, "2026-12-31", []).map((t) => t.sex), ["M", "M"]);
+});
+
+test("a profile saved by an older version, numbers included, is read once as legacy", () => {
+  const saved = L.loadSaved(fakeStorage({ [L.PROFILE_KEY]: JSON.stringify({ ...me70, weightClass: "66" }) }));
+  assert.deepEqual(saved.legacy, { ...me70, weightClass: "66" });
+  assert.deepEqual(saved.settings, { weightClass: "66", formula: "dots", targetBw: null });
+  assert.equal(L.loadSaved(fakeStorage()), null, "nothing saved");
+  assert.equal(L.loadSaved(fakeStorage({ [L.PROFILE_KEY]: "{not json" })), null);
+  assert.equal(L.loadSaved(fakeStorage({}, { fail: true })), null, "blocked storage");
+});
+
+test("your profile is your latest numbers from your records, with your settings", () => {
+  const settings = { weightClass: "66", formula: "gl", targetBw: 64 };
+  const tests = [test1, { id: "s", date: "2026-11-10", sex: "M", squat: 130 }];
+  assert.deepEqual(L.currentProfile(settings, tests), { ...me70, squat: 130, weightClass: "66", formula: "gl", targetBw: 64 });
+  assert.equal(L.currentProfile(settings, []), null, "no records yet: the first-visit form");
+  assert.equal(L.currentProfile(settings, [{ ...test1, sex: "F" }]).weightClass, null, "a class that doesn't exist for the sex goes back to auto");
 });
 
 // --- Progress: weight-class lever and rung position ---------------------------------

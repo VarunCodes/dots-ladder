@@ -445,7 +445,7 @@ function setupLever() {
     $("lever-note").textContent = ok ? "" : `Target bodyweight must be ${L.LIMITS.bodyweight.join("–")} kg.`;
     if (!ok) return;
     ctx.state.profile = { ...ctx.state.profile, targetBw: input.value === "" ? null : value };
-    L.saveProfile(ctx.storage, ctx.state.profile);
+    L.saveSettings(ctx.storage, ctx.state.profile);
     renderLever();
   });
 }
@@ -553,11 +553,11 @@ function readTest(form, id) {
   return { id, date: f.date.value, sex: f.sex.value, ...Object.fromEntries(logged.map((name) => [name, f[name].valueAsNumber])) };
 }
 
-/** Saves the records, and the profile's latest numbers from them; returns whether both were saved. */
+/** Saves the records, and the settings; the profile takes its latest numbers from the records. Returns whether both were saved. */
 function persistTests(tests) {
   ctx.state.tests = L.sortTests(tests);
   ctx.state.profile = L.withLatestTest(ctx.state.profile, ctx.state.tests);
-  const ok = L.saveTests(ctx.storage, ctx.state.tests) && L.saveProfile(ctx.storage, ctx.state.profile);
+  const ok = L.saveTests(ctx.storage, ctx.state.tests) && L.saveSettings(ctx.storage, ctx.state.profile);
   $("tests-note").textContent = ok ? "" : "Couldn't save on this device; changes last until you close the page.";
   return ok;
 }
@@ -649,7 +649,7 @@ function renderFormula() {
   $("progress-formula").replaceChildren(
     ...formulaButtons(ctx.state.profile.formula, (id) => {
       ctx.state.profile = { ...ctx.state.profile, formula: id };
-      L.saveProfile(ctx.storage, ctx.state.profile);
+      L.saveSettings(ctx.storage, ctx.state.profile);
       openProgress();
       ctx.onChange();
     }),

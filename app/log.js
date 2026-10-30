@@ -116,7 +116,7 @@ function renderResult() {
   $("log-formula").replaceChildren(
     ...formulaButtons(formula, (id) => {
       ctx.state.profile = { ...ctx.state.profile, formula: id };
-      L.saveProfile(ctx.storage, ctx.state.profile);
+      L.saveSettings(ctx.storage, ctx.state.profile);
       renderResult();
     }),
   );
@@ -193,6 +193,8 @@ export function setupLog(context) {
   });
 
   form().addEventListener("input", (event) => {
+    // With no records the first-visit form is showing, and this form has nothing to start from.
+    if (!ctx.state.tests.length) return;
     const { name } = event.target;
     if (L.VALUES.includes(name)) changed.add(name);
     // A new date brings that day's numbers into the fields you haven't changed.
@@ -205,7 +207,7 @@ export function setupLog(context) {
   });
 
   // Saving adds a record of only what changed (all four before your first record); the profile keeps the class
-  // and formula, and takes your latest numbers.
+  // and formula (the only part saved with it), and takes your latest numbers from the records.
   form().addEventListener("submit", (event) => {
     event.preventDefault();
     const raw = read();
@@ -216,7 +218,7 @@ export function setupLog(context) {
     const tests = L.sortTests([...ctx.state.tests, L.testFrom(draft, raw.date, L.newId("test"), names)]);
     ctx.state.tests = tests;
     ctx.state.profile = L.withLatestTest(draft, tests);
-    ctx.onSaved(L.saveTests(ctx.storage, tests) && L.saveProfile(ctx.storage, ctx.state.profile));
+    ctx.onSaved(L.saveTests(ctx.storage, tests) && L.saveSettings(ctx.storage, ctx.state.profile));
   });
 
   // Clearing goes back to the first-visit form; there are no default numbers to fall back to.

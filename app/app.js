@@ -140,7 +140,7 @@ function render(rungsData, state, storage) {
   $("formula").replaceChildren(
     ...formulaButtons(formula, (id) => {
       state.profile = { ...profile, formula: id };
-      L.saveProfile(storage, state.profile);
+      L.saveSettings(storage, state.profile);
       render(rungsData, state, storage);
     }),
   );
@@ -216,7 +216,7 @@ function setupOnboarding(state, storage, onDone) {
     if (!profile) return;
     state.profile = profile;
     state.tests = [L.testFrom(profile, state.today, L.newId("test"))];
-    onDone(L.saveProfile(storage, profile) && L.saveTests(storage, state.tests));
+    onDone(L.saveTests(storage, state.tests) && L.saveSettings(storage, profile));
   });
 }
 
@@ -225,13 +225,15 @@ try {
   const storage = deviceStorage();
   const thisMonth = L.monthOf(new Date());
   const today = L.dayOf(new Date());
-  // New visitors start blank: no saved numbers means the onboarding form, and events and tests start empty.
-  const saved = L.loadProfile(storage, null);
-  const tests = L.loadTests(storage, saved, today, []);
-  // Numbers saved before the history existed become its first test; saving now keeps that test's date.
-  if (saved && tests.length) L.saveTests(storage, tests);
+  // New visitors start blank: no records means the onboarding form, and events and records start empty.
+  const saved = L.loadSaved(storage);
+  const tests = L.loadTests(storage, saved?.legacy ?? null, today, []);
+  // A profile saved by an older version still holds numbers: if there was no history yet they became its first
+  // record (saving now keeps that record's date), and either way the saved profile is cut down to settings only.
+  if (saved?.legacy && tests.length && L.saveTests(storage, tests)) L.saveSettings(storage, saved.settings);
   const state = {
-    profile: saved && L.withLatestTest(saved, tests),
+    // Your numbers are always worked out from your records; only the settings come from the saved profile.
+    profile: L.currentProfile(saved?.settings ?? L.settingsOf(null), tests),
     tests,
     events: L.loadEvents(storage, []),
     thisMonth,
