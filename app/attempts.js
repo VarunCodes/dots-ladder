@@ -106,3 +106,50 @@ export function attemptStates(attempts, next) {
     }),
   );
 }
+
+// --- Warm-ups --------------------------------------------------------------------------------
+
+export const WARMUPS = [[60, 5], [75, 3], [85, 2], [92.5, 1]]; // % of the opener × reps, after the bar × 10
+export const MINUTES_PER_LIFTER = 1;
+export const WARMUP_GAP = 7; // minutes between sets, and from the last one to the opener
+
+/** "11:30" → 690 minutes after midnight; null if it isn't a time. */
+export function toMinutes(time) {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time ?? "");
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
+
+/** 690 → "11:30". */
+export function clockTime(minutes) {
+  const m = ((minutes % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** The warm-up sets for an opener: the bar × 10, then 60/75/85/92.5% rounded down to 2.5 kg, each heavier than the last and lighter than the opener. */
+export function warmupSets(opener) {
+  const sets = [{ kg: BAR_KG, reps: 10 }];
+  for (const [pct, reps] of WARMUPS) {
+    const kg = floorTo((opener * pct) / 100);
+    if (kg > sets.at(-1).kg && kg < opener) sets.push({ kg, reps });
+  }
+  return sets;
+}
+
+/**
+ * When to take each set. The opener comes about a minute per lifter before you after the flight starts; the sets
+ * go WARMUP_GAP apart, the last one WARMUP_GAP before the opener. Without a start time, no times.
+ * { sets: [{ kg, reps, at }], openerAt } with times in minutes after midnight (or null).
+ */
+export function warmupTimes(sets, start, before) {
+  const openerAt = start == null ? null : start + (before ?? 0) * MINUTES_PER_LIFTER;
+  return {
+    openerAt,
+    sets: sets.map((set, i) => ({ ...set, at: openerAt == null ? null : openerAt - WARMUP_GAP * (sets.length - i) })),
+  };
+}
+
+/** The set due at `now` (minutes after midnight): the last one whose time has come, before the opener; else -1. */
+export function dueSet({ sets, openerAt }, now) {
+  if (openerAt == null || now == null || now >= openerAt) return -1;
+  return sets.findLastIndex((set) => set.at <= now);
+}

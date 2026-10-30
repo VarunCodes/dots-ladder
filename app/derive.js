@@ -163,9 +163,32 @@ function meetValues({ settings, session }, base, rungs, plans) {
     const taken = Object.values(attempts).flat().length;
     return { event, attempts, next, taken, states: A.attemptStates(attempts, next) };
   });
+  // Warm-ups for one lift: the one you picked, else the lift you're on. Its opener is what you've set for it, else
+  // the plan's; the set due now (by the session's clock, on the meet's day) and the ones you've ticked off.
+  const warmups = memoizeOnce(() => {
+    const day = meetDay();
+    if (!day) return null;
+    const lift = session.warmupLift ?? day.next?.lift ?? "squat";
+    const next = day.next;
+    const opener = next?.lift === lift && next.number === 1 ? next.kg : attemptPlan().steps[0].lifts[lift];
+    const startText = day.event.day?.start?.[lift] ?? null;
+    const before = day.event.day?.before ?? null;
+    const timeline = A.warmupTimes(A.warmupSets(opener), A.toMinutes(startText), before);
+    const due = day.event.date === session.today ? A.dueSet(timeline, session.clock) : -1;
+    const ticked = session.warmupTicks?.[lift] ?? [];
+    return {
+      lift,
+      opener,
+      start: startText,
+      before,
+      openerAt: timeline.openerAt,
+      sets: timeline.sets.map((set, i) => ({ ...set, due: i === due, ticked: ticked.includes(i) })),
+    };
+  });
   return {
     attemptPlan,
     meetDay,
+    warmups,
     // The loader's weight is the session's (not saved); it starts at your next attempt, else your squat opener.
     plates: memoizeOnce(() => {
       const total = session.plateKg ?? meetDay()?.next?.kg ?? attemptPlan()?.steps[0].lifts.squat ?? 60;
@@ -266,6 +289,13 @@ function make(state) {
      */
     get meetDay() {
       return meet.meetDay();
+    },
+    /**
+     * Warm-ups for one lift at your next meet, or null without one: { lift, opener, start, before, openerAt,
+     * sets: [{ kg, reps, at (minutes after midnight, or null), due, ticked }] }.
+     */
+    get warmups() {
+      return meet.warmups();
     },
     /** The plate loader: { total, plates (one side, inside to outside), perSide, exact }. */
     get plates() {

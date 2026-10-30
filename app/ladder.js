@@ -436,8 +436,12 @@ function shortText(raw) {
   return text && text.length <= MAX_LABEL ? text : null;
 }
 
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const MAX_BEFORE = 60; // lifters before you in your flight
+
 /**
- * The optional meet-day part of an event, cleaned: { flight, attempts: { squat: [{ kg, good }], ... } }. Anything
+ * The optional meet-day part of an event, cleaned: { flight, start: { squat: "11:30", ... }, before (lifters before
+ * you), attempts: { squat: [{ kg, good }], ... } }. Anything
  * invalid is dropped rather than refusing the event (it's typed and tapped on the day); null if nothing's left.
  * A lift keeps at most three attempts, and only up to its first invalid one, so the order stays true.
  */
@@ -446,6 +450,9 @@ export function cleanDay(raw) {
   const day = {};
   const flight = shortText(raw.flight);
   if (flight) day.flight = flight;
+  const start = Object.fromEntries(LIFTS.filter((lift) => TIME.test(raw.start?.[lift] ?? "")).map((lift) => [lift, raw.start[lift]]));
+  if (Object.keys(start).length) day.start = start;
+  if (Number.isInteger(raw.before) && raw.before >= 0 && raw.before <= MAX_BEFORE) day.before = raw.before;
   const attempts = {};
   for (const lift of LIFTS) {
     const list = Array.isArray(raw.attempts?.[lift]) ? raw.attempts[lift].slice(0, 3) : [];

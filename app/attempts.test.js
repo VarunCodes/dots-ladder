@@ -85,3 +85,33 @@ test("all nine taken: no next attempt; the strip marks good, miss, next and to d
   const states = A.attemptStates(attempts, A.nextAttempt(attempts, plan)).map((a) => a.state);
   assert.deepEqual(states, ["good", "miss", "next", "todo", "todo", "todo", "todo", "todo", "todo"]);
 });
+
+// --- Warm-ups --------------------------------------------------------------------------------
+
+test("warm-ups for a 100 kg opener: the bar, then 60, 75, 85 and 92.5 kg", () => {
+  assert.deepEqual(A.warmupSets(100), [
+    { kg: 20, reps: 10 }, { kg: 60, reps: 5 }, { kg: 75, reps: 3 }, { kg: 85, reps: 2 }, { kg: 92.5, reps: 1 },
+  ]);
+  assert.deepEqual(A.warmupSets(30).map((s) => s.kg), [20, 22.5, 25, 27.5], "60% would be under the bar, so it is skipped");
+});
+
+test("times: a minute per lifter before you, sets 7 minutes apart, the last 7 before the opener", () => {
+  const timeline = A.warmupTimes(A.warmupSets(100), A.toMinutes("11:30"), 6);
+  assert.equal(A.clockTime(timeline.openerAt), "11:36");
+  assert.deepEqual(timeline.sets.map((s) => A.clockTime(s.at)), ["11:01", "11:08", "11:15", "11:22", "11:29"]);
+  assert.deepEqual(A.warmupTimes([{ kg: 20, reps: 10 }], null, 6), { openerAt: null, sets: [{ kg: 20, reps: 10, at: null }] });
+});
+
+test("the set due now is the last one whose time has come, until the opener", () => {
+  const timeline = A.warmupTimes(A.warmupSets(100), A.toMinutes("11:30"), 6);
+  assert.equal(A.dueSet(timeline, A.toMinutes("10:50")), -1, "too early");
+  assert.equal(A.dueSet(timeline, A.toMinutes("11:16")), 2, "75 kg");
+  assert.equal(A.dueSet(timeline, A.toMinutes("11:36")), -1, "opener time");
+});
+
+test("clock times read and write as HH:MM", () => {
+  assert.equal(A.toMinutes("09:05"), 545);
+  assert.equal(A.toMinutes("25:00"), null);
+  assert.equal(A.clockTime(545), "09:05");
+  assert.equal(A.clockTime(-10), "23:50");
+});

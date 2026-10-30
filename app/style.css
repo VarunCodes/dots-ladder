@@ -789,6 +789,46 @@ td.plan-third { font-weight: 700; }
 .day-setup summary { min-height: 44px; display: flex; align-items: center; color: var(--text-2); cursor: pointer; }
 .day-setup .fields { padding-top: 4px; }
 
+.day-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 0; }
+.day-top:has(> :not([hidden])) { min-height: 28px; }
+.day-wait { margin: 0 0 0 auto; }
+
+/* Warm-ups: each set a row you can tap off; the one due now is accent (your next action). */
+.warm-live { display: flex; flex-direction: column; gap: 12px; }
+.warm-live > .view-group { align-self: flex-start; }
+.warm-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.warm-set, .warm-opener {
+  display: grid;
+  grid-template-columns: 58px 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.0625rem;
+  text-align: left;
+  cursor: pointer;
+}
+.warm-time { font-size: 0.9375rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.warm-kg { font-weight: 600; }
+.warm-reps { color: var(--muted); }
+.warm-mark { justify-self: center; width: 10px; height: 10px; border: 2px solid var(--muted); border-radius: 50%; }
+.warm-due { background: var(--accent); color: var(--on-accent); }
+.warm-due .warm-time, .warm-due .warm-reps { color: inherit; }
+.warm-due .warm-mark { border-color: var(--on-accent); background: var(--on-accent); }
+.warm-done { color: var(--muted); }
+.warm-done .warm-kg { font-weight: 400; text-decoration: line-through; }
+.warm-done .warm-mark { width: 14px; height: 8px; border: solid currentColor; border-width: 0 0 2px 2px; border-radius: 0; rotate: -45deg; translate: 0 -2px; }
+.warm-opener { margin-top: 4px; border-top: 1px solid var(--divider); border-radius: 0; cursor: default; }
+.warm-opener .warm-time { color: var(--text); font-weight: 600; }
+.warm-opener .warm-kg { font-weight: 700; }
+.warm-opener .warm-mark { width: 10px; height: 10px; border: 0; border-radius: 0; background: var(--text); rotate: 45deg; }
+
 /* Plate loader: the weight between − and +, one side of the bar drawn, and the plates listed. */
 .plate-stepper { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 8px; }
 .plate-stepper .step-btn { width: 48px; height: 48px; }

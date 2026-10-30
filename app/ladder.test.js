@@ -619,6 +619,12 @@ test("invalid meet-day parts are dropped, not the event: attempts stop at the fi
   assert.equal(L.cleanDay({ flight: "  " }), null);
 });
 
+test("a meet day keeps each lift's start time and the lifters before you, when valid", () => {
+  assert.deepEqual(L.cleanDay({ start: { squat: "11:30", bench: "25:00", deadlift: "" }, before: 6 }), { start: { squat: "11:30" }, before: 6 });
+  assert.equal(L.cleanDay({ before: -1 }), null);
+  assert.equal(L.cleanDay({ before: 2.5 }), null);
+});
+
 test("rack settings are kept only when set, trimmed and short", () => {
   assert.equal("rack" in L.settingsOf({ formula: "dots" }), false);
   assert.deepEqual(L.settingsOf({ rack: { squat: " 9 ", safeties: "", bench: "6 / 3", other: "x" } }).rack, { squat: "9", bench: "6 / 3" });

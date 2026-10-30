@@ -7,7 +7,7 @@ import * as store from "./store.js";
 import { derived } from "./derive.js";
 import { $, choiceGroup, el } from "./dom.js";
 import { eventLabel } from "./events.js";
-import { ATTEMPT_NAMES, BAR_KG, BAR_LIMITS, COLLAR_KG, OPENER_PCTS, STEP_KG } from "./attempts.js";
+import { ATTEMPT_NAMES, BAR_KG, BAR_LIMITS, clockTime, COLLAR_KG, OPENER_PCTS, STEP_KG } from "./attempts.js";
 
 const now = () => derived(store.getState());
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
@@ -114,7 +114,9 @@ const meetDayCard = {
     const live = el("div", "day-live");
     const top = el("div", "day-top");
     const flight = el("span", "eyebrow");
-    top.append(flight);
+    const wait = el("span", "pill day-wait");
+    wait.setAttribute("role", "status");
+    top.append(flight, wait);
     const strip = el("div", "day-strip");
     strip.setAttribute("role", "img");
     const current = el("div", "day-now");
@@ -172,7 +174,7 @@ const meetDayCard = {
     setup.append(summary, fields);
     live.append(top, strip, current, plates, actions, after, undoButton);
     body.append(empty, live, setup);
-    return { empty, live, setup, flight, strip, what, stepper, weight, rack, plates, actions, after, undoButton, flightInput, rackInputs };
+    return { empty, live, setup, flight, wait, strip, what, stepper, weight, rack, plates, actions, after, undoButton, flightInput, rackInputs };
   },
   render(d, parts) {
     const day = d.meetDay;
@@ -182,6 +184,10 @@ const meetDayCard = {
     const { next, event } = day;
     parts.flight.textContent = event.day?.flight ?? "";
     parts.flight.hidden = !event.day?.flight;
+    // Before your first attempt of a lift, how long until you're on.
+    const waiting = next?.number === 1 && event.day?.before != null;
+    parts.wait.hidden = !waiting;
+    if (waiting) parts.wait.textContent = `${event.day.before} lifters · ~${event.day.before} min`;
     parts.strip.replaceChildren(
       ...day.states.map(({ state, number }) => el("span", `day-seg seg-${state}${number === 1 ? " seg-first" : ""}`)),
     );
@@ -212,6 +218,98 @@ const meetDayCard = {
     RACK_FIELDS.forEach(([key], i) => fill(parts.rackInputs[i], d.settings.rack?.[key]));
   },
 };
+
+// --- Warm-ups --------------------------------------------------------------------------------
+// Often read by a handler holding the phone mid-warm-up: big times and weights, one tap to tick a set off.
+
+const warmupsCard = {
+  id: "warmups",
+  title: "Warm-up timeline",
+  setup(body) {
+    const empty = el("p", "muted meet-empty", "Add a meet with an exact date to plan your warm-ups.");
+    const live = el("div", "warm-live");
+    const lifts = el("div", "view-group");
+    lifts.setAttribute("role", "group");
+    lifts.setAttribute("aria-label", "Warm-ups for");
+    const fields = el("div", "fields");
+    const field = (labelText, attrs, save) => {
+      const label = el("label", "", labelText);
+      const input = el("input");
+      Object.assign(input, attrs);
+      input.addEventListener("change", () => save(input));
+      label.append(input);
+      fields.append(label);
+      return input;
+    };
+    const start = field("Flight starts", { type: "time", name: "start" }, (input) => {
+      const { lift } = now().warmups;
+      saveDay(now().meetDay.event.id, (d) => ({ ...d, start: { ...d.start, [lift]: input.value } }));
+    });
+    const before = field("Lifters before you", { type: "number", name: "before", inputMode: "numeric", min: 0, max: L.MAX_BEFORE, step: 1 }, (input) =>
+      saveDay(now().meetDay.event.id, (d) => ({ ...d, before: Number.isInteger(input.valueAsNumber) ? input.valueAsNumber : null })),
+    );
+    const list = el("ol", "warm-list");
+    const note = el("p", "muted small", "Times move when you change the lifters before you; each lifter is about a minute. Tap a set when it's done.");
+    live.append(lifts, fields, list, note);
+    body.append(empty, live);
+    return { empty, live, lifts, start, before, list };
+  },
+  render(d, parts) {
+    const w = d.warmups;
+    parts.empty.hidden = Boolean(w);
+    parts.live.hidden = !w;
+    if (!w) return;
+    choiceGroup(parts.lifts, "view-option", L.LIFTS.map((lift) => [lift, LIFT_NAMES[lift]]), w.lift, (lift) =>
+      store.update((s) => ({ session: { ...s.session, warmupLift: lift } })),
+    );
+    if (document.activeElement !== parts.start) parts.start.value = w.start ?? "";
+    if (document.activeElement !== parts.before) parts.before.value = w.before ?? "";
+    const time = (at) => (at == null ? "" : clockTime(at));
+    parts.list.replaceChildren(
+      ...w.sets.map((set, i) => {
+        const li = el("li");
+        const button = el("button", `warm-set${set.due ? " warm-due" : ""}${set.ticked ? " warm-done" : ""}`);
+        button.type = "button";
+        button.setAttribute("aria-pressed", String(set.ticked));
+        const weight = set.kg === BAR_KG ? "Bar" : `${kg(set.kg)} kg`;
+        button.setAttribute("aria-label", `${time(set.at)} ${weight} for ${set.reps}${set.due ? ", now" : ""}${set.ticked ? ", done" : ""}`);
+        button.append(
+          el("span", "warm-time", time(set.at)),
+          el("span", "warm-mark"),
+          el("span", "warm-kg", set.due ? `${weight} · now` : weight),
+          el("span", "warm-reps", `× ${set.reps}`),
+        );
+        button.addEventListener("click", () =>
+          store.update((s) => {
+            const ticks = s.session.warmupTicks?.[w.lift] ?? [];
+            const next = ticks.includes(i) ? ticks.filter((t) => t !== i) : [...ticks, i];
+            return { session: { ...s.session, warmupTicks: { ...s.session.warmupTicks, [w.lift]: next } } };
+          }),
+        );
+        li.append(button);
+        return li;
+      }),
+      (() => {
+        const li = el("li", "warm-opener");
+        li.append(
+          el("span", "warm-time", w.openerAt == null ? "" : `~${clockTime(w.openerAt)}`),
+          el("span", "warm-mark"),
+          el("span", "warm-kg", `Opener · ${kg(w.opener)} kg`),
+          el("span", "warm-reps", "platform"),
+        );
+        return li;
+      })(),
+    );
+  },
+};
+
+// The clock the warm-ups read: kept in the session, updated each minute while the Meet screen is open.
+let clockTimer = null;
+function tickClock() {
+  const date = new Date();
+  const minutes = date.getHours() * 60 + date.getMinutes();
+  if (store.getState().session.clock !== minutes) store.update((s) => ({ session: { ...s.session, clock: minutes } }));
+}
 
 // --- Plate loader ------------------------------------------------------------------------
 
@@ -285,7 +383,7 @@ const plateLoader = {
  * The cards, in the order they're shown. Each: { id, title, setup(body) → parts, render(derived, parts) }, and
  * optionally eyebrow(derived) for its own eyebrow (else your next meet).
  */
-export const CARDS = [planner, plateLoader, meetDayCard];
+export const CARDS = [planner, plateLoader, meetDayCard, warmupsCard];
 
 const built = new Map(); // card id → { eyebrow, parts }
 
@@ -323,4 +421,14 @@ export function refreshMeet() {
   }
 }
 
-export const openMeet = refreshMeet;
+/** Opening the screen starts the clock (stopped when another screen opens) and draws the cards. */
+export function openMeet() {
+  tickClock();
+  clockTimer ??= setInterval(() => (L.routeFrom(location.hash) === "meet" ? tickClock() : stopClock()), 20_000);
+  refreshMeet();
+}
+
+function stopClock() {
+  clearInterval(clockTimer);
+  clockTimer = null;
+}
