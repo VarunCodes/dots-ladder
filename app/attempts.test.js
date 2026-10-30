@@ -46,3 +46,17 @@ test("each step's note: the highest rung it newly clears, else how far short of 
   const { steps } = A.attemptPlan(lifts, { pct: 91, ...lifter, rungs, now: 299 });
   assert.deepEqual(steps.map((s) => s.note.kind), ["short", "short", "clears"]);
 });
+
+// --- Plate loader --------------------------------------------------------------------------
+
+test("plates per side on a 20 kg bar with 2.5 kg collars, largest first", () => {
+  assert.deepEqual(A.platesPerSide(160), { plates: [25, 25, 15, 2.5], perSide: 67.5, exact: true });
+  assert.deepEqual(A.platesPerSide(100), { plates: [25, 10, 2.5], perSide: 37.5, exact: true });
+  assert.deepEqual(A.platesPerSide(27.5), { plates: [1.25], perSide: 1.25, exact: true }, "the smallest plate");
+});
+
+test("an empty bar has no plates; a weight the set can't make loads the nearest below", () => {
+  assert.deepEqual(A.platesPerSide(25), { plates: [], perSide: 0, exact: true });
+  assert.deepEqual(A.platesPerSide(20), { plates: [], perSide: 0, exact: false });
+  assert.deepEqual(A.platesPerSide(101), { plates: [25, 10, 2.5], perSide: 37.5, exact: false });
+});

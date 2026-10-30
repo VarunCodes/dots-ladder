@@ -47,3 +47,31 @@ export function stepNote(rungs, now, points) {
   const next = rungs.find((r) => r.score > points);
   return next ? { kind: "short", rung: next, by: next.score - points } : { kind: "top" };
 }
+
+// --- Plate loader --------------------------------------------------------------------------
+
+export const BAR_KG = 20;
+export const COLLAR_KG = 2.5; // each, as at a meet
+export const PLATES_KG = [25, 20, 15, 10, 5, 2.5, 1.25]; // a full calibrated set, largest first
+export const BAR_LIMITS = [BAR_KG + 2 * COLLAR_KG, 500]; // the loader's range: an empty bar with collars, up to 500
+
+/**
+ * The plates for one side of the bar, inside to outside, largest first: { plates, perSide, exact }. perSide is
+ * what those plates weigh; exact is false when the weight can't be made from the set (then it's the nearest
+ * below). Below an empty bar with collars there are no plates.
+ */
+export function platesPerSide(total) {
+  const wanted = Math.max(0, (total - BAR_KG - 2 * COLLAR_KG) / 2);
+  // Work in quarter kilos, so 1.25 kg plates add up without rounding errors.
+  let left = Math.round(wanted * 4);
+  const plates = [];
+  for (const plate of PLATES_KG) {
+    const units = plate * 4;
+    while (left >= units) {
+      plates.push(plate);
+      left -= units;
+    }
+  }
+  const perSide = plates.reduce((sum, plate) => sum + plate, 0);
+  return { plates, perSide, exact: BAR_KG + 2 * (COLLAR_KG + perSide) === total };
+}

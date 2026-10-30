@@ -133,10 +133,9 @@ function eventValues({ events, session }, base) {
   };
 }
 
-/** The Meet screen's values: the attempt plan for your next meet (or for now, without one). */
-function meetValues({ settings }, base, rungs, plans) {
-  return {
-    attemptPlan: memoizeOnce(() => {
+/** The Meet screen's values: the attempt plan for your next meet (or for now, without one), and the plates. */
+function meetValues({ settings, session }, base, rungs, plans) {
+  const attemptPlan = memoizeOnce(() => {
       const p = base.profile();
       if (!p) return null;
       const meet = plans.nextMeet()?.event;
@@ -148,6 +147,13 @@ function meetValues({ settings }, base, rungs, plans) {
         rungs: rungs.group()?.rungs ?? [],
         now: L.profileScore(p),
       });
+  });
+  return {
+    attemptPlan,
+    // The loader's weight is the session's (not saved); it starts at your planned squat opener.
+    plates: memoizeOnce(() => {
+      const total = session.plateKg ?? attemptPlan()?.steps[0].lifts.squat ?? 60;
+      return { total, ...A.platesPerSide(total) };
     }),
   };
 }
@@ -237,6 +243,10 @@ function make(state) {
      */
     get attemptPlan() {
       return meet.attemptPlan();
+    },
+    /** The plate loader: { total, plates (one side, inside to outside), perSide, exact }. */
+    get plates() {
+      return meet.plates();
     },
   });
 }

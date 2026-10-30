@@ -7,7 +7,7 @@ import * as store from "./store.js";
 import { derived } from "./derive.js";
 import { $, choiceGroup, el } from "./dom.js";
 import { eventLabel } from "./events.js";
-import { OPENER_PCTS } from "./attempts.js";
+import { BAR_KG, BAR_LIMITS, COLLAR_KG, OPENER_PCTS, STEP_KG } from "./attempts.js";
 
 const now = () => derived(store.getState());
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
@@ -77,10 +77,79 @@ function noteText(note, formula) {
   return "Above every rung";
 }
 
+// --- Plate loader ------------------------------------------------------------------------
+
+// Each plate drawn by weight: bigger plates are taller and thicker; greyscale, heaviest brightest.
+const PLATE_LOOK = {
+  25: [124, 22, "var(--text)"],
+  20: [124, 20, "var(--text-2)"],
+  15: [106, 18, "var(--text-2)"],
+  10: [88, 14, "var(--muted)"],
+  5: [60, 10, "var(--muted)"],
+  2.5: [46, 8, "var(--muted)"],
+  1.25: [36, 6, "var(--muted)"],
+};
+const listed = (plates) => plates.join(" · ");
+
+const plateLoader = {
+  id: "plates",
+  title: "Plate loader",
+  eyebrow: () => `${BAR_KG} kg bar + ${COLLAR_KG} kg collars`,
+  setup(body) {
+    const stepper = el("div", "plate-stepper");
+    const total = el("output", "plate-total");
+    const step = (direction, label, text) => {
+      const button = el("button", "step-btn", text);
+      button.type = "button";
+      button.setAttribute("aria-label", label);
+      button.addEventListener("click", () =>
+        store.update((s) => ({
+          session: { ...s.session, plateKg: L.stepValue(now().plates.total, STEP_KG, direction, BAR_LIMITS) },
+        })),
+      );
+      return button;
+    };
+    stepper.append(step(-1, `Decrease by ${STEP_KG} kg`, "−"), total, step(1, `Increase by ${STEP_KG} kg`, "+"));
+    const bar = el("div", "plate-bar");
+    bar.setAttribute("role", "img");
+    const summary = el("p", "plate-summary");
+    const side = el("span", "plate-side");
+    const each = el("span", "muted small");
+    summary.append(side, each);
+    body.append(stepper, bar, summary);
+    return { total, bar, side, each };
+  },
+  render(d, parts) {
+    const { total, plates, perSide, exact } = d.plates;
+    parts.total.textContent = `${total} kg`;
+    const sleeve = el("span", "plate-sleeve");
+    const collar = el("span", "plate-collar");
+    parts.bar.replaceChildren(
+      sleeve,
+      ...plates.map((plate) => {
+        const [height, width, colour] = PLATE_LOOK[plate];
+        const span = el("span", "plate");
+        span.style.cssText = `height: ${height}px; width: ${width}px; background: ${colour}`;
+        return span;
+      }),
+      collar,
+    );
+    parts.bar.setAttribute(
+      "aria-label",
+      plates.length ? `One side of the bar, inside to outside: ${listed(plates)} kg plates, then the collar` : "An empty bar with collars",
+    );
+    parts.side.replaceChildren(el("span", "muted small", "Each side"), el("strong", "", plates.length ? listed(plates) : "No plates"));
+    parts.each.textContent = exact ? `${perSide} kg / side` : `${perSide} kg / side · can't make ${total} exactly`;
+  },
+};
+
 // --- The list ------------------------------------------------------------------------------
 
-/** The cards, in the order they're shown. Each: { id, title, setup(body) → parts, render(derived, parts) }. */
-export const CARDS = [planner];
+/**
+ * The cards, in the order they're shown. Each: { id, title, setup(body) → parts, render(derived, parts) }, and
+ * optionally eyebrow(derived) for its own eyebrow (else your next meet).
+ */
+export const CARDS = [planner, plateLoader];
 
 const built = new Map(); // card id → { eyebrow, parts }
 
@@ -113,7 +182,7 @@ export function refreshMeet() {
   if (!d.profile) return;
   for (const card of CARDS) {
     const { eyebrow, parts } = built.get(card.id);
-    eyebrow.textContent = meetEyebrow(d);
+    eyebrow.textContent = card.eyebrow ? card.eyebrow(d) : meetEyebrow(d);
     card.render(d, parts);
   }
 }

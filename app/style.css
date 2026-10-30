@@ -749,6 +749,37 @@ td.plan-third { font-weight: 700; }
 .plan-choice { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
 .plan-choice .view-option { min-width: 52px; padding: 0 8px; }
 
+/* Plate loader: the weight between − and +, one side of the bar drawn, and the plates listed. */
+.plate-stepper { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 8px; }
+.plate-stepper .step-btn { width: 48px; height: 48px; }
+.plate-total { font-family: var(--display); font-size: 2.75rem; font-weight: 700; line-height: 1; text-align: center; }
+.plate-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 140px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.plate-bar::before { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 4px); height: 8px; background: var(--border); }
+.plate-sleeve { position: relative; flex: none; width: 14px; height: 36px; border-radius: 3px; background: var(--muted); }
+.plate { position: relative; flex: none; border-radius: 4px; }
+.plate-collar { position: relative; flex: none; width: 12px; height: 28px; border-radius: 3px; background: var(--text-2); }
+.plate-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.plate-side { display: flex; flex-direction: column; }
+.plate-side strong { font-size: 1.0625rem; font-weight: 600; }
+
 /* Reduced motion: nothing moves or scales, and colours and fades still change, so every state change stays visible. */
 @media (prefers-reduced-motion: reduce) {
   .slide::before { transition-property: none; }
