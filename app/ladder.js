@@ -304,19 +304,23 @@ export function saveTests(storage, tests) {
 }
 
 // --- Progress view: what the chart plots and over which range ---------------------------
-// A per-device convenience (not part of your data): { metric: "score" | "total" | "bw", range: "all" | "3m" }.
+// A per-device convenience (not part of your data): { metric: "score" | "lifts" | "bw", lift: "total" | "squat" |
+// "bench" | "deadlift" (which one Lifts shows), range: "all" | "3m" }.
 
 export const VIEW_KEY = "dots-ladder:progress-view";
-export const METRICS = ["score", "total", "bw"];
+export const METRICS = ["score", "lifts", "bw"];
+export const LIFT_VIEWS = ["total", ...LIFTS];
 export const RANGES = ["3m", "all"];
-const DEFAULT_VIEW = { metric: "score", range: "all" };
+const DEFAULT_VIEW = { metric: "score", lift: "total", range: "all" };
 
-/** The saved chart view, with anything missing or unknown back to the default (Score, All). */
+/** The saved chart view, with anything missing or unknown back to the default (Score, Total, All). The old "Total" tab is now Lifts → Total. */
 export function loadView(storage) {
   try {
     const raw = JSON.parse(storage.getItem(VIEW_KEY)) ?? {};
+    const metric = raw.metric === "total" ? "lifts" : raw.metric;
     return {
-      metric: METRICS.includes(raw.metric) ? raw.metric : DEFAULT_VIEW.metric,
+      metric: METRICS.includes(metric) ? metric : DEFAULT_VIEW.metric,
+      lift: LIFT_VIEWS.includes(raw.lift) ? raw.lift : DEFAULT_VIEW.lift,
       range: RANGES.includes(raw.range) ? raw.range : DEFAULT_VIEW.range,
     };
   } catch {
@@ -327,7 +331,7 @@ export function loadView(storage) {
 /** Saves the chart view; returns whether it was saved. */
 export function saveView(storage, view) {
   try {
-    storage.setItem(VIEW_KEY, JSON.stringify({ metric: view.metric, range: view.range }));
+    storage.setItem(VIEW_KEY, JSON.stringify({ metric: view.metric, lift: view.lift, range: view.range }));
     return true;
   } catch {
     return false;

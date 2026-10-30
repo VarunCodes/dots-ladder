@@ -194,16 +194,19 @@ test("rung position: between, below, above, or nothing without rungs", () => {
   assert.equal(L.rungPosition([], 277.9), "");
 });
 
-test("the chart view is remembered, with anything unknown back to Score and All", () => {
+test("the chart view is remembered, with anything unknown back to Score, Total and All", () => {
+  const fallback = { metric: "score", lift: "total", range: "all" };
   const storage = fakeStorage();
-  assert.deepEqual(L.loadView(storage), { metric: "score", range: "all" }, "nothing saved");
-  assert.equal(L.saveView(storage, { metric: "bw", range: "3m", extra: 1 }), true);
-  assert.deepEqual(L.loadView(storage), { metric: "bw", range: "3m" });
-  storage.data.set(L.VIEW_KEY, JSON.stringify({ metric: "wilks", range: "1y" }));
-  assert.deepEqual(L.loadView(storage), { metric: "score", range: "all" });
-  assert.deepEqual(L.loadView(fakeStorage({ [L.VIEW_KEY]: "{not json" })), { metric: "score", range: "all" });
-  assert.deepEqual(L.loadView(fakeStorage({}, { fail: true })), { metric: "score", range: "all" });
-  assert.equal(L.saveView(fakeStorage({}, { fail: true }), { metric: "bw", range: "3m" }), false);
+  assert.deepEqual(L.loadView(storage), fallback, "nothing saved");
+  assert.equal(L.saveView(storage, { metric: "lifts", lift: "squat", range: "3m", extra: 1 }), true);
+  assert.deepEqual(L.loadView(storage), { metric: "lifts", lift: "squat", range: "3m" });
+  storage.data.set(L.VIEW_KEY, JSON.stringify({ metric: "wilks", lift: "curl", range: "1y" }));
+  assert.deepEqual(L.loadView(storage), fallback);
+  storage.data.set(L.VIEW_KEY, JSON.stringify({ metric: "total", range: "3m" }));
+  assert.deepEqual(L.loadView(storage), { metric: "lifts", lift: "total", range: "3m" }, "the old Total tab opens as Lifts → Total");
+  assert.deepEqual(L.loadView(fakeStorage({ [L.VIEW_KEY]: "{not json" })), fallback);
+  assert.deepEqual(L.loadView(fakeStorage({}, { fail: true })), fallback);
+  assert.equal(L.saveView(fakeStorage({}, { fail: true }), fallback), false);
 });
 
 // --- Test history ----------------------------------------------------------------

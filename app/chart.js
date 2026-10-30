@@ -24,6 +24,11 @@ export function onePerDay(entries) {
   });
 }
 
+/** The days a lift was logged (a single lift's chart shows only those, never values carried from earlier). */
+export function liftDays(days, lift) {
+  return days.filter((day) => day.from[lift] === day.date);
+}
+
 /** The first day of the 3-month window ending today ("2026-07-30" for "2026-10-30"); a short month clamps (31 May → 28 Feb). */
 export function windowStart(today) {
   const [y, m, d] = today.split("-").map(Number);
