@@ -4,7 +4,7 @@ A personal powerlifting app for a UK raw lifter: track DOTS (or IPF GL) over mon
 Local planning notes (gitignored): `docs/conversation-summary.md`. Read them before product decisions.
 
 ## Hard guardrails
-- Public output is aggregate rungs only: groups of 20+ lifters, p10/p90 only at 50+, rounded. Never p0/p100 or any single lifter's result (beyond the rungs, the chart says "Top 10%" instead). No names, initials or per-lifter rows. Exclude under-18s and anti-doping outcomes.
+- Public output is aggregate rungs only (score and per-lift alike): groups of 20+ lifters, p10/p90 only at 50+, rounded. Never p0/p100 or any single lifter's result (beyond the rungs, the chart says "Top 10%" instead). No names, initials or per-lifter rows. Exclude under-18s and anti-doping outcomes.
 - `private/` is gitignored and never committed or published.
 - Data comes only from OpenPowerlifting's bulk download (public domain). Never commit the zip/CSV, only the generated `data/rungs.json`. Credit OpenPowerlifting on any public page.
 - Rungs are OpenPowerlifting-only. The one exception is the gym-goer reference marker (`GYM_GOER_ESTIMATE` in `app/ladder.js`, DOTS only): labelled as an estimate, styled unlike a rung, kept below every rung by a test. Don't add more estimates; see `docs/population-estimates.md`.

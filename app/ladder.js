@@ -36,6 +36,21 @@ export function rungsFor(data, formula, sex, wclass, experience) {
   return { lifters: group.lifters, rungs };
 }
 
+/**
+ * The group's rungs for one lift, in kg, lowest first: [{ percentile: 50, score: 155 }, ...] with the lifters they
+ * come from; null if the group has none for that lift. From the same lifters' same results as the score rungs.
+ */
+export function liftRungsFor(data, lift, sex, wclass, experience) {
+  const group = data.rungs.find((r) => r.sex === sex && r.weightClassKg === wclass && r.experience === experience);
+  const set = group?.lifts?.[lift];
+  if (!set) return null;
+  const rungs = Object.entries(set)
+    .filter(([key]) => /^p\d+$/.test(key))
+    .map(([key, value]) => ({ percentile: Number(key.slice(1)), score: value }))
+    .sort((x, y) => x.percentile - y.percentile);
+  return { lifters: set.lifters, rungs };
+}
+
 /** "between P10 and P25", "below P10", "above P90", or "" without rungs. Reaching a rung's score clears it. */
 export function rungPosition(rungs, points) {
   const cleared = rungs.findLast((r) => r.score <= points);
@@ -268,6 +283,31 @@ export function prs(tests) {
     for (const lift of LIFTS) if (lift in record) best[lift] = Math.max(best[lift] ?? -Infinity, record[lift]);
   }
   return result;
+}
+
+export const BODYWEIGHT_SHIFT_KG = 5; // beyond this, a lift carried from another bodyweight is flagged
+
+/**
+ * Lifts carried into a day from a noticeably different bodyweight: [{ lift, bodyweight }] for each lift not logged
+ * that day whose bodyweight when it was logged differs from `bodyweight` by more than 5 kg. A score built on them
+ * treats old lifts as done at today's weight, so it's worth a retest.
+ */
+export function staleLifts(tests, date, bodyweight, loggedNow = []) {
+  const at = valuesAt(tests, date);
+  if (!at) return [];
+  return LIFTS.filter((lift) => !loggedNow.includes(lift) && at.from[lift] !== date).flatMap((lift) => {
+    const then = valuesAt(tests, at.from[lift]).values.bodyweight;
+    return Math.abs(then - bodyweight) > BODYWEIGHT_SHIFT_KG ? [{ lift, bodyweight: then }] : [];
+  });
+}
+
+/** "squat and deadlift logged at 60 kg", or "squat logged at 60 kg and deadlift at 62 kg" when they differ. */
+export function staleText(stale) {
+  const join = (items) => items.join(", ").replace(/, ([^,]*)$/, " and $1");
+  const weights = new Set(stale.map((s) => s.bodyweight));
+  return weights.size === 1
+    ? `${join(stale.map((s) => s.lift))} logged at ${stale[0].bodyweight} kg`
+    : join(stale.map((s, i) => `${s.lift}${i ? "" : " logged"} at ${s.bodyweight} kg`));
 }
 
 /** Why a record can't be deleted: "only" (your only record), "earliest" (the next one doesn't hold all four), or null. */

@@ -158,6 +158,7 @@
             <div id="log-formula" class="formula-toggle formula-quiet" role="group" aria-label="Score shown"></div>
           </div>
           <p id="result-rungs"></p>
+          <p id="result-stale" class="small result-stale"></p>
         </section>
         <p id="log-note" role="status"></p>
         <button id="save-test" type="submit" class="primary">Save test</button>
@@ -187,6 +188,7 @@
           <p id="chart-change"></p>
         </div>
         <p id="chart-offchart" class="chart-offchart muted small" hidden></p>
+        <p id="chart-rungs-for" class="chart-rungs-for muted small" hidden></p>
         <div class="chart-plot">
           <svg id="chart" role="img" aria-label="Your score over time"></svg>
           <!-- The selected test, by its point. Screen readers get the same text from #chart-live. -->
@@ -221,6 +223,7 @@
 
       <section class="split" aria-labelledby="split-heading">
         <h2 id="split-heading">Lift split</h2>
+        <p id="split-for" class="muted small"></p>
         <ul id="lift-split" class="split-list"></ul>
       </section>
 

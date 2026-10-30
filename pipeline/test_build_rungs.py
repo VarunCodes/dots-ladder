@@ -10,12 +10,13 @@ import pytest
 import build_rungs as br
 
 COLUMNS = ["Name", "Sex", "Event", "Equipment", "Age", "AgeClass", "Division", "BodyweightKg",
-           "TotalKg", "Place", "Dots", "Goodlift", "Tested", "Federation", "MeetCountry", "Date", "MeetName"]
+           "TotalKg", "Best3SquatKg", "Best3BenchKg", "Best3DeadliftKg", "Place", "Dots", "Goodlift", "Tested", "Federation", "MeetCountry", "Date", "MeetName"]
 
 
 def row(name, date, meet="Meet", total=400, bw=70.0, **overrides):
     base = dict(Name=name, Sex="M", Event="SBD", Equipment="Raw", Age="", AgeClass="",
-                Division="Open", BodyweightKg=bw, TotalKg=total, Place="1", Dots="", Goodlift="",
+                Division="Open", BodyweightKg=bw, TotalKg=total, Best3SquatKg=round(total * 0.35, 1), Best3BenchKg=round(total * 0.25, 1),
+                Best3DeadliftKg=round(total * 0.4, 1), Place="1", Dots="", Goodlift="",
                 Tested="Yes", Federation="EPA", MeetCountry="England", Date=date, MeetName=meet)
     base.update(overrides)
     return base
@@ -176,7 +177,7 @@ def test_extreme_percentiles_need_a_bigger_group(tmp_path):
 
 def test_dots_and_gl_come_from_the_same_lifters(tmp_path):
     result = rung(br.build(write_csv(tmp_path, first_timers(20)), min_group=20), "first meet")
-    assert set(result) == {"sex", "weightClassKg", "experience", "lifters", "dots", "gl"}
+    assert set(result) == {"sex", "weightClassKg", "experience", "lifters", "dots", "gl", "lifts"}
     totals = sorted(300 + i * 5 for i in range(20))
     assert result["dots"]["p50"] == round(br.percentile([br.dots("M", 70, t) for t in totals], 50))
     assert result["gl"]["p50"] == round(br.percentile([br.gl("M", 70, t) for t in totals], 50), 1)
@@ -211,6 +212,40 @@ def test_csv_score_columns_are_preferred(tmp_path):
     result = rung(br.build(write_csv(tmp_path, rows), min_group=20), "first meet")
     assert result["dots"]["p50"] == 300
     assert result["gl"]["p50"] == 61.2
+
+
+# --- Per-lift rungs ------------------------------------------------------------
+
+def test_each_lift_gets_its_own_percentiles_in_kg_rounded_to_2_5(tmp_path):
+    result = rung(br.build(write_csv(tmp_path, first_timers(20)), min_group=20), "first meet")
+    squats = sorted(round((300 + i * 5) * 0.35, 1) for i in range(20))
+    assert result["lifts"]["squat"]["lifters"] == 20
+    assert result["lifts"]["squat"]["p50"] == br.round_to_plate(br.percentile(squats, 50))
+    for lift in ("squat", "bench", "deadlift"):
+        values = [v for k, v in result["lifts"][lift].items() if k != "lifters"]
+        assert all(v % 2.5 == 0 for v in values), (lift, values)
+        assert set(result["lifts"][lift]) == {"lifters", "p25", "p50", "p75"}
+
+
+def test_lift_percentiles_follow_the_size_rules_on_their_own_count(tmp_path):
+    big = rung(br.build(write_csv(tmp_path, first_timers(50)), min_group=20), "first meet")
+    assert {"p10", "p90"} <= set(big["lifts"]["bench"])
+    # Five lifters have no bench best: 45 bench values, so no p10/p90 for bench, but squat keeps them.
+    rows = first_timers(45) + first_timers(5, prefix="Old", Best3BenchKg="")
+    mixed = rung(br.build(write_csv(tmp_path, rows), min_group=20), "first meet")
+    assert mixed["lifters"] == 50 and "p10" in mixed["dots"]
+    assert mixed["lifts"]["bench"]["lifters"] == 45 and "p10" not in mixed["lifts"]["bench"]
+    assert "p10" in mixed["lifts"]["squat"]
+
+
+def test_a_lift_with_too_few_values_is_left_out(tmp_path):
+    rows = first_timers(15, Best3DeadliftKg="") + first_timers(5, prefix="Late")
+    result = rung(br.build(write_csv(tmp_path, rows), min_group=20), "first meet")
+    assert "deadlift" not in result["lifts"] and "squat" in result["lifts"]
+
+
+def test_round_to_plate():
+    assert [br.round_to_plate(x) for x in (101.2, 101.3, 102.4, 103.8)] == [100.0, 102.5, 102.5, 105.0]
 
 
 # --- Input handling -----------------------------------------------------------

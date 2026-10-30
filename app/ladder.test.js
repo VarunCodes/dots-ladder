@@ -261,6 +261,18 @@ test("a PR beats every earlier value of that lift; a first value isn't one", () 
   assert.deepEqual([...result.entries()], [["s1", ["squat"]], ["t", ["bench", "deadlift"]]], "s2 is below the best; t's squat only equals it");
 });
 
+test("lifts carried from a bodyweight more than 5 kg away are flagged for a retest", () => {
+  const october = { id: "o", date: "2026-10-01", sex: "M", bodyweight: 60, squat: 120, bench: 80, deadlift: 150 };
+  const december = { id: "d", date: "2026-12-01", sex: "M", bodyweight: 80, bench: 90 };
+  const tests = [october, december];
+  assert.deepEqual(L.staleLifts(tests, "2026-12-01", 80), [{ lift: "squat", bodyweight: 60 }, { lift: "deadlift", bodyweight: 60 }], "bench was logged that day");
+  assert.deepEqual(L.staleLifts(tests, "2026-12-01", 80, ["squat"]), [{ lift: "deadlift", bodyweight: 60 }], "a squat being logged now isn't carried");
+  assert.deepEqual(L.staleLifts(tests, "2026-12-01", 64), [], "within 5 kg: fine");
+  assert.deepEqual(L.staleLifts(tests, "2026-09-01", 80), [], "before any record");
+  assert.equal(L.staleText([{ lift: "squat", bodyweight: 60 }, { lift: "deadlift", bodyweight: 60 }]), "squat and deadlift logged at 60 kg");
+  assert.equal(L.staleText([{ lift: "squat", bodyweight: 60 }, { lift: "deadlift", bodyweight: 62 }]), "squat logged at 60 kg and deadlift at 62 kg");
+});
+
 test("the first record must hold all four values, so it can't be deleted while the next one doesn't", () => {
   const squatPr = { id: "s", date: "2026-11-10", sex: "M", squat: 130 };
   assert.equal(L.deleteProblem([test1], "a"), "only");
@@ -544,7 +556,7 @@ test("rungs climbed counts rungs passed, positive up and negative down", () => {
 // --- Contract: the committed JSON files work with the page ------------------------
 
 test("every committed rung is aggregate only, with the same percentiles in every formula", () => {
-  const allowed = new Set(["sex", "weightClassKg", "experience", "lifters", ...FORMULA_IDS]);
+  const allowed = new Set(["sex", "weightClassKg", "experience", "lifters", "lifts", ...FORMULA_IDS]);
   const percentiles = new Set(["p10", "p25", "p50", "p75", "p90"]);
   for (const rung of readJson("../data/rungs.json").rungs) {
     const where = `${rung.sex} ${rung.weightClassKg} ${rung.experience}`;
@@ -569,6 +581,29 @@ test("committed rungs are rounded: DOTS to whole points, GL to 1 decimal place, 
       assert.deepEqual(scores, [...scores].sort((x, y) => x - y), `${where}: ${formula} percentiles out of order`);
     }
   }
+});
+
+test("committed per-lift rungs are aggregate only: 20+ lifters, p10/p90 at 50+, in kg on a 2.5 kg step, rising", () => {
+  for (const rung of readJson("../data/rungs.json").rungs) {
+    for (const [lift, set] of Object.entries(rung.lifts ?? {})) {
+      const where = `${rung.sex} ${rung.weightClassKg} ${rung.experience} ${lift}`;
+      assert.ok(L.LIFTS.includes(lift), `${where}: unknown lift`);
+      assert.ok(set.lifters >= 20 && set.lifters <= rung.lifters, `${where}: ${set.lifters} lifters`);
+      const keys = Object.keys(set).filter((k) => k !== "lifters");
+      assert.ok(keys.every((k) => ["p10", "p25", "p50", "p75", "p90"].includes(k)), `${where}: ${keys}`);
+      if (keys.includes("p10") || keys.includes("p90")) assert.ok(set.lifters >= 50, `${where}: p10/p90 under 50`);
+      const scores = L.liftRungsFor({ rungs: [rung] }, lift, rung.sex, rung.weightClassKg, rung.experience).rungs.map((r) => r.score);
+      assert.ok(scores.every((kg) => kg % 2.5 === 0 && kg > 0), `${where}: ${scores}`);
+      assert.deepEqual(scores, [...scores].sort((a, b) => a - b), `${where}: out of order`);
+    }
+  }
+});
+
+test("liftRungsFor gives one lift's rungs in kg, lowest first, or null without them", () => {
+  const data = { rungs: [{ sex: "M", weightClassKg: "74", experience: "first meet", lifters: 30, dots: {}, gl: {}, lifts: { squat: { lifters: 30, p75: 177.5, p25: 140, p50: 155 } } }] };
+  assert.deepEqual(L.liftRungsFor(data, "squat", "M", "74", "first meet"), { lifters: 30, rungs: [{ percentile: 25, score: 140 }, { percentile: 50, score: 155 }, { percentile: 75, score: 177.5 }] });
+  assert.equal(L.liftRungsFor(data, "bench", "M", "74", "first meet"), null);
+  assert.equal(L.liftRungsFor(data, "squat", "F", "74", "first meet"), null);
 });
 
 test("every class in the rungs can be chosen in the class dropdown", () => {
