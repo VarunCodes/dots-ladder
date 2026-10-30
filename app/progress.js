@@ -40,16 +40,27 @@ function groupRungs() {
   return L.rungsFor(ctx.rungsData, profile.formula, profile.sex, L.effectiveClass(profile), experience)?.rungs ?? [];
 }
 
-/** Every 1RM test, oldest first, scored in its own sex and the chosen formula. */
+/**
+ * Every record, oldest first, with your full numbers as of it (`test`: what it logged plus the rest carried
+ * forward, with `from`, when each was last logged), scored in its own sex and the chosen formula.
+ */
 function entries() {
   const { profile, tests } = ctx.state;
-  return tests.map((test) => ({
-    id: test.id,
-    date: test.date,
-    test,
-    score: L.profileScore(L.withLatestTest(profile, [test])),
-    otherSex: test.sex !== profile.sex,
+  return L.carried(tests).map(({ record, values, from }) => ({
+    id: record.id,
+    date: record.date,
+    record,
+    test: { ...values, date: record.date },
+    from,
+    score: L.profileScore({ ...profile, ...values }),
+    otherSex: values.sex !== profile.sex,
   }));
+}
+
+/** What a day logged (every record that day, combined) and what it carried from earlier days. */
+function dayParts(entry) {
+  const logged = L.VALUES.filter((name) => entry.from[name] === entry.date);
+  return { logged, carried: L.VALUES.filter((name) => !logged.includes(name)) };
 }
 
 // --- The chart: one point per day of 1RM testing ---------------------------------------
@@ -209,14 +220,20 @@ function renderTip(list, selected, m, scoreRungs, scored) {
   ].filter(Boolean);
   const value = m.text(selected.score);
 
-  $("tip-title").textContent = `${shortDay(test.date)} · 1RM test`;
+  const { logged, carried } = dayParts(list[i]);
+  const pr = dayPrs().has(test.date) ? " · PR" : "";
+  $("tip-title").textContent = `${shortDay(test.date)} · ${L.recordName(Object.fromEntries(logged.map((n) => [n, true])))}${pr}`;
+  // Lifts carried from earlier days count towards the score; say so, briefly.
+  const carriedLifts = L.LIFTS.filter((lift) => carried.includes(lift));
+  if (carriedLifts.length && carriedLifts.length < L.LIFTS.length) extras.unshift(`${carriedLifts.join(" & ")} carried`);
   $("tip-score").textContent = `${value} · ${delta == null ? "first test" : m.change(delta)}`;
   $("tip-sub").textContent =
     ctx.state.tests.length === 1 ? "Log another to see your progress." : [`${L.sumLifts(test)} kg @ ${test.bodyweight}`, ...extras].join(" · ");
   placeTip(tip, selected);
 
   $("chart-live").textContent = [
-    `${fmtDay(test.date)}: ${view.metric === "score" ? `${value} ${m.name}` : `${m.name} ${value}`}`,
+    `${fmtDay(test.date)}${pr ? ", a PR" : ""}: ${view.metric === "score" ? `${value} ${m.name}` : `${m.name} ${value}`}`,
+    carried.length ? carried.map((name) => `${name} from ${fmtDay(list[i].from[name])}`).join(", ") : "",
     delta == null ? "your first test" : `${m.change(delta)} on the test before`,
     `${L.sumLifts(test)} kg at ${test.bodyweight} kg`,
     capital(L.rungPosition(scoreRungs, scored[i].score)),
@@ -241,6 +258,12 @@ function placeTip(tip, selected) {
   tip.dataset.side = side;
   tip.style.setProperty("--tip-x", side === "right" ? `${TIP_GAP}px` : `calc(-100% - ${TIP_GAP}px)`);
   tip.style.setProperty("--tip-y", `${-TIP_LIFT[level] * 100}%`);
+}
+
+/** The days with a PR on any lift (from records that day). */
+function dayPrs() {
+  const ids = L.prs(ctx.state.tests);
+  return new Set(ctx.state.tests.filter((t) => ids.has(t.id)).map((t) => t.date));
 }
 
 /** The key: only what this chart shows. */
@@ -366,9 +389,10 @@ function setupLever() {
   });
 }
 
-// --- 1RM tests: newest first, each editable -------------------------------------------------
-// Each row is one saved 1RM test (squat, bench and deadlift maxes on one day). Opening it shows its fields;
-// valid changes save straight away, and closing it with invalid values undoes them.
+// --- 1RMs: newest first, each editable ------------------------------------------------------
+// Each row is one saved record: a 1RM test (all three lifts), a single 1RM ("Squat 1RM"), or a bodyweight.
+// Opening it shows only the values it logged (the rest were carried from earlier records); valid changes
+// save straight away, and closing it with invalid values undoes them.
 
 const TEST_TEXT = {
   date: "Pick the day of the test (not a future one).",
@@ -376,6 +400,13 @@ const TEST_TEXT = {
   bodyweight: `Bodyweight must be ${L.LIMITS.bodyweight.join("–")} kg.`,
   ...Object.fromEntries(L.LIFTS.map((lift) => [lift, `${LIFT_NAMES[lift]} must be ${L.LIMITS.lift.join("–")} kg.`])),
 };
+const DELETE_TEXT = {
+  only: "Your only record. To start over, use “Clear my numbers” on Log test.",
+  earliest: "Your first record must hold bodyweight and all three lifts, and the next one doesn't.",
+};
+
+/** A record's name mid-sentence: "squat 1RM", "1RM test", "bodyweight". */
+const lowerName = (record) => L.recordName(record).replace(/^(?!1RM)\w/, (c) => c.toLowerCase());
 
 /** A form control inside its label. */
 function labelled(text, control, className) {
@@ -388,7 +419,7 @@ function numberInput(name, [min, max]) {
   return Object.assign(el("input"), { name, type: "number", inputMode: "decimal", step: "any", min, max, required: true });
 }
 
-/** The closed row: the test's date, "{total} kg @ {bw} kg" and its score, filled in by refreshTestSummaries. */
+/** The closed row: the date, what was logged ("Squat 1RM · 150 kg"), a PR badge, and the score, filled in by refreshTestSummaries. */
 function testSummary() {
   const summary = el("summary");
   const head = el("span", "test-head");
@@ -397,33 +428,35 @@ function testSummary() {
   return summary;
 }
 
-/** The open row: date, sex, bodyweight and the three 1RMs, a status line, and "Delete test". */
-function testForm(id) {
+/** The open row: date, sex and the values this record logged, a note on what it carried, a status line, and "Delete". */
+function testForm(record) {
   const form = el("form", "fields");
   form.autocomplete = "off";
   const date = Object.assign(el("input"), { name: "date", type: "date", required: true, max: ctx.state.today, min: L.EARLIEST_DATE });
   const sex = el("select");
   sex.name = "sex";
   sex.append(new Option("Men", "M"), new Option("Women", "F"));
-  const lifts = el("div", "trio wide");
-  lifts.append(...L.LIFTS.map((lift) => labelled(LIFT_NAMES[lift], numberInput(lift, L.LIMITS.lift))));
+  const logged = L.loggedValues(record);
+  const lifts = L.LIFTS.filter((lift) => logged.includes(lift));
+  const fields = [labelled("Date", date), labelled("Sex", sex)];
+  if (logged.includes("bodyweight")) fields.push(labelled("Bodyweight (kg)", numberInput("bodyweight", L.LIMITS.bodyweight), "wide"));
+  if (lifts.length) {
+    const row = el("div", lifts.length === 3 ? "trio wide" : "fields-lifts wide");
+    row.append(...lifts.map((lift) => labelled(LIFT_NAMES[lift], numberInput(lift, L.LIMITS.lift))));
+    fields.push(row);
+  }
+  const unlogged = L.VALUES.filter((name) => !logged.includes(name));
+  if (unlogged.length) fields.push(el("p", "muted small wide", `${capital(unlogged.join(", ").replace(/, ([^,]*)$/, " and $1"))} carried from earlier records.`));
   const note = el("p", "event-note muted small wide");
   note.setAttribute("role", "status");
-  const remove = el("button", "link-button wide", "Delete test");
+  const remove = el("button", "link-button wide", `Delete ${lowerName(record)}`);
   remove.type = "button";
-  remove.addEventListener("click", () => deleteTest(id));
-  form.append(
-    labelled("Date", date),
-    labelled("Sex", sex),
-    labelled("Bodyweight (kg)", numberInput("bodyweight", L.LIMITS.bodyweight), "wide"),
-    lifts,
-    note,
-    remove,
-  );
+  remove.addEventListener("click", () => deleteTest(record.id));
+  form.append(...fields, note, remove);
   return form;
 }
 
-/** Closing a test with invalid values undoes them; either way the list goes back into date order. */
+/** Closing a record with invalid values undoes them; either way the list goes back into date order. */
 function onTestClosed(item, form) {
   if (item.open) return;
   if (item.dataset.invalid) {
@@ -433,36 +466,33 @@ function onTestClosed(item, form) {
   renderTests();
 }
 
-/** One row of the list: a summary that opens into the test's form. */
-function testItem(test) {
+/** One row of the list: a summary that opens into the record's form. */
+function testItem(record) {
   const item = el("details", "event test");
-  item.dataset.id = test.id;
-  const form = testForm(test.id);
+  item.dataset.id = record.id;
+  const form = testForm(record);
   item.append(testSummary(), form);
-  fillTest(form, test);
+  fillTest(form, record);
   form.addEventListener("input", () => onTestInput(item, form));
   item.addEventListener("toggle", () => onTestClosed(item, form));
   return item;
 }
 
-function fillTest(form, test) {
+function fillTest(form, record) {
   const f = form.elements;
-  for (const name of ["date", "sex", "bodyweight", ...L.LIFTS]) f[name].value = test[name];
+  for (const name of ["date", "sex", ...L.loggedValues(record)]) f[name].value = record[name];
   for (const input of form.querySelectorAll("input, select")) input.setCustomValidity("");
   form.closest("details").dataset.invalid = "";
 }
 
+/** The record as edited: its date, sex and the values it logged. */
 function readTest(form, id) {
   const f = form.elements;
-  return {
-    id,
-    date: f.date.value,
-    sex: f.sex.value,
-    ...Object.fromEntries(["bodyweight", ...L.LIFTS].map((name) => [name, f[name].valueAsNumber])),
-  };
+  const logged = L.VALUES.filter((name) => f[name]);
+  return { id, date: f.date.value, sex: f.sex.value, ...Object.fromEntries(logged.map((name) => [name, f[name].valueAsNumber])) };
 }
 
-/** Saves the 1RM tests, and the profile's latest numbers from them; returns whether both were saved. */
+/** Saves the records, and the profile's latest numbers from them; returns whether both were saved. */
 function persistTests(tests) {
   ctx.state.tests = L.sortTests(tests);
   ctx.state.profile = L.withLatestTest(ctx.state.profile, ctx.state.tests);
@@ -474,11 +504,15 @@ function persistTests(tests) {
 function onTestInput(item, form) {
   const raw = readTest(form, item.dataset.id);
   const problems = L.testProblems(raw, ctx.state.today);
+  // Moving the record before the first one would leave the history starting without all four values.
+  const next = ctx.state.tests.map((t) => (t.id === raw.id ? raw : t));
+  if (!problems.length && !L.isComplete(L.sortTests(next)[0])) problems.push("date");
   for (const input of form.querySelectorAll("input, select")) input.setCustomValidity(problems.includes(input.name) ? TEST_TEXT[input.name] : "");
   item.dataset.invalid = problems.length ? "true" : "";
   const note = form.querySelector(".event-note");
   if (problems.length) {
-    note.textContent = `Not saved: ${problems.map((name) => TEST_TEXT[name]).join(" ")}`;
+    const firstRule = problems.includes("date") && L.isDay(raw.date) && raw.date <= ctx.state.today ? "Your first record must hold bodyweight and all three lifts." : "";
+    note.textContent = `Not saved: ${firstRule || problems.map((name) => TEST_TEXT[name]).join(" ")}`;
     return;
   }
   persistTests(ctx.state.tests.map((t) => (t.id === raw.id ? L.validTest(raw) : t)));
@@ -491,36 +525,49 @@ function onTestInput(item, form) {
 }
 
 function deleteTest(id) {
-  if (ctx.state.tests.length < 2) return;
-  const test = ctx.state.tests.find((t) => t.id === id);
-  if (!window.confirm(`Delete the test from ${fmtDay(test.date)}?`)) return;
+  if (L.deleteProblem(ctx.state.tests, id)) return;
+  const record = ctx.state.tests.find((t) => t.id === id);
+  if (!window.confirm(`Delete the ${lowerName(record)} from ${fmtDay(record.date)}?`)) return;
   persistTests(ctx.state.tests.filter((t) => t.id !== id));
   openProgress();
   ctx.onChange();
 }
 
-/** Each test's date, total @ bodyweight and score, without touching its fields. */
+/** "150 kg" for one value, "150 / 105 kg" for two lifts, "370 kg @ 70 kg" for a test, with bodyweight when it was logged too. */
+function loggedText(record) {
+  const lifts = L.LIFTS.filter((lift) => lift in record);
+  const bw = "bodyweight" in record ? `${record.bodyweight} kg` : "";
+  if (lifts.length === 3) return `${L.sumLifts(record)} kg${bw ? ` @ ${bw}` : ""}`;
+  if (!lifts.length) return bw;
+  const kg = `${lifts.map((lift) => record[lift]).join(" / ")} kg`;
+  return bw ? `${kg} @ ${bw}` : kg;
+}
+
+/** Each record's date, what it logged, a PR badge and the score at it, without touching its fields. */
 function refreshTestSummaries() {
   const { formula } = ctx.state.profile;
-  const only = ctx.state.tests.length < 2;
-  for (const { id, test, score, otherSex } of entries()) {
+  const records = L.prs(ctx.state.tests);
+  for (const { id, record, score, otherSex } of entries()) {
     const item = $("test-list").querySelector(`[data-id="${id}"]`);
     if (!item) continue;
-    item.querySelector(".event-title").textContent = fmtDay(test.date);
-    item.querySelector(".test-sub").textContent = [`${L.sumLifts(test)} kg @ ${test.bodyweight} kg`, otherSex ? SEX_WORDS[test.sex] : ""].filter(Boolean).join(" · ");
+    const title = item.querySelector(".event-title");
+    title.textContent = fmtDay(record.date);
+    if (records.has(id)) title.append(" ", el("span", "pr-badge", "PR"));
+    item.querySelector(".test-sub").textContent = [L.recordName(record), loggedText(record), otherSex ? SEX_WORDS[record.sex] : ""].filter(Boolean).join(" · ");
     item.querySelector(".event-score").textContent = item.dataset.invalid ? "not saved" : S.formatScore(formula, score);
+    const problem = L.deleteProblem(ctx.state.tests, id);
     const remove = item.querySelector(".link-button");
-    remove.disabled = only;
-    remove.title = only ? "Your only test. To start over, use “Clear my numbers” on Log test." : "";
+    remove.disabled = Boolean(problem);
+    remove.title = problem ? DELETE_TEXT[problem] : "";
   }
 }
 
-/** Rebuilds the list of 1RM tests newest first, keeping open whichever test was open. */
+/** Rebuilds the list of records newest first, keeping open whichever was open. */
 function renderTests() {
   const open = $("test-list").querySelector("details[open]")?.dataset.id;
-  const items = [...ctx.state.tests].reverse().map((test) => {
-    const item = testItem(test);
-    item.open = test.id === open;
+  const items = [...ctx.state.tests].reverse().map((record) => {
+    const item = testItem(record);
+    item.open = record.id === open;
     return item;
   });
   $("test-list").replaceChildren(...items);

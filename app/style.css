@@ -308,6 +308,11 @@ a:hover { color: var(--accent-hover); }
   text-align: center;
   -moz-appearance: textfield;
 }
+/* A value you haven't changed: muted (not disabled), with when it was last logged. It stays fully usable. */
+.stepper.carried input { color: var(--muted); }
+.stepper.carried .stepper-name { color: var(--text-2); }
+/* Bodyweight not logged for over a week: the hint asks for a fresh one, a little brighter. */
+.stepper.stale .stepper-hint { color: var(--text-2); font-weight: 600; }
 .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .stepper input:invalid { border-color: var(--error); background: color-mix(in srgb, var(--error) 12%, transparent); }
 
@@ -527,6 +532,9 @@ a:hover { color: var(--accent-hover); }
 .split-kg { font-family: var(--display); font-size: 1.125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .test-head { display: flex; flex-direction: column; gap: 2px; }
+/* A record that beat your previous best on a lift. Chalk, like the chosen tabs: the accent stays for your next action. */
+.pr-badge { display: inline-block; margin-left: 4px; padding: 0 6px; border: 1px solid var(--text-2); border-radius: 6px; color: var(--text); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; vertical-align: 2px; }
+.fields-lifts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .link-button:disabled { color: var(--muted); text-decoration: none; cursor: not-allowed; }
 
 .link-button {

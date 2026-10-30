@@ -101,20 +101,24 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 
 ### 5.2 Log test (`#/log`)
 
+Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. Only what you change is saved.
+
 1. Header: eyebrow "LOG A TEST", title "NEW 1RMS".
-2. **Test date**: a date field, defaulting to today, so an old test can be backfilled. No future dates and nothing before 1990. A date before your latest test gets a note: the test goes into your history, and the Ladder keeps showing the latest.
+2. **Test date**: a date field, defaulting to today, so an old one can be backfilled. No future dates and nothing before 1990. A date before your latest record gets a note: it goes into your history, and the Ladder keeps showing the latest. A date before your first record saves all four values (the first record must hold them).
 3. **Four stepper rows** (`--surface` cards). Each row is a grid of label | − | value | +:
    - Bodyweight: steps of 0.1 kg, 1 decimal place, caption "Morning weigh-in".
    - Squat, Bench, Deadlift: steps of 2.5 kg, caption "kg · 2.5 steps".
    - − and + are real `<button>`s, 44 × 44px, with `--surface-2` fill and a `--border` outline. Each has an aria-label such as "Increase squat".
    - The value (28px Barlow Condensed) is also directly editable: tapping it opens a numeric input.
-   - Prefill every field from your latest test (by date).
+   - Every field starts from your numbers as of the chosen date (each value as last logged on or before it).
+   - **Unchanged fields are muted, not disabled:** the value in `--muted`, the caption "Last logged 12 Oct". They stay fully usable; changing one (typing, − or +) makes it part of this record, and it looks as normal again.
+   - **Bodyweight older than a week** (from its last logging to the chosen date): the caption becomes "From 3 Oct · update it?" in `--text-2`. A nudge only; it never blocks saving.
    - Values can't go below the minimum.
 4. **Live result card** (1px `--border` outline), which updates on every change:
-   - Top row: "Total {n} kg" on the left. On the right, "+x vs last test" in `--accent` when you've improved, or "−x vs last test" in `--muted` when you haven't (at the formula's precision). "Last test" is the latest one on or before the new test's date; with none (an older backfill), it says "First test".
+   - Top row: on the left, "Squat 150 kg · +5 kg" when one lift changed, otherwise "Total {n} kg". On the right, "+x vs last" in `--accent` when you've improved, or "−x vs last" in `--muted` when you haven't (at the formula's precision). "Last" is your numbers as of the chosen date, before this record; before your first record it says "First record".
    - The score (68px), with the same DOTS / GL toggle beside it (it names the score, so the unit is for screen readers only). Here the accent belongs to Save, so the selected option is `--text` fill with `--bg` text, like the experience tabs. Switching saves the formula only, never the draft's numbers.
    - A rung line: "Climbs N rung(s). Next rung needs X more {DOTS|GL}." or "Clears every rung."
-5. **Save test** button: full width, 52px tall, `--accent` fill, `--on-accent` text, 17px / 600. It adds the test to your history and returns you to `#/ladder`.
+5. **Save** button: full width, 52px tall, `--accent` fill, `--on-accent` text, 17px / 600. It names what will be saved: "Save squat 1RM", "Save squat & bench", "Save test" (all three lifts), "Save bodyweight" (bodyweight goes along with any lift), or a disabled "No changes yet". It adds a record of just those values and returns you to `#/ladder`.
 
 ### 5.3 Progress (`#/progress`)
 
@@ -124,6 +128,7 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - **3M** shows the last 3 months (from the same day 3 months ago; with no test that recent, the latest still shows). The header's "since", and the tiles, follow the range.
 3. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
    - Header: your latest score (44px) with "{DOTS|GL} now"; on the right "+x since {first test's date}" (`--accent` when up), or "Starting point" with one test. On a narrow screen the change drops onto its own line rather than squeezing the score. Under it, the first rung above the plot, e.g. "P50 · 338 ↑ off chart".
+   - **Each day's numbers:** what was logged that day plus the rest carried forward. A squat 1RM alone still gets a point (its score uses your latest bench, deadlift and bodyweight); the tooltip names it ("14 Oct · Squat 1RM · PR") and says what was carried ("bench & deadlift carried"; screen readers get each value's date).
    - **One point per day:** the day's last-saved test, the one the Ladder treats as latest. Several tests on one day would otherwise sit on top of each other; all of them stay in the Tests list, and the tooltip says "2 more that day".
    - Each day's score, in that test's own sex: `--accent` dots (10px) joined by a 2.5px line. The selected test (the latest by default) is ringed, with a thin guide line down to the axis.
    - **Rung cleared:** the test where you first reached a rung (after a test below it) is a hollow accent ring. A rung cleared from your first test isn't marked.
@@ -153,9 +158,9 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 6. **"LIFT SPLIT"**: three horizontal bars (Squat, Bench, Deadlift).
    - Track `--divider`, fill `--text-2`, height 10px, radius 5px.
    - Width is relative to your best lift; the kg value sits on the right.
-7. **"TESTS"**: every test, newest first: the date, a caption of "{total} kg @ {bw} kg" ("· Women's" for the other category), and the score on the right.
-   - Open a test to fix its date, sex, bodyweight or lifts. Valid changes save straight away; closing a test with invalid values undoes them.
-   - "Delete test" asks first. Your only test can't be deleted ("Clear my numbers" on Log test starts over).
+7. **"1RMs"**: every record, newest first: the date with a **PR** badge (chalk outline) when it beat your previous best on a lift, what it logged ("Squat 1RM · 150 kg", "1RM test · 370 kg @ 70 kg", "Bodyweight · 69.5 kg"; "· Women's" for the other category), and your score at it on the right.
+   - Open one to fix its date, sex or the values it logged; the rest are noted as "carried from earlier records". Valid changes save straight away; closing it with invalid values undoes them.
+   - "Delete squat 1RM" (or "Delete 1RM test", …) asks first. Your only record can't be deleted ("Clear my numbers" on Log test starts over), nor the first while the next one doesn't hold all four values.
 8. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date).
 
 **Nice to have, later:** a gym test or meet type for each entry (meets as diamonds on the chart, with the class competed in), and a trend line with a projection ("P25 around Mar 2027").
@@ -172,9 +177,10 @@ Three keys. Each new field defaults when it's missing, so older saved data loads
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
   - `targetBw` is the weight-class lever's bodyweight, or `null` for the default.
 - `dots-ladder:progress-view`: `{ "metric": "score", "range": "all" }`, what the Progress chart plots (`score`, `total`, `bw`) and over which range (`3m`, `all`). A per-device convenience; anything missing or unknown is Score and All.
-- `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }]`
-  - Every saved test, oldest first; same-day tests keep their save order.
-  - Each test records its sex, so it's always scored in the category it was done in ("vs last test", and the chart later). A test saved before this takes the profile's sex, which it was saved under.
+- `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }, { "id": "uuid", "date": "2027-02-03", "sex": "M", "squat": 155 }]`
+  - Every record, oldest first; same-day records keep their save order. **A record holds only what was logged** (any of bodyweight, squat, bench, deadlift): a full 1RM test, a single 1RM, or a bodyweight.
+  - **Your numbers on a date** are the latest of each value up to that date, carried forward. The earliest record must hold all four, so every record has a full set to score; saving refuses a history that doesn't start that way.
+  - Each record keeps its sex, so it's always scored in the category it was done in. One saved before records kept a sex takes the profile's, which it was saved under.
   - Numbers saved before the history existed become its first test, dated the day the app first loads with history (their real date wasn't recorded).
 - `dots-ladder:events`: `[{ "id": "uuid", "name": "Spring meet", "month": "2027-04", "date": "2027-04-10", "bodyweight": 82, "conservative": { "squat": 155, "bench": 107.5, "deadlift": 195 }, "optimistic": null }]`
   - `date` is optional (`null` for a month-only plan). Setting it sets the month; moving the month away from it clears it. It stays on the device, like everything else.
