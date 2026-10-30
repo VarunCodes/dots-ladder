@@ -475,13 +475,12 @@ a:hover { color: var(--accent-hover); }
   font-size: 0.8125rem;
   line-height: 1.3;
   pointer-events: none;
+  /* Offsets set from progress.js once the tooltip's size is known (chart.js tipSide decides the side). */
   --tip-x: 16px;
   --tip-y: -50%;
   transform: translate(var(--tip-x), var(--tip-y));
 }
-.chart-tip[data-side="left"] { --tip-x: calc(-100% - 16px); }
-.chart-tip[data-level="top"] { --tip-y: -15%; }
-.chart-tip[data-level="bottom"] { --tip-y: -85%; }
+.chart-tip[hidden] { display: none; }
 #tip-title, #tip-sub { color: var(--muted); }
 #tip-score { font-weight: 600; font-variant-numeric: tabular-nums; }
 #tip-sub { font-size: 0.75rem; }

@@ -4,7 +4,7 @@
 // this file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
-import { CHART, chartModel, inRange, nearestPoint, onePerDay, progressStats, tipPlacement } from "./chart.js";
+import { CHART, TIP_GAP, TIP_LIFT, chartModel, inRange, nearestPoint, onePerDay, progressStats, tipSide } from "./chart.js";
 import { $, el, formulaButtons } from "./dom.js";
 import { fmtDay } from "./events.js";
 
@@ -14,6 +14,7 @@ const SEX_WORDS = { M: "Men's", F: "Women's" };
 
 let ctx; // { rungsData, state, storage, onChange }
 let selectedId = null; // the 1RM test shown in the chart's tooltip; null means the latest
+let tipShown = true; // tapping the selected test again hides its tooltip; selecting any test shows it
 let view; // { metric, range }: what the chart plots and over which range, remembered on this device
 
 const capital = (text) => text && text[0].toUpperCase() + text.slice(1);
@@ -90,8 +91,9 @@ function renderChart() {
 
   renderControls();
   renderHeader(plotted, model, m);
-  drawPlot(model, selected, L.nextRung(rungs, plotted.at(-1).score), m);
-  renderTip(plotted, selected, m, scoreRungs, list);
+  // With the tooltip hidden there's no selection to mark: the latest test keeps its ring, and there's no guide line.
+  drawPlot(model, tipShown ? selected : null, L.nextRung(rungs, plotted.at(-1).score), m);
+  renderTip(plotted, tipShown ? selected : null, m, scoreRungs, list);
   renderLegend(model, m);
   renderStats(list, scoreRungs);
   $("chart-hit").hidden = list.length < 2;
@@ -172,10 +174,11 @@ function drawPlot(model, selected, next, m) {
   }
   for (const tick of model.ticks) nodes.push(svg("text", { class: "chart-tick", x: tick.x, y: height - 6, "text-anchor": "middle" }, tick.label));
   if (model.points.length > 1) {
-    nodes.push(svg("line", { class: "chart-guide", x1: selected.x, x2: selected.x, y1: selected.y, y2: height - bottom }));
+    if (selected) nodes.push(svg("line", { class: "chart-guide", x1: selected.x, x2: selected.x, y1: selected.y, y2: height - bottom }));
     nodes.push(svg("polyline", { class: `chart-line${model.dense ? " dense" : ""}`, points: model.points.map((p) => `${p.x},${p.y}`).join(" ") }));
   }
-  for (const point of model.points) nodes.push(...pointMarks(point, point.id === selected.id, model.dense));
+  const ringed = selected ?? latest;
+  for (const point of model.points) nodes.push(...pointMarks(point, point.id === ringed.id, model.dense));
   plot.replaceChildren(...nodes);
 }
 
@@ -189,8 +192,14 @@ function pointMarks(point, selected, dense) {
   return marks;
 }
 
-/** The tooltip by the selected point, and the same words for screen readers (with where its score sat among the rungs). */
+/** The tooltip by the selected point (hidden with no selection), and the same words for screen readers (with where its score sat among the rungs). */
 function renderTip(list, selected, m, scoreRungs, scored) {
+  const tip = $("chart-tip");
+  tip.hidden = !selected;
+  if (!selected) {
+    $("chart-live").textContent = "Tooltip hidden. Tap the chart or use the arrow keys to see a test.";
+    return;
+  }
   const i = list.findIndex((e) => e.id === selected.id);
   const { test } = list[i];
   const delta = i > 0 ? selected.score - list[i - 1].score : null;
@@ -204,14 +213,7 @@ function renderTip(list, selected, m, scoreRungs, scored) {
   $("tip-score").textContent = `${value} · ${delta == null ? "first test" : m.change(delta)}`;
   $("tip-sub").textContent =
     ctx.state.tests.length === 1 ? "Log another to see your progress." : [`${L.sumLifts(test)} kg @ ${test.bodyweight}`, ...extras].join(" · ");
-  const { side, level, room } = tipPlacement(selected);
-  const tip = $("chart-tip");
-  tip.dataset.side = side;
-  tip.dataset.level = level;
-  tip.style.left = `${(selected.x / CHART.width) * 100}%`;
-  // As wide as the room on its side of the point allows (it wraps beyond that), with a floor for very narrow charts.
-  tip.style.maxWidth = `${Math.max(120, room * $("chart").getBoundingClientRect().width - 20)}px`;
-  tip.style.top = `${(selected.y / CHART.height) * 100}%`;
+  placeTip(tip, selected);
 
   $("chart-live").textContent = [
     `${fmtDay(test.date)}: ${view.metric === "score" ? `${value} ${m.name}` : `${m.name} ${value}`}`,
@@ -220,6 +222,25 @@ function renderTip(list, selected, m, scoreRungs, scored) {
     capital(L.rungPosition(scoreRungs, scored[i].score)),
     ...extras,
   ].filter(Boolean).join(". ");
+}
+
+/** Puts the tooltip right of its point when it fits clear of the labels (so the line up to the point stays visible), else left. */
+function placeTip(tip, selected) {
+  const plot = $("chart").getBoundingClientRect();
+  const scale = plot.width / CHART.width;
+  tip.style.left = `${(selected.x / CHART.width) * 100}%`;
+  tip.style.top = `${(selected.y / CHART.height) * 100}%`;
+  tip.style.maxWidth = `${Math.round(plot.width * 0.62)}px`;
+  const relative = (r) => ({ left: r.left - plot.left, right: r.right - plot.left, top: r.top - plot.top, bottom: r.bottom - plot.top });
+  const labels = [...$("chart").querySelectorAll(".chart-rung-label, .chart-band-label")].map((t) => relative(t.getBoundingClientRect()));
+  const bounds = { left: CHART.left * scale, right: plot.width, height: plot.height };
+  const point = { x: selected.x * scale, y: selected.y * scale };
+  const { side, level, room } = tipSide(point, { width: tip.offsetWidth, height: tip.offsetHeight }, bounds, labels);
+  // Fits neither side at full width: narrow it to the room it has, and let the text wrap.
+  if (room != null) tip.style.maxWidth = `${Math.max(110, Math.floor(room))}px`;
+  tip.dataset.side = side;
+  tip.style.setProperty("--tip-x", side === "right" ? `${TIP_GAP}px` : `calc(-100% - ${TIP_GAP}px)`);
+  tip.style.setProperty("--tip-y", `${-TIP_LIFT[level] * 100}%`);
 }
 
 /** The key: only what this chart shows. */
@@ -266,6 +287,7 @@ function renderStats(list, rungs) {
 function setupChartTouch() {
   const select = (id) => {
     selectedId = id;
+    tipShown = true;
     renderChart();
   };
   // One touch area over the plot: a tap picks the day nearest it, since dots can sit closer than 44px.
@@ -273,7 +295,14 @@ function setupChartTouch() {
     const box = $("chart").getBoundingClientRect();
     const x = ((event.clientX - box.left) / box.width) * CHART.width;
     // Points sit by date, whatever is plotted, so the days in view are enough to find the nearest.
-    select(nearestPoint(chartModel(viewDays(), []).points, x).id);
+    const { points } = chartModel(viewDays(), []);
+    const nearest = nearestPoint(points, x);
+    // Tapping the test that's already showing hides its tooltip (it can cover a neighbouring test).
+    const showing = tipShown && nearest.id === (points.find((p) => p.id === selectedId) ?? points.at(-1)).id;
+    if (showing) {
+      tipShown = false;
+      renderChart();
+    } else select(nearest.id);
   });
   $("chart-hit").addEventListener("keydown", (event) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;

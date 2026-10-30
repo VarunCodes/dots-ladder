@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { CHART, DENSE_FROM, chartModel, edgeBands, inRange, monthTicks, windowStart, nearestPoint, onePerDay, progressStats, rungCrossings, rungLines, tipPlacement, valueTicks } from "./chart.js";
+import { CHART, DENSE_FROM, chartModel, edgeBands, inRange, monthTicks, windowStart, nearestPoint, onePerDay, progressStats, rungCrossings, rungLines, tipSide, valueTicks } from "./chart.js";
 
 const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
 const entry = (id, date, score) => ({ id, date, score, otherSex: false });
@@ -101,13 +101,25 @@ test("the first rung above the plot is named as off the chart", () => {
   assert.equal(chartModel([entry("a", "2026-05-01", 330), entry("b", "2026-06-01", 340)], rungs).offChart, null);
 });
 
-test("the tooltip sits on the side of its point with more room, inside the data area, nudged in near the top and bottom", () => {
-  const dataRight = CHART.width - CHART.right - CHART.gutter;
-  assert.deepEqual(tipPlacement({ x: 60, y: 150 }), { side: "right", level: "bottom", room: (dataRight - 60) / CHART.width });
-  assert.equal(tipPlacement({ x: dataRight - 10, y: 90 }).side, "left", "the latest test: left, away from the rung labels");
-  assert.equal(tipPlacement({ x: 120, y: 30 }).level, "top");
-  const centred = (CHART.left + dataRight) / 2;
-  assert.equal(tipPlacement({ x: centred, y: 90 }).side, "right", "a single centred test: right");
+test("the tooltip goes right of its point when it fits clear of the labels, so the line up to the point stays visible", () => {
+  const bounds = { left: 40, right: 400, height: 220 };
+  const size = { width: 150, height: 60 };
+  assert.deepEqual(tipSide({ x: 180, y: 110 }, size, bounds, []), { side: "right", level: "middle", room: null }, "room on the right: right");
+  assert.equal(tipSide({ x: 300, y: 110 }, size, bounds, []).side, "left", "would run off the card: left");
+  const label = { left: 320, right: 398, top: 90, bottom: 104 }; // e.g. "P75 · 327", where the right-hand box would be
+  assert.equal(tipSide({ x: 220, y: 110 }, size, bounds, [label]).side, "left", "would cover a rung label: left");
+  assert.equal(tipSide({ x: 180, y: 20 }, size, bounds, [label]).side, "right", "the label is lower down: right");
+  assert.deepEqual(tipSide({ x: 60, y: 110 }, { width: 400, height: 60 }, bounds, []), { side: "right", level: "middle", room: 324 }, "fits neither side: the roomier one, narrowed to its room");
+  assert.equal(tipSide({ x: 180, y: 20 }, size, bounds, []).level, "top");
+  assert.equal(tipSide({ x: 180, y: 200 }, size, bounds, []).level, "bottom");
+});
+
+test("the y-axis snaps out to round values: a labelled line below the lowest test and above the highest", () => {
+  const tight = [{ percentile: 50, score: 330 }, { percentile: 75, score: 364 }];
+  const model = chartModel([entry("a", "2026-10-03", 334.8), entry("b", "2026-10-30", 348.8)], tight);
+  const values = model.values.map((v) => v.value);
+  assert.ok(values[0] < 334.8 && values.at(-1) > 364, `${values}`);
+  assert.deepEqual(values, [330, 340, 350, 360, 370]);
 });
 
 test("tiles: total and bodyweight change, average per month, rungs cleared", () => {
@@ -135,9 +147,10 @@ test("the month after your latest test is always labelled", () => {
 test("above the top rung there's no next-rung label, so the plot uses the space at the top", () => {
   const highest = [entry("a", "2026-05-01", 345), entry("b", "2026-06-01", 360)];
   const below = [entry("a", "2026-05-01", 280), entry("b", "2026-06-01", 290)];
-  const top = (list) => Math.min(...chartModel(list, rungs).points.map((p) => p.y));
-  assert.ok(top(highest) < CHART.top, `${top(highest)}: the top point rises into the label room`);
-  assert.ok(top(below) > CHART.top, "with a next rung, its label keeps that room");
+  // The axis snaps to round values, so its top line marks where the plot starts.
+  const top = (list) => chartModel(list, rungs).values.at(-1).y;
+  assert.ok(top(highest) < CHART.top, `${top(highest)}: the plot rises into the label room`);
+  assert.ok(top(below) >= CHART.top, "with a next rung, its label keeps that room");
 });
 
 test("edge bands: Top and Bottom beyond the published rungs, never P0 or P100", () => {

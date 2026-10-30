@@ -1,30 +1,37 @@
 # DOTS Ladder: project brief for Claude Code
 
-A personal powerlifting app for a UK raw lifter: track DOTS over months of training and 1RM tests, and climb a ladder of anonymous UK meet percentiles ("rungs").
+A personal powerlifting app for a UK raw lifter: track DOTS (or IPF GL) over months of 1RM tests, and climb a ladder of anonymous UK meet percentiles ("rungs").
 Local planning notes (gitignored): `docs/conversation-summary.md`. Read them before product decisions.
 
 ## Hard guardrails
-- Public output is aggregate rungs only: groups of 20+ lifters, p10/p90 only at 50+, rounded. No names, initials or per-lifter rows. Exclude under-18s and anti-doping outcomes.
+- Public output is aggregate rungs only: groups of 20+ lifters, p10/p90 only at 50+, rounded. Never p0/p100 or any single lifter's result (beyond the rungs, the chart says "Top 10%" instead). No names, initials or per-lifter rows. Exclude under-18s and anti-doping outcomes.
 - `private/` is gitignored and never committed or published.
 - Data comes only from OpenPowerlifting's bulk download (public domain). Never commit the zip/CSV, only the generated `data/rungs.json`. Credit OpenPowerlifting on any public page.
-- Rungs are OpenPowerlifting-only. The one exception on the ladder is the "Male/Female gym-goer (estimate)" reference marker (`GYM_GOER_ESTIMATE` in `app/ladder.js`): labelled as an estimate, styled unlike a rung, kept below every rung by a test. Don't add more estimates; see `docs/population-estimates.md`.
-- The repo and the Pages site are public: no username, email, real name, venue, exact meet date or absolute paths in anything committed (files, commit messages, PRs). Personal records (my lifts, meets, plans) live in gitignored `private/` (e.g. `private/my-lifts.json`), never in the repo; everyone's numbers, mine included, are entered on the page and stay on the device.
-- Front end: plain HTML/CSS/JS, no build step, no CDNs, relative paths only (Pages serves under `/dots-ladder/`, and it keeps the later PWA simple). Logic lives in `app/ladder.js`, `app/scoring.js` (the formulas) and `app/chart.js` (the chart's layout) and is unit tested; `app/app.js` only renders.
+- Rungs are OpenPowerlifting-only. The one exception is the gym-goer reference marker (`GYM_GOER_ESTIMATE` in `app/ladder.js`, DOTS only): labelled as an estimate, styled unlike a rung, kept below every rung by a test. Don't add more estimates; see `docs/population-estimates.md`.
+- The repo and the Pages site are public: no username, email, real name, venue, exact meet date or absolute paths in anything committed (files, commit messages, PRs). Personal records live in `private/`; everyone's numbers, mine included, are entered on the page and stay on the device.
+- Front end: plain HTML/CSS/JS, no build step, no CDNs, relative paths only (Pages serves under `/dots-ladder/`). Logic lives in the pure, unit-tested `app/ladder.js`, `app/scoring.js` and `app/chart.js`; the other `app/*.js` files only render.
 
-## Commands
-See README.md and docs/testing.md. Locally, pytest is in the repo-root `.venv`. A full pipeline rebuild takes ~35 s on the ~830 MB CSV.
+## Working here
+- `main` needs a PR and all three CI checks (`pytest (3.10)`, `pytest (3.14)`, `node-test`); no direct pushes. Never push the archived `dots-ladder-old` history here.
+- Every file the page loads goes in `PRECACHE` in `sw.js`; a test enforces it.
+- Commands: README.md and `docs/testing.md`. pytest is in the repo-root `.venv`. A full pipeline rebuild takes ~35 s on the ~830 MB CSV.
+- By decision: entering your numbers is mandatory (no example or trial mode), and "Raw" is fixed because the rungs are raw-only.
 
-## Status
-Live at https://varuncodes.github.io/dots-ladder/ (public repo, Pages serves `main`), installable as a PWA (`manifest.webmanifest`, `sw.js`, network-first). When adding a file the page loads, add it to `PRECACHE` in `sw.js`; a test enforces it. Three screens behind a bottom tab bar, with hash routes (`#/ladder` default, `#/log`, `#/progress`; unknown hashes go to the Ladder): the Ladder renders in `app/app.js`, Log test in `app/log.js` (steppers, live result, a draft until "Save test"), and Progress in `app/progress.js` (chart laid out by the pure `app/chart.js`, weight-class lever, lift split, editable tests) with the Upcoming events editor (`app/events.js`). Numbers, the dated test history and events are saved in localStorage (`dots-ladder:profile` with settings and the latest test's numbers, `dots-ladder:tests` with each test's date and sex, `dots-ladder:events` with an optional exact `date`); numbers saved before the history become its first test. A DOTS/GL toggle in the Ladder header (`profile.formula`, default DOTS) switches every score; `rungs.json` has separate `dots` and `gl` percentiles per group, from the same lifters, and the gym-goer marker shows in DOTS only. New visitors start blank: the first-visit form on the Ladder asks for sex, bodyweight and the three lifts, and the tab bar stays hidden until then; events start empty. Entering your numbers is mandatory: there's no example or trial mode, by decision. The page loads only `data/rungs.json`; "Raw" is fixed because the rungs are raw-only. A ruleset on `main` requires a PR and all three CI checks; no direct pushes. The old private repo, `dots-ladder-old`, is archived as a backup; never push its history here.
+## Where things live
+- Live at https://varuncodes.github.io/dots-ladder/, an installable PWA (network-first `sw.js`).
+- Screens (hash routes): Ladder `app/app.js`, Log test `app/log.js`, Progress `app/progress.js` with the events editor `app/events.js`.
+- Spec, data model (localStorage keys) and formulas: `docs/design.md`. The pipeline: `pipeline/build_rungs.py`.
 
-## Next steps
-1. Optional weekly GitHub Action to rebuild `rungs.json` (commit only the JSON).
-2. After the first meet, note the result in `private/my-lifts.json` (local record) and update Your numbers on the phone.
-3. Export/import of the on-device profile (browser storage can be wiped), then more interactions; user input stays on the device, never committed. An app-store wrapper only later, if wanted.
-4. Optional local-only page reading `private/` for the named-lifter ladder.
+## Backlog
+- Export/import of on-device data (browser storage can be wiped).
+- Optional weekly GitHub Action to rebuild `rungs.json` (commit only the JSON).
+- After the first meet: note the result in `private/my-lifts.json` and log it on the phone.
+- Progress PR C: gym test or meet type (meets as diamonds, class recorded) and a projection; first discuss non-linear growth and 1RMs from different days.
+- A check at Save when a test's sex differs from the last one; event labels wrapping with an exact date.
+- Optional local-only page reading `private/` for the named-lifter ladder.
 
 ## Conventions
-UK English, kg, DOTS and IPF GL (not Wilks). App name "DOTS Ladder" stays; in copy about a score, use the selected formula's label.
+UK English, kg, DOTS and IPF GL (not Wilks). The app name "DOTS Ladder" stays; in copy about a score, use the selected formula's label.
 
 ## Design
-"Chalk & iron": the spec is `docs/design.md` (public, kept up to date, made-up example values only). The original mockups stay in gitignored `private/design/`: never commit them, they hold personal details. Dark only, tokens at the top of `app/style.css`: background `#111214`, surfaces `#1c1d20`/`#17181b`, chalk text `#f2f0ea`, muted `#a9a69e`, one accent `#e8c547` for you and your next action only (your row, the next-rung gain, the primary button, focus), and red `#ff6b5e` for errors only. Barlow (body) and Barlow Condensed (numbers, headings), self-hosted in `fonts/` (OFL). Uppercase section headings and eyebrow labels, as in the mockups. Ladder rows: P-label | name and DOTS | gap; the next rung dashed in accent, your row filled accent, events dashed with a flag, the gym-goer estimate muted italic with "≈". Icons are inline SVG in the sprite at the top of `index.html` (24 px grid, 1.8 stroke, `currentColor`), `aria-hidden` with the meaning in text.
+"Chalk & iron", specified in `docs/design.md` (public, made-up example values only); the original mockups stay in gitignored `private/design/` (they hold personal details). Dark only, tokens at the top of `app/style.css`: one accent `#e8c547` for you and your next action only, red `#ff6b5e` for errors only. Barlow and Barlow Condensed, self-hosted in `fonts/`. Icons are inline SVG in the sprite in `index.html`, `aria-hidden` with the meaning in text.
