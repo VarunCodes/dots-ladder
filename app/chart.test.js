@@ -2,11 +2,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { CHART, DENSE_FROM, chartModel, monthTicks, nearestPoint, rungLines } from "./chart.js";
+import { CHART, DENSE_FROM, chartModel, monthTicks, nearestPoint, onePerDay, rungLines } from "./chart.js";
 
 const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
 const entry = (id, date, score) => ({ id, date, score, otherSex: false });
 const inPlot = (p) => p.x >= CHART.left && p.x <= CHART.width - CHART.right && p.y >= 0 && p.y <= CHART.height - CHART.bottom;
+
+test("one point per day: the day's last-saved test, counting the others", () => {
+  const list = [entry("a", "2026-10-15", 277), entry("b", "2026-10-29", 283), entry("c", "2026-10-29", 283), entry("d", "2026-10-29", 324), entry("e", "2026-10-30", 300)];
+  const days = onePerDay(list);
+  assert.deepEqual(days.map((d) => [d.id, d.sameDay]), [["a", 0], ["d", 2], ["e", 0]]);
+  assert.deepEqual(onePerDay([entry("a", "2026-10-15", 277)]).map((d) => d.sameDay), [0]);
+  const xs = chartModel(days, rungs).points.map((p) => p.x);
+  assert.equal(new Set(xs).size, xs.length, "no two points share an x");
+});
 
 test("rung lines: those inside your range, plus the next one above your latest score", () => {
   assert.deepEqual(rungLines(rungs, [277.9]).map((r) => r.percentile), [25], "one test: just the next rung");

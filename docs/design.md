@@ -121,7 +121,8 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 1. Header: eyebrow "PROGRESS", title "THE CLIMB".
 2. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
    - Header: your latest score (44px) with "{DOTS|GL} now"; on the right "+x since {first test's date}" (`--accent` when up), or "Starting point" with one test.
-   - Your score for every test, scored in that test's own sex: `--accent` dots (10px) joined by a 2.5px line. A test in the other sex category is a hollow dot. The selected test (the latest by default) is ringed.
+   - **One point per day:** the day's last-saved test, the one the Ladder treats as latest. Several tests on one day would otherwise sit on top of each other; all of them stay in the Tests list, and the detail row says "2 more tests that day".
+   - Your score for each day's test, scored in that test's own sex: `--accent` dots (10px) joined by a 2.5px line. A test in the other sex category is a hollow dot. The selected test (the latest by default) is ringed.
    - **Rung lines** instead of a goal line: dashed lines for the rungs between your lowest and highest score, plus the next rung above your latest (in `--accent`; the others `--muted`), labelled "P25" on the right. They come from the group the Ladder shows (class and experience tab), so the two always agree.
    - Month labels at 11px in `--muted`: every month, or every 2nd once the range passes 7 months; January shows the year ("Jan ’27").
    - **One test:** a single dot, centred in about four months, with no line, and the next rung above it.

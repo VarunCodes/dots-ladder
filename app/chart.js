@@ -1,5 +1,5 @@
-// The Progress chart's layout: pure, so it runs under `node --test`. It turns dated scores and the rungs into
-// positions in the SVG's viewBox; app/progress.js only draws them.
+// The Progress chart's layout: pure, so it runs under `node --test`. It turns the scores of your dated 1RM tests
+// (squat, bench and deadlift maxes) and the rungs into positions in the SVG's viewBox; app/progress.js only draws them.
 
 export const CHART = { width: 340, height: 170, left: 10, right: 46, top: 14, bottom: 26 };
 export const DENSE_FROM = 10;
@@ -9,6 +9,18 @@ const MIN_SPAN_DAYS = 120; // a single test sits centred in four months, as do t
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const time = (day) => Date.UTC(...day.split("-").map((n, i) => Number(n) - (i === 1 ? 1 : 0)));
+
+/**
+ * One point per day: the day's last-saved 1RM test, the same one the Ladder treats as latest. Entries are oldest
+ * first (same-day tests in save order); each kept entry gets `sameDay`, how many other tests that day it stands for.
+ */
+export function onePerDay(entries) {
+  return entries.flatMap((entry, i) => {
+    if (entries[i + 1]?.date === entry.date) return [];
+    const sameDay = entries.filter((e) => e.date === entry.date).length - 1;
+    return [{ ...entry, sameDay }];
+  });
+}
 
 /** The rungs drawn as lines: those between your lowest and highest score, and the next one above your latest. */
 export function rungLines(rungs, scores) {
