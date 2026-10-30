@@ -40,6 +40,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Android Chrome flashes a blue box on every tap; each control gives its own feedback (press, slide, state). */
+html { -webkit-tap-highlight-color: transparent; }
 /* Classes that set display (flex, grid) would otherwise override the hidden attribute. */
 [hidden] { display: none !important; }
 
