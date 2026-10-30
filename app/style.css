@@ -328,7 +328,7 @@ a:hover { color: var(--accent-hover); }
   position: fixed;
   inset: auto 0 0 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 8px 8px max(20px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--divider);
   background: var(--bg);
@@ -711,6 +711,43 @@ a:hover { color: var(--accent-hover); }
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* --- Meet: a list of cards ---------------------------------------------------------- */
+
+.meet-cards { display: flex; flex-direction: column; gap: 16px; }
+.meet-card { display: flex; flex-direction: column; gap: 12px; }
+.meet-card-head { display: flex; flex-direction: column; gap: 2px; }
+.meet-card-head .eyebrow { font-size: 0.75rem; }
+.meet-card-head h2 { font-size: 1.5rem; font-weight: 700; }
+.meet-card-body { display: flex; flex-direction: column; gap: 12px; }
+
+/* Attempt planner: lifts by attempt; your thirds are your goal, so they're accent. */
+.plan-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+.plan-table th, .plan-table td { padding: 10px 0; text-align: right; }
+.plan-table thead th { padding-top: 0; font-size: 0.75rem; font-weight: 500; color: var(--muted); }
+.plan-table tbody tr { border-top: 1px solid var(--divider); }
+.plan-table th:first-child { text-align: left; }
+.plan-table tbody th { font-weight: 600; }
+.plan-1rm { font-size: 0.8125rem; font-weight: 400; color: var(--muted); }
+.plan-third { color: var(--accent); }
+td.plan-third { font-weight: 700; }
+.plan-steps { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.plan-step {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 0.875rem;
+}
+.plan-step-name { color: var(--muted); }
+.plan-note { font-size: 0.75rem; color: var(--text-2); text-align: right; }
+.plan-goal { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.plan-goal .plan-step-name, .plan-goal .plan-note { color: inherit; }
+.plan-choice { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.plan-choice .view-option { min-width: 52px; padding: 0 8px; }
 
 /* Reduced motion: nothing moves or scales, and colours and fades still change, so every state change stays visible. */
 @media (prefers-reduced-motion: reduce) {

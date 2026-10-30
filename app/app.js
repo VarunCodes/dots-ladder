@@ -1,4 +1,4 @@
-// Page wiring: loads the rungs, starts the store, routes between the three screens, and renders the Ladder.
+// Page wiring: loads the rungs, starts the store, routes between the four screens, and renders the Ladder.
 // Every screen reads derive.js and changes things only through the store; one subscriber refreshes the screen
 // that's showing after each change.
 import * as L from "./ladder.js";
@@ -8,6 +8,7 @@ import { derived } from "./derive.js";
 import { $, choiceGroup, el, formulaChoice, replay, setNumber } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 import { FIELD_TEXT, openLog, refreshLog, setupLog } from "./log.js";
+import { openMeet, refreshMeet, setupMeet } from "./meet.js";
 import { openProgress, refreshProgress, setupProgress } from "./progress.js";
 
 const fmtDate = (iso) =>
@@ -223,7 +224,7 @@ try {
   if (rungsData.snapshot) $("snapshot").textContent = `, snapshot ${fmtDate(rungsData.snapshot)}`;
   const hasNumbers = () => Boolean(derived(store.getState()).profile);
 
-  // Routing: "#/ladder" (default), "#/log" and "#/progress". Without saved numbers, everything is the first-visit form.
+  // Routing: "#/ladder" (default), "#/log", "#/progress" and "#/meet". Without saved numbers, everything is the first-visit form.
   const route = () => {
     const numbers = hasNumbers();
     $("onboarding").hidden = numbers;
@@ -236,6 +237,7 @@ try {
     if (screen === "log") openLog({ focusClass: location.hash.endsWith("?class") });
     else render();
     if (screen === "progress") openProgress();
+    if (screen === "meet") openMeet();
   };
 
   // After every change: gaining or losing your numbers re-routes (into or out of the first-visit form); otherwise
@@ -247,6 +249,7 @@ try {
       const screen = L.routeFrom(location.hash);
       if (screen === "log") refreshLog();
       if (screen === "progress") refreshProgress();
+      if (screen === "meet") refreshMeet();
       return;
     }
     if (!hasNumbers()) {
@@ -273,6 +276,7 @@ try {
   });
   setupEvents();
   setupProgress();
+  setupMeet();
   window.addEventListener("hashchange", route);
   route();
 } catch (error) {

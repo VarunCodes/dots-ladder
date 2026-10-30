@@ -158,3 +158,9 @@ test("the service worker leaves other sites and non-GET requests alone", () => {
   assert.equal(sw.request("https://www.openpowerlifting.org/").response, undefined);
   assert.equal(sw.request("data/rungs.json", { method: "POST" }).response, undefined);
 });
+
+test("every section in index.html is closed, so no screen ends up inside another", () => {
+  const opened = indexHtml.match(/<section\b/g).length;
+  const closed = indexHtml.match(/<\/section>/g).length;
+  assert.equal(closed, opened);
+});

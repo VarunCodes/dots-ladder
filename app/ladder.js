@@ -153,12 +153,18 @@ export function lever(profile, rungs) {
   return { targetBw, now, then, delta: then - now, cleared };
 }
 
-/** A profile's settings, the only part that's saved: { weightClass, formula, targetBw }, with defaults for anything missing or invalid. */
+export const OPENER_PCTS = [88, 90, 91, 93]; // the attempt planner's opener choices (attempts.js)
+
+/**
+ * A profile's settings, the only part that's saved: { weightClass, formula, targetBw }, with defaults for anything
+ * missing or invalid, plus the optional ones only when set: openerPct (the attempt planner's choice).
+ */
 export function settingsOf(profile) {
   return {
     weightClass: typeof profile?.weightClass === "string" ? profile.weightClass : null,
     formula: FORMULA_IDS.includes(profile?.formula) ? profile.formula : DEFAULT_FORMULA,
     targetBw: inRange(profile?.targetBw, LIMITS.bodyweight) ? profile.targetBw : null,
+    ...(OPENER_PCTS.includes(profile?.openerPct) && { openerPct: profile.openerPct }),
   };
 }
 
@@ -515,7 +521,7 @@ export function ladderRows(rungs, points, markers) {
 
 // --- Screens and the Log test steppers ------------------------------------------------
 
-export const ROUTES = ["ladder", "log", "progress"];
+export const ROUTES = ["ladder", "log", "progress", "meet"];
 
 /** The screen for a URL hash ("#/log" or "#/log?class" → "log"); anything unknown is the Ladder. */
 export function routeFrom(hash) {

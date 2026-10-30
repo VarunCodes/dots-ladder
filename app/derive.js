@@ -6,6 +6,7 @@
 // The values come from four small builders: base (your profile and records), rungs, chart and events. Every
 // array and object handed out is frozen, so a view that tries to change one fails loudly instead of quietly
 // corrupting the cache; the Map and Set ones (prs, prDays) can't be frozen, so treat them as read-only too.
+import * as A from "./attempts.js";
 import * as L from "./ladder.js";
 import { inRange, liftDays, onePerDay } from "./chart.js";
 
@@ -132,6 +133,25 @@ function eventValues({ events, session }, base) {
   };
 }
 
+/** The Meet screen's values: the attempt plan for your next meet (or for now, without one). */
+function meetValues({ settings }, base, rungs, plans) {
+  return {
+    attemptPlan: memoizeOnce(() => {
+      const p = base.profile();
+      if (!p) return null;
+      const meet = plans.nextMeet()?.event;
+      return A.attemptPlan(p, {
+        pct: settings.openerPct ?? A.DEFAULT_OPENER,
+        bodyweight: meet?.bodyweight ?? p.bodyweight,
+        sex: p.sex,
+        formula: p.formula,
+        rungs: rungs.group()?.rungs ?? [],
+        now: L.profileScore(p),
+      });
+    }),
+  };
+}
+
 // --- What screens read --------------------------------------------------------------------
 
 function make(state) {
@@ -140,6 +160,7 @@ function make(state) {
   const rungs = rungValues(state, base);
   const chart = chartValues(state, base);
   const plans = eventValues(state, base);
+  const meet = meetValues(state, base, rungs, plans);
 
   return Object.freeze({
     /** The saved parts and the page's session, as stored. */
@@ -208,6 +229,14 @@ function make(state) {
     /** The events shown on the Ladder: this month or later, soonest first. */
     get ladderEvents() {
       return plans.ladderEvents();
+    },
+    /**
+     * Your attempts from your current 1RMs (openers at your chosen %, seconds at 96%, thirds a 2.5 kg PR), each step
+     * totalled and scored at the next meet's bodyweight (else yours), with where it lands on the rungs; null
+     * without numbers.
+     */
+    get attemptPlan() {
+      return meet.attemptPlan();
     },
   });
 }
