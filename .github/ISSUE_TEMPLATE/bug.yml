@@ -1,0 +1,51 @@
+name: Bug report
+description: Something on the page doesn't work or looks wrong.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Expected → actual is the most useful thing to write. A screenshot helps a lot.
+
+        **This repo is public:** use made-up numbers in screenshots, and no real meet names, venues or dates.
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      placeholder: e.g. The tooltip sits beside the latest test without covering the rung label.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      placeholder: e.g. The "PR" label overlaps "Next rung · P75 · 117.5 kg".
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Progress → Lifts → Bench, 3M
+        2. Log a bench PR close to the next rung
+        3. See the labels overlap
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - Android phone (Chrome)
+        - Android phone (installed app)
+        - iPhone (Safari)
+        - iPhone (home-screen app)
+        - Desktop browser
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images in here.

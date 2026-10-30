@@ -62,6 +62,10 @@ Details, coverage and CI: `docs/testing.md`.
 - `private/` holds my own records and named-lifter data for local use, and is gitignored.
 - See `docs/legal-ethics-audit.md`.
 
+## Ideas and bugs
+
+Open an issue: choose **Feature idea** or **Bug report**, and fill in the form. The repo is public, so use made-up numbers.
+
 ## Docs
 
 - `docs/design.md`: the "chalk & iron" design and build spec (tokens, screens, data model, formulas and their test cases, build phases)

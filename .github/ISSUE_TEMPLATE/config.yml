@@ -1,0 +1,6 @@
+# Every issue uses a form: blank issues are off.
+blank_issues_enabled: false
+contact_links:
+  - name: Design and build spec
+    url: https://github.com/VarunCodes/dots-ladder/blob/main/docs/design.md
+    about: How the app looks and works, its data model and formulas, before suggesting a change.

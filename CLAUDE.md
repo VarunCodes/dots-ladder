@@ -15,6 +15,7 @@ Local planning notes (gitignored): `docs/conversation-summary.md`. Read them bef
 - `main` needs a PR and all three CI checks (`pytest (3.10)`, `pytest (3.14)`, `node-test`); no direct pushes. Never push the archived `dots-ladder-old` history here.
 - Every file the page loads goes in `PRECACHE` in `sw.js`; a test enforces it.
 - Commands: README.md and `docs/testing.md`. pytest is in the repo-root `.venv`. A full pipeline rebuild takes ~35 s on the ~830 MB CSV.
+- New ideas and bugs go through GitHub issues, using the forms in `.github/ISSUE_TEMPLATE/` (blank issues are off). Refine an idea in its issue (proposal, decisions marked 🟢 recommended / 🟠 needs input, "Done when"), then open a PR with "Closes #N". Labels: enhancement, bug, data, analytics, idea. Issues are public: same rules as commits.
 - By decision: entering your numbers is mandatory (no example or trial mode), and "Raw" is fixed because the rungs are raw-only.
 
 ## Where things live
