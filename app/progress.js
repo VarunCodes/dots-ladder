@@ -5,7 +5,7 @@
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
 import { CHART, chartModel, nearestPoint, onePerDay, progressStats, tipPlacement } from "./chart.js";
-import { $, el } from "./dom.js";
+import { $, el, formulaButtons } from "./dom.js";
 import { fmtDay } from "./events.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -150,14 +150,13 @@ function renderTip(list, model, selected, rungs) {
   $("tip-score").textContent = `${score} · ${delta == null ? "first test" : signed(formula, delta)}`;
   $("tip-sub").textContent =
     ctx.state.tests.length === 1 ? "Log another to see your progress." : [`${L.sumLifts(test)} kg @ ${test.bodyweight}`, ...extras].join(" · ");
-  const { side, level } = tipPlacement(selected);
+  const { side, level, room } = tipPlacement(selected);
   const tip = $("chart-tip");
   tip.dataset.side = side;
   tip.dataset.level = level;
   tip.style.left = `${(selected.x / CHART.width) * 100}%`;
-  // As wide as the room on its side of the point allows; longer text wraps.
-  const share = side === "right" ? 1 - selected.x / CHART.width : selected.x / CHART.width;
-  tip.style.maxWidth = `${Math.max(120, share * $("chart").getBoundingClientRect().width - 24)}px`;
+  // As wide as the room on its side of the point allows (it wraps beyond that), with a floor for very narrow charts.
+  tip.style.maxWidth = `${Math.max(120, room * $("chart").getBoundingClientRect().width - 20)}px`;
   tip.style.top = `${(selected.y / CHART.height) * 100}%`;
 
   $("chart-live").textContent = [
@@ -451,8 +450,21 @@ export function setupProgress(context) {
   setupLever();
 }
 
-/** Draws the whole screen; called each time it opens, and after a test is deleted. */
+/** The same DOTS / GL toggle as the Ladder's: switching redraws this screen and saves the choice for every screen. */
+function renderFormula() {
+  $("progress-formula").replaceChildren(
+    ...formulaButtons(ctx.state.profile.formula, (id) => {
+      ctx.state.profile = { ...ctx.state.profile, formula: id };
+      L.saveProfile(ctx.storage, ctx.state.profile);
+      openProgress();
+      ctx.onChange();
+    }),
+  );
+}
+
+/** Draws the whole screen; called each time it opens, after a test is deleted, and when the formula changes. */
 export function openProgress() {
+  renderFormula();
   renderChart();
   renderLever();
   renderSplit();

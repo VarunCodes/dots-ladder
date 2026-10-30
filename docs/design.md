@@ -118,14 +118,15 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 
 ### 5.3 Progress (`#/progress`)
 
-1. Header: eyebrow "PROGRESS", title "THE CLIMB".
+1. Header: eyebrow "PROGRESS", title "THE CLIMB", and the same DOTS / GL toggle as the Ladder's, top right and out of the layout flow (so the header keeps its spacing; under 360px it sits in the row). Switching it redraws Progress and is saved for every screen.
 2. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
-   - Header: your latest score (44px) with "{DOTS|GL} now"; on the right "+x since {first test's date}" (`--accent` when up), or "Starting point" with one test. Under it, the first rung above the plot, e.g. "P50 · 338 ↑ off chart".
+   - Header: your latest score (44px) with "{DOTS|GL} now"; on the right "+x since {first test's date}" (`--accent` when up), or "Starting point" with one test. On a narrow screen the change drops onto its own line rather than squeezing the score. Under it, the first rung above the plot, e.g. "P50 · 338 ↑ off chart".
    - **One point per day:** the day's last-saved test, the one the Ladder treats as latest. Several tests on one day would otherwise sit on top of each other; all of them stay in the Tests list, and the tooltip says "2 more that day".
    - Each day's score, in that test's own sex: `--accent` dots (10px) joined by a 2.5px line. The selected test (the latest by default) is ringed, with a thin guide line down to the axis.
    - **Rung cleared:** the test where you first reached a rung (after a test below it) is a hollow accent ring. A rung cleared from your first test isn't marked.
    - **Other sex category:** a muted (`--text-2`) dot, so it isn't read as this category's.
    - **Y-axis:** about three round values on the left (270, 290, 310) with faint `--divider` gridlines.
+   - **A gutter on the right** holds the rung labels: points stop before it, so your latest test never covers a label at any width. Rung lines run on into it.
    - **Rung lines** (no goal line): dashed lines for the rungs between your lowest and highest score, plus the next rung above your latest. Labels carry the value: the next rung in `--accent` above its line, "Next rung · P25 · 300"; others `--muted` below theirs, "P10 · 266". They come from the group the Ladder shows (class and experience tab), so the two always agree.
    - Month labels at 11px in `--muted`: every month, or every 2nd once the range passes 7 months; January shows the year ("Jan ’27").
    - **One test:** a single dot, centred in about four months, with no line, and the next rung above it.

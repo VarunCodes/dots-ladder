@@ -416,10 +416,11 @@ a:hover { color: var(--accent-hover); }
 /* --- Progress: chart, weight-class lever, lift split, tests ------------------------------- */
 
 .chart-card { display: flex; flex-direction: column; gap: 10px; }
-.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.chart-score { display: flex; align-items: baseline; gap: 8px; }
+/* On narrow screens the change drops onto its own line rather than squeezing the score. */
+.chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.chart-score { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
 #chart-now { font-family: var(--display); font-size: 2.75rem; font-weight: 700; line-height: 0.95; }
-#chart-change { font-size: 0.875rem; font-weight: 600; color: var(--muted); text-align: right; }
+#chart-change { margin-left: auto; font-size: 0.875rem; font-weight: 600; color: var(--muted); text-align: right; white-space: nowrap; }
 #chart-change.up { color: var(--accent); }
 /* The plot keeps one height from one test to many, so the page doesn't jump as data grows. */
 .chart-plot { position: relative; }

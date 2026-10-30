@@ -6,7 +6,8 @@ import { CHART, DENSE_FROM, chartModel, monthTicks, nearestPoint, onePerDay, pro
 
 const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
 const entry = (id, date, score) => ({ id, date, score, otherSex: false });
-const inPlot = (p) => p.x >= CHART.left && p.x <= CHART.width - CHART.right && p.y >= 0 && p.y <= CHART.height - CHART.bottom;
+// Inside the plot, and clear of the right-hand gutter where the rung labels sit.
+const inPlot = (p) => p.x >= CHART.left && p.x <= CHART.width - CHART.right - CHART.gutter && p.y >= 0 && p.y <= CHART.height - CHART.bottom;
 
 test("one point per day: the day's last-saved test, counting the others", () => {
   const list = [entry("a", "2026-10-15", 277), entry("b", "2026-10-29", 283), entry("c", "2026-10-29", 283), entry("d", "2026-10-29", 324), entry("e", "2026-10-30", 300)];
@@ -27,7 +28,7 @@ test("rung lines: those inside your range, plus the next one above your latest s
 test("one test sits centred, with the next rung above it", () => {
   const model = chartModel([entry("a", "2026-10-26", 277.9)], rungs);
   const [point] = model.points;
-  const plotMid = (CHART.left + CHART.width - CHART.right) / 2;
+  const plotMid = (CHART.left + CHART.width - CHART.right - CHART.gutter) / 2;
   assert.ok(Math.abs(point.x - plotMid) < 1, `x ${point.x}`);
   assert.equal(model.rungs.length, 1);
   assert.ok(model.rungs[0].y < point.y, "P25 is drawn above the test");
@@ -100,11 +101,13 @@ test("the first rung above the plot is named as off the chart", () => {
   assert.equal(chartModel([entry("a", "2026-05-01", 330), entry("b", "2026-06-01", 340)], rungs).offChart, null);
 });
 
-test("the tooltip sits right of its point, or left of it in the right 40%, nudged in near the top and bottom", () => {
-  assert.equal(tipPlacement({ x: 184, y: 90 }).side, "right", "a single test, centred: right, off the value labels");
-  assert.deepEqual(tipPlacement({ x: 40, y: 150 }), { side: "right", level: "bottom" });
-  assert.deepEqual(tipPlacement({ x: 170, y: 30 }), { side: "right", level: "top" });
-  assert.deepEqual(tipPlacement({ x: 320, y: 90 }), { side: "left", level: "middle" }, "points on the right: tooltip on the left, off the rung labels");
+test("the tooltip sits on the side of its point with more room, inside the data area, nudged in near the top and bottom", () => {
+  const dataRight = CHART.width - CHART.right - CHART.gutter;
+  assert.deepEqual(tipPlacement({ x: 60, y: 150 }), { side: "right", level: "bottom", room: (dataRight - 60) / CHART.width });
+  assert.equal(tipPlacement({ x: dataRight - 10, y: 90 }).side, "left", "the latest test: left, away from the rung labels");
+  assert.equal(tipPlacement({ x: 120, y: 30 }).level, "top");
+  const centred = (CHART.left + dataRight) / 2;
+  assert.equal(tipPlacement({ x: centred, y: 90 }).side, "right", "a single centred test: right");
 });
 
 test("tiles: total and bodyweight change, average per month, rungs cleared", () => {

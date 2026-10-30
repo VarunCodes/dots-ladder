@@ -1,8 +1,9 @@
 // The Progress chart's layout: pure, so it runs under `node --test`. It turns the scores of your dated 1RM tests
 // (squat, bench and deadlift maxes) and the rungs into positions in the SVG's viewBox; app/progress.js only draws them.
 
-// Room on the left for the value labels, and at the top for the next rung's label above its line.
-export const CHART = { width: 340, height: 190, left: 34, right: 6, top: 24, bottom: 26 };
+// Room on the left for the value labels, at the top for the next rung's label above its line, and a gutter on the
+// right where rung labels ("P90 · 357") sit: points stop before it, so the latest test never covers a label.
+export const CHART = { width: 340, height: 190, left: 34, right: 6, gutter: 62, top: 24, bottom: 26 };
 export const DENSE_FROM = 10;
 
 const DAY_MS = 86_400_000;
@@ -43,15 +44,16 @@ export function rungCrossings(days, rungs) {
 }
 
 /**
- * Where the tooltip sits: beside the point, to its right (off the value labels on the left) unless the point is in
- * the right 40%, where it goes left (off the rung labels at the right edge); level with it, nudged in near the top
- * and bottom.
+ * Where the tooltip sits: beside the point, on the side with more room within the data area (so it never covers
+ * the value labels on the left or the rung labels in the right gutter), level with it, nudged in near the top and
+ * bottom. `room` is that side's share of the chart's width, for capping the tooltip's width.
  */
 export function tipPlacement(point) {
-  const { width, height } = CHART;
-  const side = point.x > width * 0.6 ? "left" : "right";
+  const { width, height, left, right, gutter } = CHART;
+  const [roomLeft, roomRight] = [point.x - left, width - right - gutter - point.x];
+  const side = roomLeft > roomRight ? "left" : "right";
   const level = point.y < height * 0.25 ? "top" : point.y > height * 0.6 ? "bottom" : "middle";
-  return { side, level };
+  return { side, level, room: Math.max(roomLeft, roomRight) / width };
 }
 
 /**
@@ -100,7 +102,7 @@ export function monthTicks(fromMs, toMs, x) {
  * lines, the month and value labels, the first rung above the plot, and whether it's dense.
  */
 export function chartModel(entries, rungs) {
-  const { width, height, left, right, top, bottom } = CHART;
+  const { width, height, left, right, gutter, top, bottom } = CHART;
   const times = entries.map((e) => time(e.date));
   const mid = (times[0] + times.at(-1)) / 2;
   const span = Math.max(times.at(-1) - times[0], MIN_SPAN_DAYS * DAY_MS);
@@ -116,7 +118,7 @@ export function chartModel(entries, rungs) {
   const yMid = (lowest + highest) / 2;
   const [yLow, yHigh] = [yMid - ySpan * 0.62, yMid + ySpan * 0.62];
 
-  const x = (ms) => left + ((ms - fromMs) / (toMs - fromMs)) * (width - left - right);
+  const x = (ms) => left + ((ms - fromMs) / (toMs - fromMs)) * (width - left - right - gutter);
   const y = (value) => top + ((yHigh - value) / (yHigh - yLow)) * (height - top - bottom);
 
   const cleared = new Set(rungCrossings(entries, rungs).map((c) => c.id));
