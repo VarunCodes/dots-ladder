@@ -119,13 +119,16 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 ### 5.3 Progress (`#/progress`)
 
 1. Header: eyebrow "PROGRESS", title "THE CLIMB", and the same DOTS / GL toggle as the Ladder's, top right and out of the layout flow (so the header keeps its spacing; under 360px it sits in the row). Switching it redraws Progress and is saved for every screen.
-2. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
+2. **Chart controls**, above the card: **Score | Total | BW** on the left (chalk when chosen, like the experience tabs) and **3M | All** on the right (text, the chosen one underlined in `--accent`), each at least 44px. Both are remembered on the device (`dots-ladder:progress-view`).
+   - **Score** plots your score with everything below (rungs, bands, rung-cleared rings). **Total** and **BW** plot kg ("370 kg total now", "70 kg bodyweight now") with no rungs, since rungs are scores. A bodyweight change is never in the accent: lighter isn't automatically better.
+   - **3M** shows the last 3 months (from the same day 3 months ago; with no test that recent, the latest still shows). The header's "since", and the tiles, follow the range.
+3. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
    - Header: your latest score (44px) with "{DOTS|GL} now"; on the right "+x since {first test's date}" (`--accent` when up), or "Starting point" with one test. On a narrow screen the change drops onto its own line rather than squeezing the score. Under it, the first rung above the plot, e.g. "P50 · 338 ↑ off chart".
    - **One point per day:** the day's last-saved test, the one the Ladder treats as latest. Several tests on one day would otherwise sit on top of each other; all of them stay in the Tests list, and the tooltip says "2 more that day".
    - Each day's score, in that test's own sex: `--accent` dots (10px) joined by a 2.5px line. The selected test (the latest by default) is ringed, with a thin guide line down to the axis.
    - **Rung cleared:** the test where you first reached a rung (after a test below it) is a hollow accent ring. A rung cleared from your first test isn't marked.
    - **Other sex category:** a muted (`--text-2`) dot, so it isn't read as this category's.
-   - **Y-axis:** about three round values on the left (270, 290, 310) with faint `--divider` gridlines.
+   - **Y-axis:** round values on the left (270, 290, 310) with faint `--divider` gridlines. The range snaps out to those values, so a labelled line always sits below your lowest test and above your highest.
    - **Beyond the published rungs:** when a test sits above the group's top rung, a faint band (`--text` at 4%) fills the plot above that line, named in the gutter: "Top 10%" (or "Top 25%" for a group whose top rung is P75). Below the lowest rung: "Bottom 10%" at the foot. No P0 or P100: those are single lifters' exact results, which the privacy rules never show.
    - **A gutter on the right** holds the rung labels: points stop before it, so your latest test never covers a label at any width. Rung lines run on into it.
    - **Rung lines** (no goal line): dashed lines for the rungs between your lowest and highest score, plus the next rung above your latest. Labels carry the value: the next rung in `--accent` above its line, "Next rung · P25 · 300"; others `--muted` below theirs, "P10 · 266". They come from the group the Ladder shows (class and experience tab), so the two always agree.
@@ -133,27 +136,27 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - The top of the plot keeps room for the next rung's label only when there is one; above the top rung, the points use that space.
    - **One test:** a single dot, centred in about four months, with no line, and the next rung above it.
    - **10+ tests (dense):** dots shrink to 6px and the line to 2px; only the selected test (and rung-cleared rings) stay full size.
-   - **Touch:** dots can sit closer than 44px, so there's no button per dot. One button covers the plot: a tap selects the day nearest it, and the left and right arrow keys step through days.
-   - **Tooltip** by the selected point (replacing the detail row): "26 Oct · 1RM test", "277.9 · −15.8" (or "first test"), and "370 kg @ 70" with "Women's test" or "2 more that day" when they apply ("Log another to see your progress." with one test). It sits right of the point, or left of it in the right 40% (so it never covers the value labels or the rung labels), level with it, and only as wide as that side allows. Screen readers get the same words, plus where it sat ("Between P10 and P25"), from a live region.
+   - **Touch:** dots can sit closer than 44px, so there's no button per dot. One button covers the plot: a tap selects the day nearest it, and the left and right arrow keys step through days. Tapping the test that's already showing hides its tooltip and guide line (it can cover a neighbouring test); the latest keeps its ring.
+   - **Tooltip** by the selected point (replacing the detail row): "26 Oct · 1RM test", "277.9 · −15.8" (or "first test"), and "370 kg @ 70" with "Women's test" or "2 more that day" when they apply ("Log another to see your progress." with one test). It goes right of the point whenever it fits there clear of the labels and the card edge, so the line up to the point stays visible; otherwise left; if neither fits, it narrows to the roomier side and wraps. It sits level with the point, nudged in near the top and bottom. Screen readers get the same words, plus where it sat ("Between P10 and P25"), from a live region.
    - **Legend** under the plot, listing only what's drawn: 1RM test, Rung, Rung cleared, and the other category's test.
    - The SVG has `role="img"` and an aria-label summing up first and latest scores.
    - With no tests there's nothing to draw, but that can't happen: the first visit saves a first test, and the last test can't be deleted.
-3. **Stat tiles** (2 × 2, `--surface`), since your first test:
+4. **Stat tiles** (2 × 2, `--surface`), since your first test (or over the last 3 months with 3M), always about your score and numbers whatever the chart plots:
    - **Total:** latest total, and its change in kg (`--accent` when up; "First test" with one).
    - **Bodyweight:** latest bodyweight, and its change in kg (always `--muted`: lighter isn't automatically better).
    - **Avg per month:** the change in score from first to latest test, divided by the months between them; "—" with under 4 weeks between them. A plain average of what happened, not a prediction.
    - **Rungs cleared:** how many rungs you've reached since your first test, with the highest and when ("P10 · 20 Aug"), or the next one ("Next: P25").
-4. **"Weight-class lever" card** (outlined)
+5. **"Weight-class lever" card** (outlined)
    - "Same {total} kg total at {targetBw} kg = **{score} {DOTS|GL}**", with the number in accent.
    - Caption: "+{delta} from bodyweight alone", plus ", enough to clear P{n}" when it would clear a rung of the Ladder's group.
    - The target bodyweight is a field (saved as `profile.targetBw`; empty means the default). The default is the top of the next lighter class, i.e. cutting one class (66 kg at 70 kg), or the top of your class if it's the lightest.
-5. **"LIFT SPLIT"**: three horizontal bars (Squat, Bench, Deadlift).
+6. **"LIFT SPLIT"**: three horizontal bars (Squat, Bench, Deadlift).
    - Track `--divider`, fill `--text-2`, height 10px, radius 5px.
    - Width is relative to your best lift; the kg value sits on the right.
-6. **"TESTS"**: every test, newest first: the date, a caption of "{total} kg @ {bw} kg" ("· Women's" for the other category), and the score on the right.
+7. **"TESTS"**: every test, newest first: the date, a caption of "{total} kg @ {bw} kg" ("· Women's" for the other category), and the score on the right.
    - Open a test to fix its date, sex, bodyweight or lifts. Valid changes save straight away; closing a test with invalid values undoes them.
    - "Delete test" asks first. Your only test can't be deleted ("Clear my numbers" on Log test starts over).
-7. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date).
+8. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date).
 
 **Nice to have, later:** a gym test or meet type for each entry (meets as diamonds on the chart, with the class competed in), and a trend line with a projection ("P25 around Mar 2027").
 
@@ -168,6 +171,7 @@ Three keys. Each new field defaults when it's missing, so older saved data loads
   - `weightClass` is `null` when it's worked out from bodyweight.
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
   - `targetBw` is the weight-class lever's bodyweight, or `null` for the default.
+- `dots-ladder:progress-view`: `{ "metric": "score", "range": "all" }`, what the Progress chart plots (`score`, `total`, `bw`) and over which range (`3m`, `all`). A per-device convenience; anything missing or unknown is Score and All.
 - `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }]`
   - Every saved test, oldest first; same-day tests keep their save order.
   - Each test records its sex, so it's always scored in the category it was done in ("vs last test", and the chart later). A test saved before this takes the profile's sex, which it was saved under.

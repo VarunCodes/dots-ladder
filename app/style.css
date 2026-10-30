@@ -415,6 +415,24 @@ a:hover { color: var(--accent-hover); }
 
 /* --- Progress: chart, weight-class lever, lift split, tests ------------------------------- */
 
+/* Score | Total | BW (chalk when chosen, like the experience tabs) and 3M | All (underlined). */
+.chart-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.view-group { display: flex; gap: 6px; }
+.view-option {
+  min-width: 52px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.view-option[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+.view-range .view-option { min-width: 44px; padding: 0 10px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; }
+.view-range .view-option[aria-pressed="true"] { background: none; color: var(--text); border-bottom-color: var(--accent); }
 .chart-card { display: flex; flex-direction: column; gap: 10px; }
 /* On narrow screens the change drops onto its own line rather than squeezing the score. */
 .chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
@@ -457,13 +475,12 @@ a:hover { color: var(--accent-hover); }
   font-size: 0.8125rem;
   line-height: 1.3;
   pointer-events: none;
+  /* Offsets set from progress.js once the tooltip's size is known (chart.js tipSide decides the side). */
   --tip-x: 16px;
   --tip-y: -50%;
   transform: translate(var(--tip-x), var(--tip-y));
 }
-.chart-tip[data-side="left"] { --tip-x: calc(-100% - 16px); }
-.chart-tip[data-level="top"] { --tip-y: -15%; }
-.chart-tip[data-level="bottom"] { --tip-y: -85%; }
+.chart-tip[hidden] { display: none; }
 #tip-title, #tip-sub { color: var(--muted); }
 #tip-score { font-weight: 600; font-variant-numeric: tabular-nums; }
 #tip-sub { font-size: 0.75rem; }

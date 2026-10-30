@@ -24,12 +24,34 @@ export function onePerDay(entries) {
   });
 }
 
-/** Round values for the y-axis labels: about three, on a 1, 2 or 5 step (270, 290, 310). */
-export function valueTicks(low, high) {
+/** The first day of the 3-month window ending today ("2026-07-30" for "2026-10-30"); a short month clamps (31 May → 28 Feb). */
+export function windowStart(today) {
+  const [y, m, d] = today.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - 4, 1));
+  const last = new Date(Date.UTC(y, m - 3, 0)).getUTCDate(); // days in that month
+  first.setUTCDate(Math.min(d, last));
+  return first.toISOString().slice(0, 10);
+}
+
+/** The days in view: all of them, or the last 3 months'. With nothing that recent, the latest day still shows. */
+export function inRange(days, range, today) {
+  if (range === "all") return days;
+  const start = windowStart(today);
+  const recent = days.filter((d) => d.date >= start);
+  return recent.length ? recent : days.slice(-1);
+}
+
+/** A round step for about three labels across low–high: 1, 2 or 5 times a power of ten (10 for 262–318). */
+export function niceStep(low, high) {
   const span = high - low;
   const power = 10 ** Math.floor(Math.log10(span / 3));
   const steps = [1, 2, 5, 10].map((m) => m * power);
-  const step = steps.reduce((best, s) => (Math.abs(span / s - 3) < Math.abs(span / best - 3) ? s : best)); // nearest to 3 labels
+  return steps.reduce((best, s) => (Math.abs(span / s - 3) < Math.abs(span / best - 3) ? s : best)); // nearest to 3 labels
+}
+
+/** Round values for the y-axis labels: about three, on a 1, 2 or 5 step (270, 290, 310). */
+export function valueTicks(low, high) {
+  const step = niceStep(low, high);
   const ticks = [];
   for (let v = Math.ceil(low / step) * step; v <= high; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
   return ticks;
@@ -43,17 +65,29 @@ export function rungCrossings(days, rungs) {
   });
 }
 
+/** How far up the tooltip sits from its point, as a share of its height: lower near the top, higher near the bottom. */
+export const TIP_LIFT = { top: 0.15, middle: 0.5, bottom: 0.85 };
+export const TIP_GAP = 16;
+
 /**
- * Where the tooltip sits: beside the point, on the side with more room within the data area (so it never covers
- * the value labels on the left or the rung labels in the right gutter), level with it, nudged in near the top and
- * bottom. `room` is that side's share of the chart's width, for capping the tooltip's width.
+ * Which side of its point the tooltip goes, from measured sizes in pixels: right when it fits there, so the line
+ * leading up to the point stays in view; else left; else whichever side has more room, with `room` (pixels) for
+ * narrowing the tooltip to fit. A side fits when the box stays inside `bounds` (the plot, right of the value
+ * labels) and clear of every label rectangle.
  */
-export function tipPlacement(point) {
-  const { width, height, left, right, gutter } = CHART;
-  const [roomLeft, roomRight] = [point.x - left, width - right - gutter - point.x];
-  const side = roomLeft > roomRight ? "left" : "right";
-  const level = point.y < height * 0.25 ? "top" : point.y > height * 0.6 ? "bottom" : "middle";
-  return { side, level, room: Math.max(roomLeft, roomRight) / width };
+export function tipSide(point, size, bounds, labels) {
+  const level = point.y < bounds.height * 0.25 ? "top" : point.y > bounds.height * 0.6 ? "bottom" : "middle";
+  const y1 = point.y - size.height * TIP_LIFT[level];
+  const box = (side) => {
+    const x1 = side === "right" ? point.x + TIP_GAP : point.x - TIP_GAP - size.width;
+    return { left: x1, right: x1 + size.width, top: y1, bottom: y1 + size.height };
+  };
+  const apart = (a, b) => a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom;
+  const fits = (b) => b.left >= bounds.left && b.right <= bounds.right && labels.every((label) => apart(b, label));
+  if (fits(box("right"))) return { side: "right", level, room: null };
+  if (fits(box("left"))) return { side: "left", level, room: null };
+  const [roomRight, roomLeft] = [bounds.right - point.x - TIP_GAP, point.x - bounds.left - TIP_GAP];
+  return roomRight >= roomLeft ? { side: "right", level, room: roomRight } : { side: "left", level, room: roomLeft };
 }
 
 /**
@@ -137,8 +171,10 @@ export function chartModel(entries, rungs) {
   const lowest = Math.min(...values);
   const highest = Math.max(...values);
   const ySpan = Math.max(highest - lowest, highest * 0.04); // a flat history still has some height
-  const yMid = (lowest + highest) / 2;
-  const [yLow, yHigh] = [yMid - ySpan * 0.56, yMid + ySpan * 0.56];
+  // Snapped outward to round values, so a labelled line always sits below the lowest point and above the highest.
+  const step = niceStep(lowest, lowest + ySpan);
+  const yLow = Math.floor((lowest - ySpan * 0.08) / step) * step;
+  const yHigh = Math.ceil((highest + ySpan * 0.08) / step) * step;
   // Room at the top only for the next rung's label; above the top rung, the plot uses that space.
   const roof = rungs.some((r) => r.score > scores.at(-1)) ? top : 10;
 
