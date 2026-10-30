@@ -226,6 +226,48 @@ test("a test needs a real day between 1990 and today, and valid numbers", () => 
   assert.deepEqual(L.testProblems({ ...test1, bench: 0 }, "2026-10-29"), ["bench"]);
 });
 
+test("a record keeps only what it logged: one lift, a bodyweight, or all four", () => {
+  assert.deepEqual(L.validTest({ id: "s", date: "2026-11-10", sex: "M", squat: 130, bench: NaN, extra: 1 }), { id: "s", date: "2026-11-10", sex: "M", squat: 130 });
+  assert.deepEqual(L.loggedValues({ bodyweight: 69.2 }), ["bodyweight"]);
+  assert.ok(L.isComplete(test1) && !L.isComplete({ squat: 130 }));
+  assert.deepEqual(L.testProblems({ date: "2026-11-10", squat: 130 }, "2026-11-10"), []);
+  assert.deepEqual(L.testProblems({ date: "2026-11-10" }, "2026-11-10"), ["values"], "nothing logged");
+  assert.deepEqual(L.testProblems({ date: "2026-11-10", squat: 700 }, "2026-11-10"), ["squat"]);
+  assert.equal(L.validTest({ id: "x", date: "2026-11-10", sex: "M" }), null);
+});
+
+test("the Save button says what will be saved", () => {
+  assert.equal(L.saveLabel(["squat"]), "Save squat 1RM");
+  assert.equal(L.saveLabel(["bodyweight", "squat"]), "Save squat 1RM", "bodyweight goes along with a lift");
+  assert.equal(L.saveLabel(["bench", "squat"]), "Save squat & bench");
+  assert.equal(L.saveLabel(["squat", "bench", "deadlift"]), "Save test");
+  assert.equal(L.saveLabel(["bodyweight"]), "Save bodyweight");
+  assert.equal(L.saveLabel([]), null, "nothing changed");
+});
+
+test("records are named for what they logged", () => {
+  assert.equal(L.recordName(test1), "1RM test");
+  assert.equal(L.recordName({ squat: 130 }), "Squat 1RM");
+  assert.equal(L.recordName({ squat: 130, bench: 105, bodyweight: 70 }), "Squat & bench 1RM");
+  assert.equal(L.recordName({ bodyweight: 69 }), "Bodyweight");
+});
+
+test("a PR beats every earlier value of that lift; a first value isn't one", () => {
+  const tests = [test1, { id: "s1", date: "2026-11-01", sex: "M", squat: 125 }, { id: "s2", date: "2026-11-08", sex: "M", squat: 122.5 }, { id: "t", date: "2026-12-01", sex: "M", squat: 125, bench: 102.5, deadlift: 160 }];
+  const result = L.prs(tests);
+  assert.deepEqual([...result.entries()], [["s1", ["squat"]], ["t", ["bench", "deadlift"]]], "s2 is below the best; t's squat only equals it");
+});
+
+test("the first record must hold all four values, so it can't be deleted while the next one doesn't", () => {
+  const squatPr = { id: "s", date: "2026-11-10", sex: "M", squat: 130 };
+  assert.equal(L.deleteProblem([test1], "a"), "only");
+  assert.equal(L.deleteProblem([test1, squatPr], "a"), "earliest");
+  assert.equal(L.deleteProblem([test1, squatPr], "s"), null);
+  assert.equal(L.deleteProblem([test1, test2], "a"), null, "the next one is a full test");
+  assert.equal(L.saveTests(fakeStorage(), [squatPr]), false, "a history can't start without all four");
+  assert.equal(L.saveTests(fakeStorage(), [test1, squatPr]), true);
+});
+
 test("a stored test keeps only its fields; one dated after today still loads (the clock may have changed)", () => {
   assert.deepEqual(L.validTest({ ...test1, extra: 1 }), test1);
   assert.deepEqual(L.validTest({ ...test1, date: "2099-01-01" }).date, "2099-01-01");
@@ -264,12 +306,17 @@ test("tests sort by date; same-day tests keep the order they were saved in", () 
   assert.equal(L.latestTest([]), null);
 });
 
-test("the last test is the latest on or before the new test's date", () => {
-  const tests = [test1, test2];
-  assert.equal(L.previousTest(tests, "2026-12-15").id, "b");
-  assert.equal(L.previousTest(tests, "2026-12-01").id, "b", "a test the same day counts");
-  assert.equal(L.previousTest(tests, "2026-11-10").id, "a", "backfilling compares with the test before it");
-  assert.equal(L.previousTest(tests, "2026-01-01"), null, "earlier than every test: nothing to compare with");
+test("your numbers on a date carry each value forward from when it was last logged", () => {
+  const squatPr = { id: "s", date: "2026-11-10", sex: "M", squat: 130 };
+  const weighIn = { id: "w", date: "2026-11-12", sex: "M", bodyweight: 69.2 };
+  const tests = [weighIn, test1, squatPr];
+  const rows = L.carried(tests);
+  assert.deepEqual(rows.map((r) => r.record.id), ["a", "s", "w"]);
+  assert.deepEqual(rows[1].values, { sex: "M", bodyweight: 70, squat: 130, bench: 100, deadlift: 150 });
+  assert.deepEqual(rows[2].from, { bodyweight: "2026-11-12", squat: "2026-11-10", bench: "2026-10-25", deadlift: "2026-10-25" });
+  assert.equal(L.valuesAt(tests, "2026-11-11").values.squat, 130);
+  assert.equal(L.valuesAt(tests, "2026-11-09").values.squat, 120, "before the PR: the old squat");
+  assert.equal(L.valuesAt(tests, "2026-01-01"), null, "before your first record");
 });
 
 test("the profile's numbers come from the latest test by date, not the last one saved", () => {
@@ -277,6 +324,8 @@ test("the profile's numbers come from the latest test by date, not the last one 
   assert.deepEqual(L.withLatestTest(profile, [test2, test1]), { ...profile, bodyweight: 69.5, squat: 130, bench: 102.5, deadlift: 160 });
   assert.equal(L.withLatestTest(profile, []), profile);
   assert.deepEqual(L.testFrom(profile, "2026-10-29", "x"), { id: "x", date: "2026-10-29", sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150 });
+  assert.deepEqual(L.testFrom(profile, "2026-10-29", "y", ["squat"]), { id: "y", date: "2026-10-29", sex: "M", squat: 120 }, "just the squat");
+  assert.deepEqual(L.withLatestTest(profile, [test1, { id: "s", date: "2026-11-10", sex: "M", squat: 130 }]).squat, 130, "the latest values, carried");
 });
 
 test("numbers saved before the history existed become its first test, dated today", () => {

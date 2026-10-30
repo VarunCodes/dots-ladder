@@ -139,15 +139,18 @@ export function saveProfile(storage, profile) {
   }
 }
 
-// --- Test history: every saved 1RM test, dated --------------------------------------
-// A test is { id, date: "YYYY-MM-DD", sex, bodyweight, squat, bench, deadlift }. Each test keeps its own sex, so
-// it's always scored in the category it was done in. Class and formula are settings on the profile; the
-// profile's sex and numbers mirror the latest test, so the Ladder reads one place.
+// --- 1RMs: every record of what you logged, dated ----------------------------------------
+// A record holds what was logged on one day: { id, date: "YYYY-MM-DD", sex, and any of bodyweight, squat, bench,
+// deadlift }. One lift is a "squat 1RM"; all three are a "1RM test"; bodyweight can be logged alone. Your numbers
+// on a date are the latest of each up to that date, carried forward; the earliest record holds all four, so every
+// record has a full set to score. Each record keeps its sex, so it's scored in the category it was done in.
+// Class and formula are settings on the profile; the profile's sex and numbers mirror the latest values.
 
 export const TESTS_KEY = "dots-ladder:tests";
 export const EARLIEST_DATE = "1990-01-01";
+export const VALUES = ["bodyweight", ...LIFTS];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const TEST_FIELDS = ["sex", "bodyweight", ...LIFTS];
+const limitFor = (name) => (name === "bodyweight" ? LIMITS.bodyweight : LIMITS.lift);
 
 /** "YYYY-MM-DD" for a date, in local time. */
 export function dayOf(date) {
@@ -162,59 +165,121 @@ export function isDay(value) {
   return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
 }
 
-/** Names of the test's values that are wrong: "date" (missing, not a day, before 1990 or after today) and invalidFields' numbers. */
+/** The values a record logged, in order: e.g. ["squat"], or all four for a full record. */
+export function loggedValues(record) {
+  return VALUES.filter((name) => record?.[name] != null && !Number.isNaN(record[name]));
+}
+
+/** Whether a record holds bodyweight and all three lifts (the earliest record must). */
+export const isComplete = (record) => loggedValues(record).length === VALUES.length;
+
+/** Names of the record's problems: "date" (missing, not a day, before 1990 or after today), any logged value out of range, or "values" if nothing is logged. */
 export function testProblems(raw, today) {
-  const bad = invalidFields({ sex: "M", ...raw }).filter((name) => name !== "sex");
   const date = raw?.date;
-  if (!isDay(date) || date < EARLIEST_DATE || date > today) bad.unshift("date");
+  const bad = !isDay(date) || date < EARLIEST_DATE || date > today ? ["date"] : [];
+  const logged = loggedValues(raw);
+  bad.push(...logged.filter((name) => !inRange(raw[name], limitFor(name))));
+  if (!logged.length) bad.push("values");
   return bad;
 }
 
 /**
- * A clean copy of a stored test, or null. A test saved before tests recorded sex takes `fallbackSex` (the profile's,
- * which it was saved under). The future-date rule is for entry only, so a stored test survives a clock change.
+ * A clean copy of a stored record (only what it logged), or null. One saved before records kept their sex takes
+ * `fallbackSex` (the profile's, which it was saved under). The future-date rule is for entry only, so a stored
+ * record survives a clock change.
  */
 export function validTest(raw, fallbackSex) {
   if (raw == null || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id) return null;
   const sex = raw.sex in CLASSES ? raw.sex : fallbackSex;
   if (!(sex in CLASSES) || testProblems(raw, "9999-12-31").length) return null;
-  return { id: raw.id, date: raw.date, ...Object.fromEntries(TEST_FIELDS.map((name) => [name, raw[name]])), sex };
+  return { id: raw.id, date: raw.date, sex, ...Object.fromEntries(loggedValues(raw).map((name) => [name, raw[name]])) };
 }
 
-/** Tests oldest first by date; tests on the same day keep the order they were saved in. */
+/** Records oldest first by date; records on the same day keep the order they were saved in. */
 export function sortTests(tests) {
   return tests.map((test, i) => [test, i]).sort(([x, i], [y, j]) => x.date.localeCompare(y.date) || i - j).map(([test]) => test);
 }
 
-/** The test to compare a new one dated `date` with: the latest on or before that day, or null for the earliest test. */
-export function previousTest(tests, date) {
-  return sortTests(tests).findLast((test) => test.date <= date) ?? null;
+/**
+ * Each record, oldest first, with your full numbers as of it (what it logged, the rest carried forward) and the
+ * date each value was last logged: [{ record, values: { sex, bodyweight, squat, bench, deadlift }, from: { squat: "2026-10-12", ... } }].
+ */
+export function carried(tests) {
+  const values = {};
+  const from = {};
+  return sortTests(tests).map((record) => {
+    for (const name of loggedValues(record)) [values[name], from[name]] = [record[name], record.date];
+    values.sex = record.sex;
+    return { record, values: { ...values }, from: { ...from } };
+  });
 }
 
-/** The newest test by date, or null with none. */
+/** Your numbers as of a day (on or before it), with when each was last logged; null before your first record. */
+export function valuesAt(tests, date) {
+  return carried(tests).findLast((c) => c.record.date <= date) ?? null;
+}
+
+/** The newest record by date, or null with none. */
 export function latestTest(tests) {
   return sortTests(tests).at(-1) ?? null;
 }
 
-/** The profile with its sex and numbers taken from the latest test (unchanged if there are none). */
+/** The profile with its sex and numbers from your latest values (unchanged with no records). */
 export function withLatestTest(profile, tests) {
-  const latest = latestTest(tests);
-  return latest ? { ...profile, ...Object.fromEntries(TEST_FIELDS.map((name) => [name, latest[name]])) } : profile;
+  const latest = carried(tests).at(-1);
+  return latest ? { ...profile, ...latest.values } : profile;
 }
 
-/** A unique id for a saved test or event. */
+/** A unique id for a saved record or event. */
 export function newId(prefix) {
   return globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** A new test from the profile's sex and numbers. */
-export function testFrom(profile, date, id) {
-  return { id, date, ...Object.fromEntries(TEST_FIELDS.map((name) => [name, profile[name]])) };
+/** A new record from the profile's sex and the chosen values (all four by default). */
+export function testFrom(profile, date, id, names = VALUES) {
+  return { id, date, sex: profile.sex, ...Object.fromEntries(names.map((name) => [name, profile[name]])) };
+}
+
+/** What the Save button says for the values changed: "Save squat 1RM", "Save squat & bench", "Save test", "Save bodyweight", or null for nothing. */
+export function saveLabel(changed) {
+  const lifts = LIFTS.filter((lift) => changed.includes(lift));
+  if (lifts.length === LIFTS.length) return "Save test";
+  if (lifts.length === 2) return `Save ${lifts[0]} & ${lifts[1]}`;
+  if (lifts.length === 1) return `Save ${lifts[0]} 1RM`;
+  return changed.includes("bodyweight") ? "Save bodyweight" : null;
+}
+
+/** What a record is called: "1RM test" (all three lifts), "Squat 1RM", "Squat & bench 1RM", or "Bodyweight". */
+export function recordName(record) {
+  const lifts = LIFTS.filter((lift) => lift in record);
+  if (lifts.length === LIFTS.length) return "1RM test";
+  if (!lifts.length) return "Bodyweight";
+  const names = lifts.join(" & ");
+  return `${names[0].toUpperCase()}${names.slice(1)} 1RM`;
+}
+
+/** The lifts each record set a PR on (more than every earlier value of that lift): Map of id → ["squat", ...]. A first value isn't a PR. */
+export function prs(tests) {
+  const best = {};
+  const result = new Map();
+  for (const record of sortTests(tests)) {
+    const beaten = LIFTS.filter((lift) => lift in record && best[lift] != null && record[lift] > best[lift]);
+    if (beaten.length) result.set(record.id, beaten);
+    for (const lift of LIFTS) if (lift in record) best[lift] = Math.max(best[lift] ?? -Infinity, record[lift]);
+  }
+  return result;
+}
+
+/** Why a record can't be deleted: "only" (your only record), "earliest" (the next one doesn't hold all four), or null. */
+export function deleteProblem(tests, id) {
+  const rest = sortTests(tests.filter((t) => t.id !== id));
+  if (!rest.length) return "only";
+  return isComplete(rest[0]) ? null : "earliest";
 }
 
 /**
- * The saved tests, oldest first. Numbers saved before the history existed become the first test, dated today
- * (their real date wasn't recorded). Unreadable or missing storage gives the fallback; invalid entries are dropped.
+ * The saved records, oldest first. Numbers saved before the history existed become the first record, dated today
+ * (their real date wasn't recorded). Unreadable or missing storage gives the fallback; invalid records are dropped.
  */
 export function loadTests(storage, profile, today, fallback) {
   try {
@@ -226,12 +291,12 @@ export function loadTests(storage, profile, today, fallback) {
   }
 }
 
-/** Saves the tests if every one is valid; returns whether they were saved. */
+/** Saves the records if every one is valid and the earliest holds all four values; returns whether they were saved. */
 export function saveTests(storage, tests) {
-  const clean = tests.map((test) => validTest(test));
-  if (clean.includes(null)) return false;
+  const clean = sortTests(tests.map((test) => validTest(test)));
+  if (clean.includes(null) || (clean.length && !isComplete(clean[0]))) return false;
   try {
-    storage.setItem(TESTS_KEY, JSON.stringify(sortTests(clean)));
+    storage.setItem(TESTS_KEY, JSON.stringify(clean));
     return true;
   } catch {
     return false;
