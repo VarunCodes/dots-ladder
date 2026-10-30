@@ -124,7 +124,7 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
 ### 5.3 Progress (`#/progress`)
 
 1. Header: eyebrow "PROGRESS", title "THE CLIMB", and the same DOTS / GL toggle as the Ladder's, top right and out of the layout flow (so the header keeps its spacing; under 360px it sits in the row). Switching it redraws Progress and is saved for every screen.
-2. **Chart controls**, above the card: **Score | Lifts | BW** on the left (chalk when chosen, like the experience tabs) and **3M | All** on the right (text, the chosen one underlined in `--accent`), each at least 44px. **Lifts** adds a second row underneath in the same underlined style: **Total | Squat | Bench | Deadlift**. All of it is remembered on the device (`dots-ladder:progress-view`).
+2. **Chart controls**, above the card: **Score | Lifts | BW** on the left (chalk when chosen, like the experience tabs) and **3M | All** on the right (text, the chosen one underlined in `--accent`), each at least 44px. **Lifts** adds a second row underneath in the same underlined style: **Total | Squat | Bench | Deadlift**. All of it is remembered on the device (the store's `view`).
    - **Score** plots your score with everything below (rungs, bands, rung-cleared rings). **Lifts** and **BW** plot kg ("370 kg total now", "120 kg bench now", "70 kg bodyweight now") with no rungs, since rungs are scores. A bodyweight change is never in the accent: lighter isn't automatically better. No change reads "±0 kg".
    - **Total** has a point on every day you logged anything (the rest carried forward). **A single lift** has a point only on the days that lift was logged, never a carried value, and **draws that lift's own rungs in kg** ("Next rung · P25 · 130 kg", bands and rung-cleared rings as on Score). Its PRs get a small "PR" label above the point ("PR · Personal record" in the legend), so they don't clash with the hollow rung-cleared ring; a PR label that would touch a rung or band label goes below its point instead.
    - **Whose rungs:** a caption under the header, "Rungs: men 83 kg, first meet" (or "Bench rungs: …"), wherever rungs are drawn. They follow your class now, so earlier points at another bodyweight are compared with this class too.
@@ -169,31 +169,40 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
 
 **Nice to have, later:** a gym test or meet type for each entry (meets as diamonds on the chart, with the class competed in), and a trend line with a projection ("P25 around Mar 2027").
 
-## 6. Data model (localStorage)
+## 6. Data model (one store)
 
 Everything stays on the device. Nothing the lifter enters is sent anywhere.
 
-Three keys. Each new field defaults when it's missing, so older saved data loads without a migration step.
+**One store, one key.** `app/store.js` is the only code that reads or writes the browser's storage, under one versioned key, `dots-ladder:data`:
 
-- `dots-ladder:profile`: `{ "weightClass": null, "formula": "dots", "targetBw": null }`, **settings only**.
-  - Your numbers (sex, bodyweight, lifts) are never stored here: every screen works them out from your records (the latest of each, carried forward), so there's one source of truth.
-  - A profile saved by an older version still holds numbers: if there's no history yet they become its first record, and either way it's cut down to settings on the next load.
+```json
+{ "version": 2,
+  "settings": { "weightClass": null, "formula": "dots", "targetBw": null },
+  "entries":  [{ "id": "uuid", "date": "2027-01-15", "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 },
+               { "id": "uuid", "date": "2027-02-03", "sex": "M", "squat": 155 }],
+  "events":   [{ "id": "uuid", "name": "Spring meet", "month": "2027-04", "date": "2027-04-10", "bodyweight": 82,
+                 "conservative": { "squat": 155, "bench": 107.5, "deadlift": 195 }, "optimistic": null }],
+  "view":     { "metric": "score", "lift": "total", "range": "all" } }
+```
+
+Each new field defaults when it's missing, so adding an optional field never needs a migration.
+
+- **`settings`, settings only.** Your numbers (sex, bodyweight, lifts) are never stored here: they're worked out from your entries.
   - `weightClass` is `null` when it's worked out from bodyweight.
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
   - `targetBw` is the weight-class lever's bodyweight, or `null` for the default.
-- `dots-ladder:progress-view`: `{ "metric": "score", "lift": "total", "range": "all" }`, what the Progress chart plots (`score`, `lifts`, `bw`), which lift Lifts shows (`total`, `squat`, `bench`, `deadlift`) and over which range (`3m`, `all`). A per-device convenience; anything missing or unknown is Score, Total and All, and the old `total` tab opens as Lifts → Total.
-- `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }, { "id": "uuid", "date": "2027-02-03", "sex": "M", "squat": 155 }]`
-  - Every record, oldest first; same-day records keep their save order. **A record holds only what was logged** (any of bodyweight, squat, bench, deadlift): a full 1RM test, a single 1RM, or a bodyweight.
+- **`entries`,** every record, oldest first; same-day records keep their save order. **A record holds only what was logged** (any of bodyweight, squat, bench, deadlift): a full 1RM test, a single 1RM, or a bodyweight. Nothing worked out is stored (not "carried", not a type that the logged values already tell).
   - **Your numbers on a date** are the latest of each value up to that date, carried forward. The earliest record must hold all four, so every record has a full set to score; saving refuses a history that doesn't start that way.
-  - Each record keeps its sex, so it's always scored in the category it was done in. One saved before records kept a sex takes the profile's, which it was saved under.
-  - Numbers saved before the history existed become its first test, dated the day the app first loads with history (their real date wasn't recorded).
-- `dots-ladder:events`: `[{ "id": "uuid", "name": "Spring meet", "month": "2027-04", "date": "2027-04-10", "bodyweight": 82, "conservative": { "squat": 155, "bench": 107.5, "deadlift": 195 }, "optimistic": null }]`
-  - `date` is optional (`null` for a month-only plan). Setting it sets the month; moving the month away from it clears it. It stays on the device, like everything else.
+  - Each record keeps its sex, so it's always scored in the category it was done in.
+- **`events`,** planned meets or test days. `date` is optional (`null` for a month-only plan); setting it sets the month, and moving the month away from it clears it.
+- **`view`,** what the Progress chart plots (`score`, `lifts`, `bw`), which lift Lifts shows (`total`, `squat`, `bench`, `deadlift`) and over which range (`3m`, `all`). Anything missing or unknown is Score, Total and All.
 
-(The original mockup planned one versioned key with `profile`, `tests` and `meets`. Separate keys did the same job without moving the data people already had.)
+**Version 1** kept four keys (`dots-ladder:profile`, `:tests`, `:events`, `:progress-view`). They're migrated once, when version 2 doesn't exist yet, with nothing lost: an older profile that still held numbers becomes the first record (dated that day) when there were none, records without a sex take the profile's, and the old "Total" chart tab opens as Lifts → Total. The old keys are left in place for now (an older cached copy of the app still finds its data, and going back a version loses nothing); "Clear my numbers" removes the old profile and records too.
+
+**Derived values.** `app/derive.js` works out everything from the store once per change (your profile, carried values, one point per day, scores, rungs, PRs, the lever, events' scores) using the pure functions in `ladder.js`, `scoring.js` and `chart.js`. Screens and cards only read these; none keeps its own copy of the entries or works out a score itself. Every change goes through `store.update()`, and one subscriber refreshes the screen that's showing.
 
 - Calculate scores whenever they're displayed. Never store them.
-- Wrap every localStorage read and write in try/catch. If storage is empty or unavailable, start with an empty state. A screen with no tests shows an empty state that links to `#/log`.
+- The store wraps every storage read and write in try/catch. If storage is empty, corrupt or unavailable, the app starts with an empty state (and changes last until the page closes). A screen with no tests shows an empty state that links to `#/log`.
 
 **Rung data** (`data/rungs.json`, built by the pipeline, the only data the page loads): for each group (sex, class, experience), `dots` and `gl` percentiles and, under `lifts`, each lift's percentiles in kg rounded to the nearest 2.5 kg, all from the same lifters' same results. Each lift's set carries its own `lifters` count and follows the same rules (20+ lifters, p10/p90 only at 50+). Per-lift rungs come from full-power meets only, so all three lifts describe the same people as the score rungs; they don't change with the DOTS / GL toggle.
 

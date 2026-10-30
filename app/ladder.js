@@ -68,11 +68,10 @@ export function nextRung(rungs, points) {
 // --- The lifter's numbers and settings ---------------------------------------------------
 // In memory a profile is { sex, bodyweight, squat, bench, deadlift, weightClass, formula, targetBw }, all kg: your
 // latest numbers, always worked out from your records (never stored twice), plus your settings. Only the
-// settings are saved, under PROFILE_KEY: { weightClass, formula, targetBw }.
+// settings are saved (by store.js): { weightClass, formula, targetBw }.
 // weightClass null means "work it out from bodyweight"; formula is the score shown everywhere ("dots" or "gl");
 // targetBw is the weight-class lever's bodyweight on Progress, null for the default.
 
-export const PROFILE_KEY = "dots-ladder:profile";
 export const LIMITS = { bodyweight: [30, 250], lift: [1, 600] };
 
 /** Class labels for a sex, lightest first: ["59", "66", ..., "120+"]. */
@@ -150,28 +149,9 @@ export function currentProfile(settings, tests) {
   return latest ? validProfile({ ...settings, ...latest.values }) : null;
 }
 
-/**
- * What's saved under PROFILE_KEY: { settings, legacy }, or null when nothing readable is saved. `legacy` is the
- * full profile, numbers included, that versions before this one saved: used once to start the history, else null.
- */
-export function loadSaved(storage) {
-  try {
-    const raw = JSON.parse(storage.getItem(PROFILE_KEY));
-    if (raw == null || typeof raw !== "object") return null;
-    return { settings: settingsOf(raw), legacy: validProfile(raw) };
-  } catch {
-    return null;
-  }
-}
-
-/** Saves the profile's settings only (your numbers live in your records); returns whether it was saved (storage can be full, blocked or missing). */
-export function saveSettings(storage, profile) {
-  try {
-    storage.setItem(PROFILE_KEY, JSON.stringify(settingsOf(profile)));
-    return true;
-  } catch {
-    return false;
-  }
+/** The full profile an older version saved, numbers included (used once to start the history), or null. */
+export function legacyProfile(raw) {
+  return validProfile(raw);
 }
 
 // --- 1RMs: every record of what you logged, dated ----------------------------------------
@@ -179,9 +159,8 @@ export function saveSettings(storage, profile) {
 // deadlift }. One lift is a "squat 1RM"; all three are a "1RM test"; bodyweight can be logged alone. Your numbers
 // on a date are the latest of each up to that date, carried forward; the earliest record holds all four, so every
 // record has a full set to score. Each record keeps its sex, so it's scored in the category it was done in.
-// Class and formula are settings on the profile; the profile's sex and numbers mirror the latest values.
+// Class and formula are settings on the profile; the profile's sex and numbers are worked out from the latest values.
 
-export const TESTS_KEY = "dots-ladder:tests";
 export const EARLIEST_DATE = "1990-01-01";
 export const VALUES = ["bodyweight", ...LIFTS];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -338,67 +317,39 @@ export function deleteProblem(tests, id) {
 }
 
 /**
- * The saved records, oldest first. Numbers saved before the history existed (`profile`, from loadSaved's legacy)
- * become the first record, dated today (their real date wasn't recorded). Unreadable or missing storage gives the
- * fallback; invalid records are dropped.
+ * Saved records, cleaned and oldest first: invalid ones are dropped. A record from before records kept their sex
+ * takes `fallbackSex` (an older profile's), or failing that another record's. Not an array → null.
  */
-export function loadTests(storage, profile, today, fallback) {
-  try {
-    const raw = JSON.parse(storage.getItem(TESTS_KEY));
-    // A record from before records kept their sex takes the old profile's, or failing that another record's.
-    const fallbackSex = profile?.sex ?? (Array.isArray(raw) ? raw.find((r) => r?.sex in CLASSES)?.sex : undefined);
-    if (Array.isArray(raw)) return sortTests(raw.map((test) => validTest(test, fallbackSex)).filter(Boolean));
-    return profile ? [testFrom(profile, today, "first")] : fallback;
-  } catch {
-    return fallback;
-  }
+export function cleanTests(raw, fallbackSex) {
+  if (!Array.isArray(raw)) return null;
+  const sex = fallbackSex ?? raw.find((r) => r?.sex in CLASSES)?.sex;
+  return sortTests(raw.map((test) => validTest(test, sex)).filter(Boolean));
 }
 
-/** Saves the records if every one is valid and the earliest holds all four values; returns whether they were saved. */
-export function saveTests(storage, tests) {
-  const clean = sortTests(tests.map((test) => validTest(test)));
-  if (clean.includes(null) || (clean.length && !isComplete(clean[0]))) return false;
-  try {
-    storage.setItem(TESTS_KEY, JSON.stringify(clean));
-    return true;
-  } catch {
-    return false;
-  }
+/** Whether records can be saved: every one valid, and the earliest holding all four values. */
+export function canSaveTests(tests) {
+  const clean = tests.map((test) => validTest(test));
+  if (clean.includes(null)) return false;
+  return !clean.length || isComplete(sortTests(clean)[0]);
 }
 
 // --- Progress view: what the chart plots and over which range ---------------------------
 // A per-device convenience (not part of your data): { metric: "score" | "lifts" | "bw", lift: "total" | "squat" |
 // "bench" | "deadlift" (which one Lifts shows), range: "all" | "3m" }.
 
-export const VIEW_KEY = "dots-ladder:progress-view";
 export const METRICS = ["score", "lifts", "bw"];
 export const LIFT_VIEWS = ["total", ...LIFTS];
 export const RANGES = ["3m", "all"];
 const DEFAULT_VIEW = { metric: "score", lift: "total", range: "all" };
 
-/** The saved chart view, with anything missing or unknown back to the default (Score, Total, All). The old "Total" tab is now Lifts → Total. */
-export function loadView(storage) {
-  try {
-    const raw = JSON.parse(storage.getItem(VIEW_KEY)) ?? {};
-    const metric = raw.metric === "total" ? "lifts" : raw.metric;
-    return {
-      metric: METRICS.includes(metric) ? metric : DEFAULT_VIEW.metric,
-      lift: LIFT_VIEWS.includes(raw.lift) ? raw.lift : DEFAULT_VIEW.lift,
-      range: RANGES.includes(raw.range) ? raw.range : DEFAULT_VIEW.range,
-    };
-  } catch {
-    return { ...DEFAULT_VIEW };
-  }
-}
-
-/** Saves the chart view; returns whether it was saved. */
-export function saveView(storage, view) {
-  try {
-    storage.setItem(VIEW_KEY, JSON.stringify({ metric: view.metric, lift: view.lift, range: view.range }));
-    return true;
-  } catch {
-    return false;
-  }
+/** The chart view, with anything missing or unknown back to the default (Score, Total, All). The old "Total" tab is now Lifts → Total. */
+export function cleanView(raw) {
+  const metric = raw?.metric === "total" ? "lifts" : raw?.metric;
+  return {
+    metric: METRICS.includes(metric) ? metric : DEFAULT_VIEW.metric,
+    lift: LIFT_VIEWS.includes(raw?.lift) ? raw.lift : DEFAULT_VIEW.lift,
+    range: RANGES.includes(raw?.range) ? raw.range : DEFAULT_VIEW.range,
+  };
 }
 
 // --- Events: upcoming meets or test days, with conservative and optimistic lifts ---------
@@ -406,7 +357,6 @@ export function saveView(storage, view) {
 // each scenario is { squat, bench, deadlift } or null, and at least one is given. The exact date is optional
 // and stays on the device; when it's set, the month is the date's month.
 
-export const EVENTS_KEY = "dots-ladder:events";
 export const SCENARIOS = ["conservative", "optimistic"];
 export const MAX_LADDER_EVENTS = 3;
 export const MAX_NAME = 40;
@@ -496,26 +446,14 @@ export function rungBeaten(rungs, points) {
   return rungs.findLast((r) => r.score <= points) ?? null;
 }
 
-/** The saved events from storage, or the fallback if there are none or they're unreadable. Invalid entries are dropped; an empty saved list stays empty. */
-export function loadEvents(storage, fallback) {
-  try {
-    const raw = JSON.parse(storage.getItem(EVENTS_KEY));
-    return Array.isArray(raw) ? raw.map(validEvent).filter(Boolean) : fallback;
-  } catch {
-    return fallback;
-  }
+/** Saved events, cleaned: invalid ones are dropped. Not an array → null. */
+export function cleanEvents(raw) {
+  return Array.isArray(raw) ? raw.map(validEvent).filter(Boolean) : null;
 }
 
-/** Saves the events if every one is valid; returns whether they were saved. */
-export function saveEvents(storage, events) {
-  const clean = events.map(validEvent);
-  if (clean.includes(null)) return false;
-  try {
-    storage.setItem(EVENTS_KEY, JSON.stringify(clean));
-    return true;
-  } catch {
-    return false;
-  }
+/** Whether events can be saved: every one valid. */
+export function canSaveEvents(events) {
+  return !events.map(validEvent).includes(null);
 }
 
 // --- Reference marker: an estimate, not data ---------------------------------------

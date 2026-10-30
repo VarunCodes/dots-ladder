@@ -36,6 +36,14 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
 `app/chart.test.js` checks the Progress chart's layout in `app/chart.js`: a single lift's days (only those it was logged, never carried), the 3-month window (short months and leap years clamp, across the new year) and which days 3M and All keep, the y-axis values (about three round numbers, on DOTS and GL scales), where each rung was first cleared (not one cleared from the start), the first rung above the plot, the y-axis snapped to round values, which side the tooltip goes (right when it fits clear of labels and the edge, else left, else narrowed), the tiles (total and bodyweight change, average per month and none under 4 weeks, rungs cleared), one point per day (the day's last-saved test, with the count of the others, and no two points at the same x), which rung lines are drawn (those in your range plus the next one above), one test centred with the next rung above it, tests left to right and higher scores higher, everything inside the plot, flat and same-day histories with no NaN, dense mode from 10 tests, month labels (every 2nd past 7 months, January with the year, December rolling over, and always the month after your latest test), the top room used when there's no next rung, and the Top/Bottom bands beyond the published rungs (never P0 or P100) and the nearest test to a tap.
 
+`app/store.test.js` checks the store and the architecture rules:
+
+- **Migration:** a version 1 save (four keys) migrates to `dots-ladder:data` with nothing lost; an older profile with numbers and no records becomes the first record; records without a sex take the old profile's; starting the store saves the migration and leaves version 1's keys in place; version 2 wins once it exists; nothing saved, corrupt JSON, an unknown version or blocked storage gives empty data, never an error.
+- **Saving:** invalid data is refused (a history that doesn't start complete, an invalid event), and full, blocked or missing storage is reported.
+- **The live store:** update changes, saves and announces, and an invalid change changes nothing; the session is never saved; subscribers stop when asked; entries stay in date order; settings and the view are cleaned; a refused save still changes the page and says so; "Clear my numbers" forgets records and settings, keeps events and the view, and removes version 1's numbers so they can't come back.
+- **Derived values:** match the pure functions the screens used before (profile, score, rungs, carried points, PR days, lift rungs, event scores, the next meet), are worked out once per state and anew after a change, and need no profile before the first record.
+- **Guardrails:** only `store.js` touches browser storage, and only `scoring.js` holds formula coefficients.
+
 `app/ladder.test.js` checks the page's logic in `app/ladder.js`:
 
 - **Parity with the pipeline**: the same weight-class boundaries as the Python tests, so the page and the rungs never disagree.
@@ -69,7 +77,7 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
 What can't run in Node (the browser installing the app and swapping in the service worker) is checked by hand: install from Chrome on Android, then reopen in aeroplane mode. To debug the phone, connect it over USB and open `chrome://inspect` on the computer.
 
-The DOM code in `app/app.js`, `app/log.js`, `app/progress.js` and `app/events.js` isn't unit tested; it only renders what `ladder.js`, `scoring.js` and `chart.js` work out. So far it has been checked by hand and with headless Chrome runs outside the repo, so nothing in CI exercises the page in a real browser yet.
+The DOM code in `app/app.js`, `app/log.js`, `app/progress.js` and `app/events.js` isn't unit tested; it only renders what `derive.js` works out, and changes things through the store. So far it has been checked by hand and with headless Chrome runs outside the repo, so nothing in CI exercises the page in a real browser yet.
 
 ## CI: GitHub Actions
 

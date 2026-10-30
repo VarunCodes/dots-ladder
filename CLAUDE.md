@@ -7,7 +7,13 @@ A personal powerlifting app: track DOTS (or IPF GL) across 1RMs and climb a ladd
 - Data comes only from OpenPowerlifting's bulk download (public domain): commit only the generated `data/rungs.json`, never the zip/CSV, and credit OpenPowerlifting on public pages.
 - No estimates on the ladder beyond the one gym-goer marker (`GYM_GOER_ESTIMATE`, DOTS only, kept below every rung by a test); see `docs/population-estimates.md`.
 - The repo, issues and Pages site are public: no username, email, real name, venue, exact meet date or absolute paths in anything committed or posted. `private/` (gitignored) is never committed; personal numbers are entered on the page and stay on the device.
-- Front end: plain HTML/CSS/JS, no build step, no CDNs, relative paths (Pages serves under `/dots-ladder/`). Logic lives in the pure, unit-tested `app/ladder.js`, `app/scoring.js` and `app/chart.js`; other `app/*.js` files only render.
+- Front end: plain HTML/CSS/JS, no build step, no CDNs, relative paths (Pages serves under `/dots-ladder/`). Logic lives in pure, unit-tested modules (see Architecture rules); the other `app/*.js` files only render.
+
+## Architecture rules
+- One store: `app/store.js` is the only code touching browser storage (one key, `dots-ladder:data`, versioned). Change state only with `store.update()`; screens refresh through `subscribe`.
+- One set of derived values: `app/derive.js`, built from the pure, tested `ladder.js`, `scoring.js` and `chart.js`. Screens and cards only read them: no own copy of entries, no scores worked out in a view.
+- Store only what was logged; anything calculable is derived. New fields are optional, so no migration.
+- Formula coefficients live only in `app/scoring.js`. Tests enforce this and the storage rule.
 
 ## Working here
 - `main` needs a PR and all three CI checks; no direct pushes. Never push the archived `dots-ladder-old` history.
