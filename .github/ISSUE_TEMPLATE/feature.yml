@@ -1,0 +1,51 @@
+name: Feature idea
+description: Something new for the app, or a change to how it works.
+title: "[Idea] "
+labels: ["enhancement", "idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A rough idea is fine. It gets refined in the comments (a proposal, decisions marked 🟢 recommended or 🟠 needs input, and a "done when" list) before any code.
+
+        **This repo is public:** use made-up numbers, and no real meet names, venues or dates.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What's missing or awkward, from a lifter's point of view?
+      placeholder: e.g. I log a squat PR on Monday, but the app makes me re-enter all three lifts.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What could the app do instead? Rough is fine.
+      placeholder: e.g. Let me save just the squat, and keep my other lifts as they were.
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+      description: How would it help you train, compete or stay motivated?
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: What would show it works? A short list is enough.
+      placeholder: |
+        - Saving only a squat leaves bench and deadlift unchanged
+        - The chart shows the new squat
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Ladder
+        - Log test
+        - Progress
+        - Your data (storage, backup)
+        - Rungs data (OpenPowerlifting pipeline)
+        - Other
+    validations:
+      required: true
