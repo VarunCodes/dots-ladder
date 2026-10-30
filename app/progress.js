@@ -129,6 +129,12 @@ function renderChart() {
   $("chart-hit").hidden = list.length < 2;
 }
 
+/** "men 83 kg, first meet": the group the rungs come from (the Ladder's class and experience). */
+function groupName() {
+  const { profile, experience } = ctx.state;
+  return `${profile.sex === "M" ? "men" : "women"} ${L.effectiveClass(profile)} kg, ${experience}`;
+}
+
 /** One lift's rungs in kg for the group the Ladder is showing (empty if the group has none for that lift). */
 function liftRungs(lift) {
   const { profile, experience } = ctx.state;
@@ -177,6 +183,11 @@ function renderHeader(list, model, m) {
   const off = model.offChart;
   $("chart-offchart").hidden = !off;
   if (off) $("chart-offchart").textContent = `P${off.percentile} · ${m.rungText(off.score)} ↑ off chart`;
+  // Which lifters the rung lines come from: they follow your class now, so earlier points at another weight are
+  // compared with this class too.
+  const rungsFor = $("chart-rungs-for");
+  rungsFor.hidden = !model.rungs.length;
+  rungsFor.textContent = `${m.lift ? `${LIFT_NAMES[m.lift]} rungs` : "Rungs"}: ${groupName()}`;
 }
 
 /** The SVG: bands, value gridlines and labels, rung lines with their values, month labels, the line, and the points. */
@@ -223,6 +234,12 @@ function drawPlot(model, selected, next, m) {
   const ringed = selected ?? latest;
   for (const point of model.points) nodes.push(...pointMarks(point, point.id === ringed.id, model.dense));
   plot.replaceChildren(...nodes);
+  // A PR label that would touch a rung or band label goes below its point instead.
+  const labels = [...plot.querySelectorAll(".chart-rung-label, .chart-band-label")].map((t) => t.getBBox());
+  const touches = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  for (const pr of plot.querySelectorAll(".chart-pr")) {
+    if (labels.some((label) => touches(pr.getBBox(), label))) pr.setAttribute("y", Number(pr.getAttribute("y")) + 32);
+  }
 }
 
 /** A test's dot: hollow where it first cleared a rung, muted for your other sex category, ringed when selected, smaller when dense; a single lift's PR gets a small "PR" above it. */
@@ -256,9 +273,12 @@ function renderTip(list, selected, m, scoreRungs, scored) {
   const { logged, carried } = dayParts(list[i]);
   const pr = dayPrs().has(test.date) ? " · PR" : "";
   $("tip-title").textContent = `${shortDay(test.date)} · ${L.recordName(Object.fromEntries(logged.map((n) => [n, true])))}${pr}`;
-  // Lifts carried from earlier days count towards the score; say so, briefly.
+  // Lifts carried from earlier days count towards the score; say so, briefly, and flag any from a bodyweight
+  // more than 5 kg away (the score treats them as done at this day's weight).
   const carriedLifts = L.LIFTS.filter((lift) => carried.includes(lift));
-  if (carriedLifts.length && carriedLifts.length < L.LIFTS.length) extras.unshift(`${carriedLifts.join(" & ")} carried`);
+  const stale = L.staleLifts(ctx.state.tests, test.date, test.bodyweight, logged);
+  if (stale.length) extras.unshift(`${stale.map((s) => s.lift).join(" & ")} from ${stale[0].bodyweight} kg`);
+  else if (carriedLifts.length && carriedLifts.length < L.LIFTS.length) extras.unshift(`${carriedLifts.join(" & ")} carried`);
   $("tip-score").textContent = `${value} · ${delta == null ? "first test" : m.change(delta)}`;
   $("tip-sub").textContent =
     ctx.state.tests.length === 1 ? "Log another to see your progress." : [`${L.sumLifts(test)} kg @ ${test.bodyweight}`, ...extras].join(" · ");
@@ -267,6 +287,7 @@ function renderTip(list, selected, m, scoreRungs, scored) {
   $("chart-live").textContent = [
     `${fmtDay(test.date)}${pr ? ", a PR" : ""}: ${view.metric === "score" ? `${value} ${m.name}` : `${m.name} ${value}`}`,
     carried.length ? carried.map((name) => `${name} from ${fmtDay(list[i].from[name])}`).join(", ") : "",
+    stale.length ? `${capital(L.staleText(stale))}, at ${test.bodyweight} kg now; a retest would make this score accurate` : "",
     delta == null ? "your first test" : `${m.change(delta)} on the test before`,
     `${L.sumLifts(test)} kg at ${test.bodyweight} kg`,
     capital(L.rungPosition(scoreRungs, scored[i].score)),
@@ -394,6 +415,7 @@ function renderLever() {
 function renderSplit() {
   const { profile } = ctx.state;
   const best = Math.max(...L.LIFTS.map((lift) => profile[lift]));
+  $("split-for").textContent = `Against UK meet lifters: ${groupName()}.`;
   $("lift-split").replaceChildren(
     ...L.LIFTS.map((lift) => {
       const li = el("li", "split-row");

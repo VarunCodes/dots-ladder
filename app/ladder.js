@@ -285,6 +285,31 @@ export function prs(tests) {
   return result;
 }
 
+export const BODYWEIGHT_SHIFT_KG = 5; // beyond this, a lift carried from another bodyweight is flagged
+
+/**
+ * Lifts carried into a day from a noticeably different bodyweight: [{ lift, bodyweight }] for each lift not logged
+ * that day whose bodyweight when it was logged differs from `bodyweight` by more than 5 kg. A score built on them
+ * treats old lifts as done at today's weight, so it's worth a retest.
+ */
+export function staleLifts(tests, date, bodyweight, loggedNow = []) {
+  const at = valuesAt(tests, date);
+  if (!at) return [];
+  return LIFTS.filter((lift) => !loggedNow.includes(lift) && at.from[lift] !== date).flatMap((lift) => {
+    const then = valuesAt(tests, at.from[lift]).values.bodyweight;
+    return Math.abs(then - bodyweight) > BODYWEIGHT_SHIFT_KG ? [{ lift, bodyweight: then }] : [];
+  });
+}
+
+/** "squat and deadlift logged at 60 kg", or "squat logged at 60 kg and deadlift at 62 kg" when they differ. */
+export function staleText(stale) {
+  const join = (items) => items.join(", ").replace(/, ([^,]*)$/, " and $1");
+  const weights = new Set(stale.map((s) => s.bodyweight));
+  return weights.size === 1
+    ? `${join(stale.map((s) => s.lift))} logged at ${stale[0].bodyweight} kg`
+    : join(stale.map((s, i) => `${s.lift}${i ? "" : " logged"} at ${s.bodyweight} kg`));
+}
+
 /** Why a record can't be deleted: "only" (your only record), "earliest" (the next one doesn't hold all four), or null. */
 export function deleteProblem(tests, id) {
   const rest = sortTests(tests.filter((t) => t.id !== id));

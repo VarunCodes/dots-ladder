@@ -261,6 +261,18 @@ test("a PR beats every earlier value of that lift; a first value isn't one", () 
   assert.deepEqual([...result.entries()], [["s1", ["squat"]], ["t", ["bench", "deadlift"]]], "s2 is below the best; t's squat only equals it");
 });
 
+test("lifts carried from a bodyweight more than 5 kg away are flagged for a retest", () => {
+  const october = { id: "o", date: "2026-10-01", sex: "M", bodyweight: 60, squat: 120, bench: 80, deadlift: 150 };
+  const december = { id: "d", date: "2026-12-01", sex: "M", bodyweight: 80, bench: 90 };
+  const tests = [october, december];
+  assert.deepEqual(L.staleLifts(tests, "2026-12-01", 80), [{ lift: "squat", bodyweight: 60 }, { lift: "deadlift", bodyweight: 60 }], "bench was logged that day");
+  assert.deepEqual(L.staleLifts(tests, "2026-12-01", 80, ["squat"]), [{ lift: "deadlift", bodyweight: 60 }], "a squat being logged now isn't carried");
+  assert.deepEqual(L.staleLifts(tests, "2026-12-01", 64), [], "within 5 kg: fine");
+  assert.deepEqual(L.staleLifts(tests, "2026-09-01", 80), [], "before any record");
+  assert.equal(L.staleText([{ lift: "squat", bodyweight: 60 }, { lift: "deadlift", bodyweight: 60 }]), "squat and deadlift logged at 60 kg");
+  assert.equal(L.staleText([{ lift: "squat", bodyweight: 60 }, { lift: "deadlift", bodyweight: 62 }]), "squat logged at 60 kg and deadlift at 62 kg");
+});
+
 test("the first record must hold all four values, so it can't be deleted while the next one doesn't", () => {
   const squatPr = { id: "s", date: "2026-11-10", sex: "M", squat: 130 };
   assert.equal(L.deleteProblem([test1], "a"), "only");

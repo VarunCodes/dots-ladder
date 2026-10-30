@@ -121,6 +121,7 @@ function renderResult() {
     }),
   );
   if (!draft) {
+    $("result-stale").textContent = "";
     $("result-total").textContent = "Total –";
     $("result-delta").textContent = "";
     $("result-delta").className = "";
@@ -142,6 +143,11 @@ function renderResult() {
   $("result-delta").textContent = before ? `${delta >= 0 ? "+" : "−"}${S.formatScore(formula, Math.abs(delta))} vs last` : "First record";
   $("result-delta").className = before && delta > 0 ? "up" : "";
   $("result-score").textContent = S.formatScore(formula, score);
+  // Lifts carried from a bodyweight more than 5 kg away make the score treat them as done at today's weight.
+  const stale = L.staleLifts(ctx.state.tests, raw.date, draft.bodyweight, toSave);
+  $("result-stale").textContent = stale.length
+    ? `${capital(L.staleText(stale))}; you're ${draft.bodyweight} kg now. Retest ${stale.length === 1 ? "it" : "them"} for an accurate score.`
+    : "";
 
   const group = L.rungsFor(ctx.rungsData, formula, draft.sex, L.effectiveClass(draft), ctx.state.experience);
   if (!group) {

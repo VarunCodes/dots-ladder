@@ -343,6 +343,9 @@ a:hover { color: var(--accent-hover); }
 .result-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.875rem; }
 #result-delta { font-weight: 600; color: var(--muted); }
 #result-delta.up { color: var(--accent); }
+/* Carried lifts from a different bodyweight: a note, not an error. */
+.result-stale { color: var(--text-2); }
+.result-stale:empty { display: none; }
 .result-score-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .result-score { display: flex; align-items: baseline; gap: 10px; }
 #result-score { font-family: var(--display); font-size: 4.25rem; font-weight: 700; line-height: 0.95; }
@@ -470,6 +473,7 @@ a:hover { color: var(--accent-hover); }
 .chart-value { fill: var(--muted); font-family: var(--body); font-size: 11px; font-variant-numeric: tabular-nums; }
 .chart-guide { stroke: var(--muted); stroke-width: 1; opacity: 0.6; }
 .chart-offchart { margin-top: -4px; }
+.chart-rungs-for { margin-top: -8px; }
 
 /* The selected test's tooltip: beside its point, on the side with more room, so it doesn't cover the rung labels. */
 .chart-tip {
