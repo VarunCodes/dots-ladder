@@ -423,7 +423,7 @@ a:hover { color: var(--accent-hover); }
 #chart-change.up { color: var(--accent); }
 /* The plot keeps one height from one test to many, so the page doesn't jump as data grows. */
 .chart-plot { position: relative; }
-#chart { display: block; width: 100%; height: auto; aspect-ratio: 340 / 170; overflow: visible; }
+#chart { display: block; width: 100%; height: auto; aspect-ratio: 340 / 190; overflow: visible; }
 .chart-hit { position: absolute; inset: 0; border: 0; border-radius: 12px; background: transparent; cursor: pointer; }
 .chart-rung { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 5 5; opacity: 0.7; }
 .chart-rung.next { stroke: var(--accent); stroke-width: 1.5; opacity: 1; }
@@ -433,13 +433,51 @@ a:hover { color: var(--accent-hover); }
 .chart-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .chart-line.dense { stroke-width: 2; }
 .chart-dot { fill: var(--accent); }
-/* A test done in your other sex category: hollow, so it's never mistaken for one of this category's. */
-.chart-dot.other { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+/* Where a rung was first cleared: hollow. A test in your other sex category: muted, so it isn't read as this one's. */
+.chart-dot.cleared { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; }
+.chart-dot.other { fill: var(--text-2); }
+.chart-grid { stroke: var(--divider); stroke-width: 1; }
+.chart-value { fill: var(--muted); font-family: var(--body); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart-guide { stroke: var(--muted); stroke-width: 1; opacity: 0.6; }
+.chart-offchart { margin-top: -4px; }
+
+/* The selected test's tooltip: beside its point, on the side with more room, so it doesn't cover the rung labels. */
+.chart-tip {
+  position: absolute;
+  z-index: 1;
+  width: max-content;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  pointer-events: none;
+  --tip-x: 16px;
+  --tip-y: -50%;
+  transform: translate(var(--tip-x), var(--tip-y));
+}
+.chart-tip[data-side="left"] { --tip-x: calc(-100% - 16px); }
+.chart-tip[data-level="top"] { --tip-y: -15%; }
+.chart-tip[data-level="bottom"] { --tip-y: -85%; }
+#tip-title, #tip-sub { color: var(--muted); }
+#tip-score { font-weight: 600; font-variant-numeric: tabular-nums; }
+#tip-sub { font-size: 0.75rem; }
+
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 0; list-style: none; font-size: 0.8125rem; color: var(--muted); }
+.chart-legend li { display: flex; align-items: center; gap: 6px; }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.key-rung { width: 16px; height: 0; border-radius: 0; border-top: 1.5px dashed var(--muted); background: none; }
+.key-cleared { width: 12px; height: 12px; border: 2.5px solid var(--accent); background: var(--surface); box-sizing: border-box; }
+.key-other { background: var(--text-2); }
+
+.stat-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.tile { padding: 14px 16px; border-radius: 16px; background: var(--surface); }
+.tile-label { font-size: 0.8125rem; color: var(--muted); }
+.tile-value { font-family: var(--display); font-size: 1.875rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile-sub { font-size: 0.8125rem; color: var(--muted); }
+.tile-sub.up { color: var(--accent); font-weight: 600; }
 .chart-ring { fill: none; stroke: var(--accent); stroke-width: 2; }
-.chart-detail { border-top: 1px solid var(--divider); padding-top: 10px; }
-.chart-detail-top { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 0.9375rem; }
-#chart-delta { color: var(--muted); white-space: nowrap; }
-#chart-delta.up { color: var(--accent); }
 
 .lever, .split { margin-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 .lever { padding: 16px; border: 1px solid var(--border); border-radius: 16px; }

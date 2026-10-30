@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { CHART, DENSE_FROM, chartModel, monthTicks, nearestPoint, onePerDay, rungLines } from "./chart.js";
+import { CHART, DENSE_FROM, chartModel, monthTicks, nearestPoint, onePerDay, progressStats, rungCrossings, rungLines, tipPlacement, valueTicks } from "./chart.js";
 
 const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
 const entry = (id, date, score) => ({ id, date, score, otherSex: false });
@@ -76,3 +76,47 @@ test("a tap selects the nearest test by x", () => {
   assert.equal(nearestPoint(points, 63).id, "c");
   assert.equal(nearestPoint(points, 300).id, "c");
 });
+
+test("value labels: about three round numbers inside the range", () => {
+  assert.deepEqual(valueTicks(262, 318), [280, 300]);
+  assert.deepEqual(valueTicks(52.1, 61.3), [55, 60], "GL scale");
+  for (const [low, high] of [[262, 318], [52.1, 61.3], [299.5, 300.5], [100, 900]]) {
+    const ticks = valueTicks(low, high);
+    assert.ok(ticks.length >= 2 && ticks.length <= 5 && ticks.every((t) => t >= low && t <= high), `${low}–${high}: ${ticks}`);
+  }
+});
+
+test("a rung is cleared on the first day at or above it, after a day below it", () => {
+  const list = [entry("a", "2026-05-01", 270), entry("b", "2026-06-01", 299), entry("c", "2026-07-01", 305), entry("d", "2026-08-01", 290), entry("e", "2026-09-01", 340)];
+  assert.deepEqual(rungCrossings(list, rungs).map((c) => [c.percentile, c.id]), [[25, "c"], [50, "e"]]);
+  assert.deepEqual(rungCrossings([entry("a", "2026-05-01", 280), entry("b", "2026-06-01", 290)], rungs), [], "P10 was cleared from the start");
+  const model = chartModel(list, rungs);
+  assert.deepEqual(model.points.filter((p) => p.cleared).map((p) => p.id), ["c", "e"]);
+});
+
+test("the first rung above the plot is named as off the chart", () => {
+  const model = chartModel([entry("a", "2026-05-01", 270), entry("b", "2026-06-01", 280)], rungs);
+  assert.equal(model.offChart.percentile, 50, "P25 is drawn as the next rung; P50 is above the plot");
+  assert.equal(chartModel([entry("a", "2026-05-01", 330), entry("b", "2026-06-01", 340)], rungs).offChart, null);
+});
+
+test("the tooltip sits right of its point, or left of it in the right 40%, nudged in near the top and bottom", () => {
+  assert.equal(tipPlacement({ x: 184, y: 90 }).side, "right", "a single test, centred: right, off the value labels");
+  assert.deepEqual(tipPlacement({ x: 40, y: 150 }), { side: "right", level: "bottom" });
+  assert.deepEqual(tipPlacement({ x: 170, y: 30 }), { side: "right", level: "top" });
+  assert.deepEqual(tipPlacement({ x: 320, y: 90 }), { side: "left", level: "middle" }, "points on the right: tooltip on the left, off the rung labels");
+});
+
+test("tiles: total and bodyweight change, average per month, rungs cleared", () => {
+  const day = (id, date, score, bodyweight, squat) => ({ ...entry(id, date, score), test: { bodyweight, squat, bench: 100, deadlift: 150 } });
+  const list = [day("a", "2026-01-01", 270, 70, 120), day("b", "2026-03-02", 290, 69, 130), day("c", "2026-07-01", 310, 67.9, 150)];
+  const stats = progressStats(list, rungs);
+  assert.deepEqual(stats.total, { now: 400, change: 30 });
+  assert.equal(stats.bodyweight.now, 67.9);
+  assert.equal(stats.bodyweight.change.toFixed(1), "-2.1");
+  assert.equal(stats.perMonth.toFixed(1), "6.7", "40 points over about 6 months");
+  assert.deepEqual(stats.cleared.map((c) => c.percentile), [25]);
+  assert.equal(progressStats([list[0], { ...list[1], date: "2026-01-20" }], rungs).perMonth, null, "under 4 weeks: no average");
+  assert.equal(progressStats([list[0]], rungs).perMonth, null);
+});
+

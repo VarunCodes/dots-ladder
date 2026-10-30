@@ -1,7 +1,8 @@
 // The Progress chart's layout: pure, so it runs under `node --test`. It turns the scores of your dated 1RM tests
 // (squat, bench and deadlift maxes) and the rungs into positions in the SVG's viewBox; app/progress.js only draws them.
 
-export const CHART = { width: 340, height: 170, left: 10, right: 46, top: 14, bottom: 26 };
+// Room on the left for the value labels, and at the top for the next rung's label above its line.
+export const CHART = { width: 340, height: 190, left: 34, right: 6, top: 24, bottom: 26 };
 export const DENSE_FROM = 10;
 
 const DAY_MS = 86_400_000;
@@ -20,6 +21,54 @@ export function onePerDay(entries) {
     const sameDay = entries.filter((e) => e.date === entry.date).length - 1;
     return [{ ...entry, sameDay }];
   });
+}
+
+/** Round values for the y-axis labels: about three, on a 1, 2 or 5 step (270, 290, 310). */
+export function valueTicks(low, high) {
+  const span = high - low;
+  const power = 10 ** Math.floor(Math.log10(span / 3));
+  const steps = [1, 2, 5, 10].map((m) => m * power);
+  const step = steps.reduce((best, s) => (Math.abs(span / s - 3) < Math.abs(span / best - 3) ? s : best)); // nearest to 3 labels
+  const ticks = [];
+  for (let v = Math.ceil(low / step) * step; v <= high; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
+  return ticks;
+}
+
+/** Where each rung was first cleared: the first day at or above it, after a day below it. A rung cleared from the start isn't counted. */
+export function rungCrossings(days, rungs) {
+  return rungs.flatMap((rung) => {
+    const i = days.findIndex((d) => d.score >= rung.score);
+    return i > 0 ? [{ ...rung, id: days[i].id, date: days[i].date }] : [];
+  });
+}
+
+/**
+ * Where the tooltip sits: beside the point, to its right (off the value labels on the left) unless the point is in
+ * the right 40%, where it goes left (off the rung labels at the right edge); level with it, nudged in near the top
+ * and bottom.
+ */
+export function tipPlacement(point) {
+  const { width, height } = CHART;
+  const side = point.x > width * 0.6 ? "left" : "right";
+  const level = point.y < height * 0.25 ? "top" : point.y > height * 0.6 ? "bottom" : "middle";
+  return { side, level };
+}
+
+/**
+ * The tiles under the chart, for days oldest first ([{ score, test, date }]): the latest total and bodyweight
+ * with their change since the first day, the average score change per month (null with under 4 weeks between
+ * first and last), and the rungs cleared along the way.
+ */
+export function progressStats(days, rungs) {
+  const [first, last] = [days[0], days.at(-1)];
+  const total = (d) => d.test.squat + d.test.bench + d.test.deadlift;
+  const months = (time(last.date) - time(first.date)) / DAY_MS / 30.44;
+  return {
+    total: { now: total(last), change: total(last) - total(first) },
+    bodyweight: { now: last.test.bodyweight, change: last.test.bodyweight - first.test.bodyweight },
+    perMonth: months * 30.44 >= 28 ? (last.score - first.score) / months : null,
+    cleared: rungCrossings(days, rungs),
+  };
 }
 
 /** The rungs drawn as lines: those between your lowest and highest score, and the next one above your latest. */
@@ -47,7 +96,8 @@ export function monthTicks(fromMs, toMs, x) {
 
 /**
  * Everything the chart draws, for entries oldest first: [{ id, date, score, otherSex }] and the group's rungs
- * ([{ percentile, score }], lowest first). Returns the points, the rung lines, the month ticks and whether it's dense.
+ * ([{ percentile, score }], lowest first). Returns the points (each marked if it first cleared a rung), the rung
+ * lines, the month and value labels, the first rung above the plot, and whether it's dense.
  */
 export function chartModel(entries, rungs) {
   const { width, height, left, right, top, bottom } = CHART;
@@ -69,10 +119,14 @@ export function chartModel(entries, rungs) {
   const x = (ms) => left + ((ms - fromMs) / (toMs - fromMs)) * (width - left - right);
   const y = (value) => top + ((yHigh - value) / (yHigh - yLow)) * (height - top - bottom);
 
+  const cleared = new Set(rungCrossings(entries, rungs).map((c) => c.id));
   return {
-    points: entries.map((e, i) => ({ ...e, x: x(times[i]), y: y(e.score) })),
+    points: entries.map((e, i) => ({ ...e, x: x(times[i]), y: y(e.score), cleared: cleared.has(e.id) })),
     rungs: lines.map((r) => ({ ...r, y: y(r.score) })),
     ticks: monthTicks(fromMs, toMs, x),
+    values: valueTicks(yLow, yHigh).map((value) => ({ value, y: y(value) })),
+    // The first rung above the top of the plot, named under the header so it isn't forgotten.
+    offChart: rungs.find((r) => r.score > yHigh) ?? null,
     dense: entries.length >= DENSE_FROM,
   };
 }
