@@ -36,6 +36,11 @@ body:
       placeholder: |
         - Saving only a squat leaves bench and deadlift unchanged
         - The chart shows the new squat
+  - type: textarea
+    id: images
+    attributes:
+      label: Mockups or screenshots
+      description: Drag images in or paste them (a design, a sketch, or the screen it's about). Any field takes images, this one is just for them.
   - type: dropdown
     id: area
     attributes:
