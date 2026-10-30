@@ -567,6 +567,23 @@ a:hover { color: var(--accent-hover); }
 .chart-tick { fill: var(--muted); font-family: var(--body); font-size: 11px; }
 .chart-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .chart-line.dense { stroke-width: 2; }
+/* A short chalk glint travelling the line towards the latest entry, then a rest. pathLength 1 makes the dash a
+   share of the line, so it's the same on a short or a long history. */
+.chart-pulse {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 0.1 1.1;
+  opacity: 0.5;
+  pointer-events: none;
+  animation: line-pulse 3.2s var(--ease-in-out) 0.6s infinite backwards;
+}
+@keyframes line-pulse {
+  from { stroke-dashoffset: 0.1; }
+  70%, to { stroke-dashoffset: -1; }
+}
 .chart-dot { fill: var(--accent); }
 /* Where a rung was first cleared: hollow. A test in your other sex category: muted, so it isn't read as this one's. */
 .chart-dot.cleared { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; }
@@ -682,6 +699,7 @@ a:hover { color: var(--accent-hover); }
   .slide::before { transition-property: none; }
   :is(.primary, .step-btn, .button, .chip-button):active:not(:disabled) { scale: none; }
   .event::details-content { transition: none; }
+  .chart-pulse { display: none; }
   @keyframes rise-in { from { opacity: 0; } }
   @keyframes swap-in { from { opacity: 0; } }
   @keyframes draw-check { from { stroke-dashoffset: 0; } }

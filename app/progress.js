@@ -177,7 +177,10 @@ function drawPlot(model, selected, next, m) {
   for (const tick of model.ticks) nodes.push(svg("text", { class: "chart-tick", x: tick.x, y: height - 6, "text-anchor": "middle" }, tick.label));
   if (model.points.length > 1) {
     if (selected) nodes.push(svg("line", { class: "chart-guide", x1: selected.x, x2: selected.x, y1: selected.y, y2: height - bottom }));
-    nodes.push(svg("polyline", { class: `chart-line${model.dense ? " dense" : ""}`, points: model.points.map((p) => `${p.x},${p.y}`).join(" ") }));
+    const line = model.points.map((p) => `${p.x},${p.y}`).join(" ");
+    nodes.push(svg("polyline", { class: `chart-line${model.dense ? " dense" : ""}`, points: line }));
+    // A soft glint that runs along the line towards your latest entry (decorative; CSS animates it).
+    nodes.push(svg("polyline", { class: "chart-pulse", points: line, pathLength: 1, "aria-hidden": "true" }));
   }
   const ringed = selected ?? latest;
   for (const point of model.points) nodes.push(...pointMarks(point, point.id === ringed.id, model.dense));
