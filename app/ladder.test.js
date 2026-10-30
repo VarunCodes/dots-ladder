@@ -575,3 +575,28 @@ test("every class in the rungs can be chosen in the class dropdown", () => {
     assert.ok(L.weightClasses(sex).includes(weightClassKg), `${sex} ${weightClassKg} kg can't be chosen`);
   }
 });
+
+// --- What a save achieved ---------------------------------------------------------------
+
+const atClass = (score, extra = {}) => ({ score, profile: { sex: "M", bodyweight: 68, weightClass: null, formula: "dots", ...extra } });
+const someRungs = [{ percentile: 10, score: 250 }, { percentile: 25, score: 280 }, { percentile: 50, score: 300 }];
+
+test("a save that climbs past rungs names the highest one cleared", () => {
+  const outcome = L.saveOutcome({ before: atClass(270), after: atClass(305), rungs: someRungs });
+  assert.equal(outcome.cleared.percentile, 50);
+  assert.equal(L.savedText(outcome), "Saved · Cleared P50");
+});
+
+test("no rung is cleared by staying put, dropping, or changing group", () => {
+  assert.equal(L.saveOutcome({ before: atClass(285), after: atClass(290), rungs: someRungs }).cleared, null);
+  assert.equal(L.saveOutcome({ before: atClass(305), after: atClass(270), rungs: someRungs }).cleared, null);
+  assert.equal(L.saveOutcome({ before: atClass(270), after: atClass(305, { weightClass: "83" }), rungs: someRungs }).cleared, null, "another class");
+  assert.equal(L.saveOutcome({ before: atClass(270), after: atClass(305, { formula: "gl" }), rungs: someRungs }).cleared, null, "another formula");
+  assert.equal(L.saveOutcome({ before: atClass(280), after: atClass(281), rungs: someRungs }).cleared, null, "already on the rung");
+});
+
+test("the saved note lists PRs, then the rung", () => {
+  assert.equal(L.savedText({ prLifts: [], cleared: null }), "Saved");
+  assert.equal(L.savedText({ prLifts: ["squat"], cleared: null }), "Saved · PR on squat");
+  assert.equal(L.savedText({ prLifts: ["squat", "bench", "deadlift"], cleared: { percentile: 25 } }), "Saved · PR on squat, bench and deadlift · Cleared P25");
+});

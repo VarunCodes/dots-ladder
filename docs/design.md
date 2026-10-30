@@ -271,7 +271,21 @@ Men's classic C is **0.00921**. Some copies of the IPF PDF misprint it as 0.0921
 - Every control is a real `<button>`, `<a>` or `<input>` with a `<label>`. Never put click handlers on a `div`.
 - Toggles (experience tabs, the DOTS/GL toggle) use `aria-pressed`.
 - Keep focus outlines visible: `outline: 2px solid var(--accent); outline-offset: 2px`.
-- Respect `prefers-reduced-motion` for any transitions.
+- Respect `prefers-reduced-motion`: nothing moves or scales, but colour changes and fades stay, so every state change is still visible.
+- Touch targets are at least 44px; a smaller-looking control (the class chip) extends its tap area with a pseudo-element.
+
+## 8a. Motion
+
+Restrained and quick: motion confirms a change, it never decorates. Plain CSS, using the tokens on `:root` in `app/style.css` (named after the transitions.dev scale): `--duration-quick` 150ms for presses, number swaps and closes, `--duration-fast` 250ms for slides, opens and screens, and `--ease-smooth-out`. No bounce, no `transition: all`, no motion on typing or stepper values.
+
+- **Choices** (DOTS/GL, experience tabs, chart views) sit in one track, and the chosen fill slides to the option you pick; the 3M | All and lift rows slide their accent underline. Their buttons are built once and updated in place (`dom.js` `choiceGroup`), so the transitions play.
+- **Buttons that act** (Save, steppers, + Add, the class chip) shrink to 96% while pressed. Hover states only where there's a pointer.
+- **Screens** fade in and rise 8px when you switch to them, not on first load.
+- **Headline numbers** (the Ladder score, the chart's latest) fade the new value in when it changes. The Log result doesn't, as it changes with every keystroke.
+- **Events and records** open and close smoothly to their height (Chromium; other browsers snap).
+- **After a save**, the Ladder says what it achieved under the caption: "Saved", "Saved · PR on squat", "Saved · Cleared P25" (a rung counts only within the same group). Its accent check draws itself in (500ms), the score fades to its new value, and the note goes on the next change or when you leave the Ladder.
+- **The chart line** carries a soft chalk glint that runs along the line every few seconds to the ringed entry (your latest, or the one you've selected) and, arriving, wraps its ring both ways (over and under) before fading. The first entry has no line before it, so it gets the wrap alone. Off with reduced motion.
+- **Tab bar icons** are outlines; the open tab's filled version cross-fades in (scale, blur and opacity; not on first load).
 
 ## 9. Build phases (one PR each, checked on the phone between them)
 

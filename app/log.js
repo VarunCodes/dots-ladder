@@ -6,7 +6,7 @@ import * as L from "./ladder.js";
 import * as S from "./scoring.js";
 import * as store from "./store.js";
 import { derived } from "./derive.js";
-import { $, formulaButtons } from "./dom.js";
+import { $, formulaChoice } from "./dom.js";
 import { fmtDay } from "./events.js";
 
 export const FIELD_TEXT = {
@@ -116,9 +116,7 @@ function renderResult() {
   const unit = S.FORMULAS[formula].label;
   $("result-unit").textContent = unit;
   // The toggle changes only the saved formula, never the draft's numbers.
-  $("log-formula").replaceChildren(
-    ...formulaButtons(formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } }))),
-  );
+  formulaChoice($("log-formula"), formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } })));
   if (!draft) {
     $("result-stale").textContent = "";
     $("result-total").textContent = "Total –";
@@ -220,11 +218,13 @@ export function setupLog(context) {
     const names = at.before ? L.VALUES : L.VALUES.filter((name) => changed.has(name));
     if (!draft || !names.length || L.testProblems(raw, now().today).length) return;
     // The record, and the class picked here (the only setting on this screen; the rest are kept).
+    const before = now();
+    const record = L.testFrom(draft, raw.date, L.newId("test"), names);
     const { ok } = store.update((s) => ({
-      entries: [...s.entries, L.testFrom(draft, raw.date, L.newId("test"), names)],
+      entries: [...s.entries, record],
       settings: { ...s.settings, weightClass: draft.weightClass },
     }));
-    if (ok) ctx.onSaved();
+    if (ok) ctx.onSaved(before, record.id);
   });
 
   // Clearing goes back to the first-visit form; there are no default numbers to fall back to.

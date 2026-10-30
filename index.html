@@ -31,6 +31,9 @@
       <symbol id="icon-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></symbol>
       <symbol id="icon-tab-ladder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 3v18M17 3v18M7 7h10M7 12h10M7 17h10"/></symbol>
       <symbol id="icon-tab-log" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
+      <symbol id="icon-tab-ladder-fill" viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="2" width="3" height="20" rx="1.5"/><rect x="15.5" y="2" width="3" height="20" rx="1.5"/><rect x="8" y="5.5" width="8" height="3"/><rect x="8" y="10.5" width="8" height="3"/><rect x="8" y="15.5" width="8" height="3"/></symbol>
+      <symbol id="icon-tab-log-fill" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 7.5v9M7.5 12h9" fill="none" style="stroke: var(--bg)" stroke-width="2.2" stroke-linecap="round"/></symbol>
+      <symbol id="icon-tab-progress-fill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8V21H3z" fill="currentColor" stroke="none" opacity="0.35"/><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
       <symbol id="icon-tab-progress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
     </defs>
   </svg>
@@ -80,6 +83,7 @@
           <p class="hero-score"><span id="now-score">–</span> <span id="now-unit" class="hero-unit">your DOTS</span></p>
           <p id="now-caption" class="muted">Loading…</p>
           <p id="meet-pill" class="pill" hidden></p>
+          <p id="saved-note" class="saved-note" role="status" hidden><svg class="saved-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" pathLength="1"/></svg><span id="saved-text"></span></p>
         </header>
 
         <section class="card next-card" aria-label="Next rung">
@@ -250,9 +254,9 @@
   </footer>
 
   <nav id="tabbar" class="tabbar" aria-label="Main" hidden>
-    <a href="#/ladder" data-route="ladder"><svg aria-hidden="true"><use href="#icon-tab-ladder"/></svg>Ladder</a>
-    <a href="#/log" data-route="log"><svg aria-hidden="true"><use href="#icon-tab-log"/></svg>Log test</a>
-    <a href="#/progress" data-route="progress"><svg aria-hidden="true"><use href="#icon-tab-progress"/></svg>Progress</a>
+    <a href="#/ladder" data-route="ladder"><span class="tab-icon" aria-hidden="true"><svg class="icon-out"><use href="#icon-tab-ladder"/></svg><svg class="icon-fill"><use href="#icon-tab-ladder-fill"/></svg></span>Ladder</a>
+    <a href="#/log" data-route="log"><span class="tab-icon" aria-hidden="true"><svg class="icon-out"><use href="#icon-tab-log"/></svg><svg class="icon-fill"><use href="#icon-tab-log-fill"/></svg></span>Log test</a>
+    <a href="#/progress" data-route="progress"><span class="tab-icon" aria-hidden="true"><svg class="icon-out"><use href="#icon-tab-progress"/></svg><svg class="icon-fill"><use href="#icon-tab-progress-fill"/></svg></span>Progress</a>
   </nav>
 </body>
 </html>

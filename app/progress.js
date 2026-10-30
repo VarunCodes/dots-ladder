@@ -7,7 +7,7 @@ import * as S from "./scoring.js";
 import * as store from "./store.js";
 import { derived } from "./derive.js";
 import { CHART, TIP_GAP, TIP_LIFT, chartModel, nearestPoint, progressStats, tipSide } from "./chart.js";
-import { $, el, formulaButtons } from "./dom.js";
+import { $, choiceGroup, el, formulaChoice, setNumber } from "./dom.js";
 import { fmtDay } from "./events.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -109,19 +109,9 @@ function groupName() {
 
 /** Score | Total | BW and 3M | All: pressed buttons, saved on this device. */
 function renderControls() {
+  // Saved through the store; its subscriber redraws the chart.
   const group = (id, options, key) =>
-    $(id).replaceChildren(
-      ...options.map(([value, text]) => {
-        const button = el("button", "view-option", text);
-        button.type = "button";
-        button.setAttribute("aria-pressed", now().view[key] === value);
-        // Saved through the store; its subscriber redraws the chart.
-        button.addEventListener("click", () => {
-          if (now().view[key] !== value) store.update((s) => ({ view: { ...s.view, [key]: value } }));
-        });
-        return button;
-      }),
-    );
+    choiceGroup($(id), "view-option", options, now().view[key], (value) => store.update((s) => ({ view: { ...s.view, [key]: value } })));
   group("chart-metric", [["score", "Score"], ["lifts", "Lifts"], ["bw", "BW"]], "metric");
   // Lifts has a second choice: the total or one lift.
   $("chart-lift").hidden = now().view.metric !== "lifts";
@@ -132,7 +122,7 @@ function renderControls() {
 /** The value now, the change since the first day in range ("Starting point" with one), and a rung too high to draw. */
 function renderHeader(list, model, m) {
   const latest = list.at(-1);
-  $("chart-now").textContent = m.num(latest.score);
+  setNumber($("chart-now"), m.num(latest.score));
   $("chart-unit").textContent = m.unit;
   const change = latest.score - list[0].score;
   $("chart-change").textContent = list.length === 1 ? "Starting point" : `${m.change(change)} since ${shortDay(list[0].date)}`;
@@ -185,12 +175,23 @@ function drawPlot(model, selected, next, m) {
     );
   }
   for (const tick of model.ticks) nodes.push(svg("text", { class: "chart-tick", x: tick.x, y: height - 6, "text-anchor": "middle" }, tick.label));
+  const ringed = selected ?? latest;
+  const upTo = model.points.findIndex((p) => p.id === ringed.id);
   if (model.points.length > 1) {
     if (selected) nodes.push(svg("line", { class: "chart-guide", x1: selected.x, x2: selected.x, y1: selected.y, y2: height - bottom }));
-    nodes.push(svg("polyline", { class: `chart-line${model.dense ? " dense" : ""}`, points: model.points.map((p) => `${p.x},${p.y}`).join(" ") }));
+    const line = (points) => points.map((p) => `${p.x},${p.y}`).join(" ");
+    nodes.push(svg("polyline", { class: `chart-line${model.dense ? " dense" : ""}`, points: line(model.points) }));
+    // A soft glint that runs along the line to the ringed entry (your latest, or the one selected); decorative,
+    // animated by CSS. The first entry has no line before it, so it only gets the wrap below.
+    if (upTo > 0) nodes.push(svg("polyline", { class: "chart-pulse", points: line(model.points.slice(0, upTo + 1)), pathLength: 1, "aria-hidden": "true" }));
   }
-  const ringed = selected ?? latest;
   for (const point of model.points) nodes.push(...pointMarks(point, point.id === ringed.id, model.dense));
+  // As the glint arrives it wraps the ringed entry's ring both ways, over and under, meeting on the far side.
+  const end = model.points[upTo];
+  if (model.points.length > 1 && end) {
+    const ring = { class: "chart-arrive", cx: end.x, cy: end.y, r: 9.5, pathLength: 1, "aria-hidden": "true" };
+    nodes.push(svg("circle", { ...ring, transform: `rotate(180 ${end.x} ${end.y})` }), svg("circle", { ...ring, transform: `matrix(-1 0 0 1 ${2 * end.x} 0)` }));
+  }
   plot.replaceChildren(...nodes);
   // A PR label that would touch a rung or band label goes below its point instead.
   const labels = [...plot.querySelectorAll(".chart-rung-label, .chart-band-label")].map((t) => t.getBBox());
@@ -587,9 +588,7 @@ export function setupProgress() {
 
 /** The same DOTS / GL toggle as the Ladder's: switching redraws this screen and saves the choice for every screen. */
 function renderFormula() {
-  $("progress-formula").replaceChildren(
-    ...formulaButtons(now().profile.formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } }))),
-  );
+  formulaChoice($("progress-formula"), now().profile.formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } })));
 }
 
 /** Draws the whole screen, the 1RMs list included; called each time it opens. */
