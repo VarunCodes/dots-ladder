@@ -2,6 +2,10 @@
 // cached for that state (the store makes a new state object on every change), using the pure, tested functions
 // in ladder.js, scoring.js and chart.js. Screens and cards read these; none keeps its own copy of the entries or
 // works out a score itself. (A draft being typed on Log test isn't in the store: that screen scores it.)
+//
+// The values come from four small builders: base (your profile and records), rungs, chart and events. Every
+// array and object handed out is frozen, so a view that tries to change one fails loudly instead of quietly
+// corrupting the cache; the Map and Set ones (prs, prDays) can't be frozen, so treat them as read-only too.
 import * as L from "./ladder.js";
 import { inRange, liftDays, onePerDay } from "./chart.js";
 
@@ -14,38 +18,79 @@ export function derived(state) {
   return values;
 }
 
-/** A value computed on first use, then kept. */
-function once(compute) {
+// --- Caching and freezing ---------------------------------------------------------------
+
+/** A value computed on first use, then kept (and frozen). */
+function memoizeOnce(compute) {
   let done = false;
   let value;
   return () => {
-    if (!done) [done, value] = [true, compute()];
+    if (!done) [done, value] = [true, deepFreeze(compute())];
     return value;
   };
 }
 
-/** One cached value per key (e.g. per lift). */
-function perKey(compute) {
+/** One computed value per key (e.g. per lift), each kept (and frozen). */
+function memoizeByKey(compute) {
   const values = new Map();
   return (key) => {
-    if (!values.has(key)) values.set(key, compute(key));
+    if (!values.has(key)) values.set(key, deepFreeze(compute(key)));
     return values.get(key);
   };
 }
 
-function make(state) {
-  const { settings, entries, events, view, session } = state;
-  const { rungs: rungsData, today, thisMonth, experience } = session;
+/** Freezes arrays and plain objects all the way down; a Map's or Set's contents are frozen, though it can't be. */
+function deepFreeze(value) {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) return value;
+  if (value instanceof Map || value instanceof Set) {
+    for (const item of value.values()) deepFreeze(item);
+    return value;
+  }
+  for (const item of Object.values(value)) deepFreeze(item);
+  return Object.freeze(value);
+}
 
-  const profile = once(() => L.currentProfile(settings, entries));
-  const tests = once(() => L.sortTests(entries));
-  const group = once(() => {
-    const p = profile();
+/** The dates of the records that set a PR on a lift (or on any lift, with none given). */
+function daysWithPrs(entries, prs, lift) {
+  const setOne = (entry) => (lift ? prs.get(entry.id)?.includes(lift) : prs.has(entry.id));
+  return new Set(entries.filter(setOne).map((entry) => entry.date));
+}
+
+// --- The builders ---------------------------------------------------------------------------
+
+/** Your profile (latest numbers from your records, plus settings) and your records in date order. */
+function baseValues({ settings, entries }) {
+  return {
+    profile: memoizeOnce(() => L.currentProfile(settings, entries)),
+    tests: memoizeOnce(() => L.sortTests(entries)),
+  };
+}
+
+/** Your group's score rungs, each lift's rungs in kg, and the weight-class lever. */
+function rungValues({ session }, base) {
+  const { rungs: rungsData, experience } = session;
+  const group = memoizeOnce(() => {
+    const p = base.profile();
     return p && L.rungsFor(rungsData, p.formula, p.sex, L.effectiveClass(p), experience);
   });
-  // Every record with your full numbers as of it, scored in its own sex and the chosen formula.
-  const points = once(() => {
-    const p = profile();
+  return {
+    group,
+    liftRungs: memoizeByKey((lift) => {
+      const p = base.profile();
+      return (p && L.liftRungsFor(rungsData, lift, p.sex, L.effectiveClass(p), experience)?.rungs) ?? [];
+    }),
+    lever: memoizeOnce(() => {
+      const p = base.profile();
+      return p && L.lever(p, group()?.rungs ?? []);
+    }),
+  };
+}
+
+/** Every record as a scored point, one point per day, the chart's ranges, and PRs. */
+function chartValues({ entries, view, session }, base) {
+  // Each record with your full numbers as of it, scored in its own sex and the chosen formula.
+  const points = memoizeOnce(() => {
+    const p = base.profile();
     if (!p) return [];
     return L.carried(entries).map(({ record, values, from }) => ({
       id: record.id,
@@ -57,89 +102,112 @@ function make(state) {
       otherSex: values.sex !== p.sex,
     }));
   });
-  const days = once(() => onePerDay(points()));
-  const prs = once(() => L.prs(entries));
-  const liftRungs = perKey((lift) => {
-    const p = profile();
-    return (p && L.liftRungsFor(rungsData, lift, p.sex, L.effectiveClass(p), experience)?.rungs) ?? [];
-  });
-  const prDays = perKey((lift) => {
-    const ids = prs();
-    return new Set(entries.filter((e) => (lift ? ids.get(e.id)?.includes(lift) : ids.has(e.id))).map((e) => e.date));
-  });
-  const eventScores = perKey((id) => {
-    const p = profile();
-    const event = events.find((e) => e.id === id);
-    return p && event ? L.eventScores(event, p.sex, p.formula) : [];
-  });
-
+  const days = memoizeOnce(() => onePerDay(points()));
+  const rangeDays = memoizeOnce(() => inRange(days(), view.range, session.today));
+  const prs = memoizeOnce(() => L.prs(entries));
   return {
+    points,
+    days,
+    rangeDays,
+    chartDays: memoizeOnce(() => {
+      const lift = view.metric === "lifts" && view.lift !== "total" ? view.lift : null;
+      return lift ? inRange(liftDays(days(), lift), view.range, session.today) : rangeDays();
+    }),
+    prs,
+    prDays: memoizeByKey((lift) => daysWithPrs(entries, prs(), lift)),
+  };
+}
+
+/** Each event's scores (by id), the soonest dated event, and the events shown on the Ladder. */
+function eventValues({ events, session }, base) {
+  const eventsById = memoizeOnce(() => new Map(events.map((event) => [event.id, event])));
+  return {
+    eventScores: memoizeByKey((id) => {
+      const p = base.profile();
+      const event = eventsById().get(id);
+      return p && event ? L.eventScores(event, p.sex, p.formula) : [];
+    }),
+    nextMeet: memoizeOnce(() => L.nextMeet(events, session.today)),
+    ladderEvents: memoizeOnce(() => L.ladderEvents(events, session.thisMonth)),
+  };
+}
+
+// --- What screens read --------------------------------------------------------------------
+
+function make(state) {
+  const { settings, events, view, session } = state;
+  const base = baseValues(state);
+  const rungs = rungValues(state, base);
+  const chart = chartValues(state, base);
+  const plans = eventValues(state, base);
+
+  return Object.freeze({
     /** The saved parts and the page's session, as stored. */
     settings,
     events,
     view,
-    today,
-    thisMonth,
-    experience,
-    rungsData,
+    today: session.today,
+    thisMonth: session.thisMonth,
+    experience: session.experience,
+    rungsData: session.rungs,
     /** Your latest numbers (from your records) with your settings; null before your first record. */
     get profile() {
-      return profile();
+      return base.profile();
     },
     /** Your records, oldest first. */
     get tests() {
-      return tests();
+      return base.tests();
     },
     /** The latest record, or null. */
     get latest() {
-      return tests().at(-1) ?? null;
+      return base.tests().at(-1) ?? null;
     },
     /** Your score now, in the chosen formula. */
     get score() {
-      return profile() ? L.profileScore(profile()) : null;
+      const p = base.profile();
+      return p ? L.profileScore(p) : null;
     },
     /** The score rungs for your class and the Ladder's experience tab ({ lifters, rungs }), or null. */
     get group() {
-      return group();
+      return rungs.group();
     },
-    /** Every record with its full numbers and score (see points above). */
+    /** One lift's rungs in kg for your group ([] if none). */
+    liftRungs: rungs.liftRungs,
+    /** The weight-class lever for your target bodyweight. */
+    get lever() {
+      return rungs.lever();
+    },
+    /** Every record with its full numbers and score. */
     get points() {
-      return points();
+      return chart.points();
     },
     /** One point per day: the day's last-saved record. */
     get days() {
-      return days();
+      return chart.days();
     },
     /** The days in the chart's range (all, or the last 3 months'). */
     get rangeDays() {
-      return inRange(days(), view.range, today);
+      return chart.rangeDays();
     },
     /** The days the chart plots: in range, and for a single lift only the days it was logged. */
     get chartDays() {
-      const lift = view.metric === "lifts" && view.lift !== "total" ? view.lift : null;
-      return lift ? inRange(liftDays(days(), lift), view.range, today) : this.rangeDays;
+      return chart.chartDays();
     },
-    /** The lifts each record set a PR on: Map of id → ["squat", ...]. */
+    /** The lifts each record set a PR on: Map of id → ["squat", ...] (read-only). */
     get prs() {
-      return prs();
+      return chart.prs();
     },
-    /** The days with a PR on that lift (or on any lift, with none given). */
-    prDays,
-    /** One lift's rungs in kg for your group ([] if none). */
-    liftRungs,
+    /** The days with a PR on that lift, or on any lift with none given (a read-only Set). */
+    prDays: chart.prDays,
     /** An event's total and score per scenario, at its bodyweight. */
-    eventScores,
-    /** The weight-class lever for your target bodyweight. */
-    get lever() {
-      return profile() ? L.lever(profile(), group()?.rungs ?? []) : null;
-    },
+    eventScores: plans.eventScores,
     /** The soonest dated event, with the days to go, or null. */
     get nextMeet() {
-      return L.nextMeet(events, today);
+      return plans.nextMeet();
     },
     /** The events shown on the Ladder: this month or later, soonest first. */
     get ladderEvents() {
-      return L.ladderEvents(events, thisMonth);
+      return plans.ladderEvents();
     },
-  };
+  });
 }

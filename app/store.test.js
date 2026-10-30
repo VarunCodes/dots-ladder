@@ -164,6 +164,26 @@ test("derived values match the pure functions the screens used before", () => {
   assert.equal(derived(store.getState()).score.toFixed(2), L.profileScore({ ...d.profile, formula: "gl" }).toFixed(2));
 });
 
+test("derived values are frozen, so a view can't quietly change what other views read", () => {
+  store.start({ today, thisMonth: "2026-10", experience: "first meet", rungs: rungsData }, fakeStorage());
+  store.update(() => ({ entries: [first, squatPr], events: [event] }));
+  const d = derived(store.getState());
+  assert.throws(() => d.points.push({}), TypeError);
+  assert.throws(() => { d.points[0].score = 0; }, TypeError, "all the way down");
+  assert.throws(() => { d.profile.squat = 500; }, TypeError);
+  assert.throws(() => { d.group.rungs[0].score = 0; }, TypeError);
+  assert.throws(() => { d.prs.get("b").push("bench"); }, TypeError, "a Map's contents are frozen");
+  assert.throws(() => { d.score = 1; }, TypeError, "and the values object itself");
+});
+
+test("event scores are looked up by id, and an unknown id gives none", () => {
+  store.start({ today, thisMonth: "2026-10", experience: "first meet", rungs: rungsData }, fakeStorage());
+  store.update(() => ({ entries: [first], events: [event, { ...event, id: "f", conservative: { squat: 140, bench: 105, deadlift: 165 } }] }));
+  const d = derived(store.getState());
+  assert.deepEqual([d.eventScores("e")[0].total, d.eventScores("f")[0].total], [400, 410]);
+  assert.deepEqual(d.eventScores("nope"), []);
+});
+
 test("no records: no profile, and nothing that needs one", () => {
   store.start({ today, rungs: rungsData }, fakeStorage());
   const d = derived(store.getState());
