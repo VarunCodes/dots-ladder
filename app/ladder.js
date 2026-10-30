@@ -36,14 +36,24 @@ export function rungsFor(data, formula, sex, wclass, experience) {
   return { lifters: group.lifters, rungs };
 }
 
+/** "between P10 and P25", "below P10", "above P90", or "" without rungs. Reaching a rung's score clears it. */
+export function rungPosition(rungs, points) {
+  const cleared = rungs.findLast((r) => r.score <= points);
+  const next = rungs.find((r) => r.score > points);
+  if (cleared && next) return `between P${cleared.percentile} and P${next.percentile}`;
+  if (next) return `below P${next.percentile}`;
+  return cleared ? `above P${cleared.percentile}` : "";
+}
+
 /** First rung strictly above the score, or null if every rung is beaten. */
 export function nextRung(rungs, points) {
   return rungs.find((r) => r.score > points) ?? null;
 }
 
 // --- The lifter's editable numbers ---------------------------------------------------
-// A profile is { sex, bodyweight, squat, bench, deadlift, weightClass, formula }, all kg.
-// weightClass null means "work it out from bodyweight"; formula is the score shown everywhere ("dots" or "gl").
+// A profile is { sex, bodyweight, squat, bench, deadlift, weightClass, formula, targetBw }, all kg.
+// weightClass null means "work it out from bodyweight"; formula is the score shown everywhere ("dots" or "gl");
+// targetBw is the weight-class lever's bodyweight on Progress, null for the default.
 
 export const PROFILE_KEY = "dots-ladder:profile";
 export const LIMITS = { bodyweight: [30, 250], lift: [1, 600] };
@@ -85,7 +95,27 @@ export function validProfile(raw) {
   if (raw == null || typeof raw !== "object" || invalidFields(raw).length) return null;
   const weightClass = weightClasses(raw.sex).includes(raw.weightClass) ? raw.weightClass : null;
   const formula = FORMULA_IDS.includes(raw.formula) ? raw.formula : DEFAULT_FORMULA;
-  return { sex: raw.sex, bodyweight: raw.bodyweight, ...Object.fromEntries(LIFTS.map((l) => [l, raw[l]])), weightClass, formula };
+  const targetBw = inRange(raw.targetBw, LIMITS.bodyweight) ? raw.targetBw : null;
+  return { sex: raw.sex, bodyweight: raw.bodyweight, ...Object.fromEntries(LIFTS.map((l) => [l, raw[l]])), weightClass, formula, targetBw };
+}
+
+/** The lever's default target: the top of the next lighter class (cutting one class), or of the lightest class if you're in it. */
+export function defaultTargetBw(sex, bodyweight) {
+  const limits = CLASSES[sex];
+  const own = limits.find((limit) => bodyweight <= limit) ?? Infinity; // the open class has no limit
+  return limits.filter((limit) => limit < own).at(-1) ?? limits[0];
+}
+
+/**
+ * The weight-class lever: the same total scored at the target bodyweight, the change from bodyweight alone,
+ * and the highest rung that change would clear (null if none).
+ */
+export function lever(profile, rungs) {
+  const targetBw = profile.targetBw ?? defaultTargetBw(profile.sex, profile.bodyweight);
+  const now = profileScore(profile);
+  const then = profileScore({ ...profile, bodyweight: targetBw });
+  const cleared = rungs.filter((r) => r.score > now && r.score <= then).at(-1) ?? null;
+  return { targetBw, now, then, delta: then - now, cleared };
 }
 
 /** The saved profile from storage (e.g. localStorage), or the fallback if there's none, it's unreadable or it's invalid. */

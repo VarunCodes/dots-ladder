@@ -171,9 +171,47 @@
         <p class="eyebrow">Progress</p>
         <h1 id="progress-title">The climb</h1>
       </header>
-      <p class="muted small">Your chart, the weight-class lever and the lift split are on the way.</p>
+      <section class="card chart-card" aria-labelledby="chart-heading">
+        <h2 id="chart-heading" class="visually-hidden">Your score over time</h2>
+        <div class="chart-head">
+          <p class="chart-score"><span id="chart-now">–</span> <span id="chart-unit" class="muted">DOTS now</span></p>
+          <p id="chart-change"></p>
+        </div>
+        <div class="chart-plot">
+          <svg id="chart" role="img" aria-label="Your score over time"></svg>
+          <!-- One touch area over the whole plot: tests can sit closer together than a 44px target. -->
+          <button id="chart-hit" class="chart-hit" type="button" aria-label="Select a test on the chart. Left and right arrow keys move between tests." aria-describedby="chart-detail"></button>
+        </div>
+        <div id="chart-detail" class="chart-detail" aria-live="polite">
+          <p class="chart-detail-top"><span id="chart-selected"></span><span id="chart-delta"></span></p>
+          <p id="chart-note" class="muted small"></p>
+        </div>
+      </section>
+
+      <section class="lever" aria-labelledby="lever-heading">
+        <h2 id="lever-heading">Weight-class lever</h2>
+        <p id="lever-text"></p>
+        <p id="lever-caption" class="muted small"></p>
+        <label class="lever-field">Target bodyweight (kg)
+          <input id="target-bw" type="number" inputmode="decimal" step="any" min="30" max="250">
+        </label>
+        <p id="lever-note" class="small error-text" role="status"></p>
+      </section>
+
+      <section class="split" aria-labelledby="split-heading">
+        <h2 id="split-heading">Lift split</h2>
+        <ul id="lift-split" class="split-list"></ul>
+      </section>
+
+      <section class="panel events" aria-labelledby="tests-heading">
+        <h2 id="tests-heading">Tests</h2>
+        <p class="muted small intro">Newest first. Open a test to fix its date, sex, bodyweight or lifts.</p>
+        <div id="test-list"></div>
+        <p id="tests-note" class="muted small" role="status"></p>
+      </section>
+
     <section id="events-panel" class="panel events" aria-labelledby="events-heading">
-      <h2 id="events-heading">Your events</h2>
+      <h2 id="events-heading">Upcoming</h2>
       <p class="muted small intro">Upcoming meets or test days, each with a conservative and an optimistic total. Leave a scenario empty to skip it. The next 3 show on the ladder.</p>
       <div id="event-list"></div>
       <p id="events-note" class="muted small" role="status"></p>

@@ -119,24 +119,31 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 ### 5.3 Progress (`#/progress`)
 
 1. Header: eyebrow "PROGRESS", title "THE CLIMB".
-2. **Chart card** (`--surface`)
-   - Caption row: the score and date range ("DOTS · Oct → Mar") on the left, "Goal {n}" on the right.
-   - Line chart of the score for every saved test: `--accent` dots joined by a line.
-   - Gridlines in `--grid`, with axis labels at 11px in `--muted`.
-   - A dashed `--accent` goal line, labelled with the goal's name.
-   - Upcoming meets appear as hollow `--muted` circles.
-   - Give the SVG `role="img"` and an aria-label that sums up the trend.
+2. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
+   - Header: your latest score (44px) with "{DOTS|GL} now"; on the right "+x since {first test's date}" (`--accent` when up), or "Starting point" with one test.
+   - **One point per day:** the day's last-saved test, the one the Ladder treats as latest. Several tests on one day would otherwise sit on top of each other; all of them stay in the Tests list, and the detail row says "2 more tests that day".
+   - Your score for each day's test, scored in that test's own sex: `--accent` dots (10px) joined by a 2.5px line. A test in the other sex category is a hollow dot. The selected test (the latest by default) is ringed.
+   - **Rung lines** instead of a goal line: dashed lines for the rungs between your lowest and highest score, plus the next rung above your latest (in `--accent`; the others `--muted`), labelled "P25" on the right. They come from the group the Ladder shows (class and experience tab), so the two always agree.
+   - Month labels at 11px in `--muted`: every month, or every 2nd once the range passes 7 months; January shows the year ("Jan ’27").
+   - **One test:** a single dot, centred in about four months, with no line, and the next rung above it.
+   - **10+ tests (dense):** dots shrink to 6px and the line to 2px; only the selected test stays full size and ringed.
+   - **Touch:** dots can sit closer than 44px, so there's no button per dot. One button covers the plot: a tap selects the test nearest it by date, and the left and right arrow keys step through tests.
+   - **Detail row** under the plot: "Latest · {26 Oct} · {total} kg @ {bw}" (no "Latest" for an older selection), "+x vs previous" (`--accent` when up) or "First entry", and a line saying where it sat ("Between P10 and P25", "Women's test" for the other category; "One test so far. Log another to see your progress." with one test).
+   - The SVG has `role="img"` and an aria-label summing up first and latest scores.
+   - With no tests there's nothing to draw, but that can't happen: the first visit saves a first test, and the last test can't be deleted.
 3. **"Weight-class lever" card** (outlined)
    - "Same {total} kg total at {targetBw} kg = **{score} {DOTS|GL}**", with the number in accent.
-   - Caption: "+{delta} from bodyweight alone".
-   - The target bodyweight is a setting (default 66).
+   - Caption: "+{delta} from bodyweight alone", plus ", enough to clear P{n}" when it would clear a rung of the Ladder's group.
+   - The target bodyweight is a field (saved as `profile.targetBw`; empty means the default). The default is the top of the next lighter class, i.e. cutting one class (66 kg at 70 kg), or the top of your class if it's the lightest.
 4. **"LIFT SPLIT"**: three horizontal bars (Squat, Bench, Deadlift).
    - Track `--divider`, fill `--text-2`, height 10px, radius 5px.
    - Width is relative to your best lift; the kg value sits on the right.
-5. **"TESTS & MEETS"**: a list newest-first, one `--surface-2` row per entry.
-   - Each row shows the date and label, a caption of "{total} kg @ {bw} kg", and the score on the right.
-   - Meets in the future show "—".
-   - Events (with conservative and optimistic targets) can be edited here.
+5. **"TESTS"**: every test, newest first: the date, a caption of "{total} kg @ {bw} kg" ("· Women's" for the other category), and the score on the right.
+   - Open a test to fix its date, sex, bodyweight or lifts. Valid changes save straight away; closing a test with invalid values undoes them.
+   - "Delete test" asks first. Your only test can't be deleted ("Clear my numbers" on Log test starts over).
+6. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date).
+
+**Nice to have, later:** a gym test or meet type for each entry (meets as diamonds on the chart, with the class competed in), and a trend line with a projection ("P25 around Mar 2027").
 
 ## 6. Data model (localStorage)
 
@@ -148,6 +155,7 @@ Three keys. Each new field defaults when it's missing, so older saved data loads
   - The settings (`weightClass`, `formula`) plus the latest test's sex and numbers, so the Ladder reads one place.
   - `weightClass` is `null` when it's worked out from bodyweight.
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
+  - `targetBw` is the weight-class lever's bodyweight, or `null` for the default.
 - `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }]`
   - Every saved test, oldest first; same-day tests keep their save order.
   - Each test records its sex, so it's always scored in the category it was done in ("vs last test", and the chart later). A test saved before this takes the profile's sex, which it was saved under.
@@ -233,6 +241,5 @@ Men's classic C is **0.00921**. Some copies of the IPF PDF misprint it as 0.0921
 2. ✅ **Tab bar and routing.** The three hash routes and the fixed bottom bar. (PR #12)
 3. ✅ **Scoring module and tests.** Pure functions for DOTS and GL, kg to the next rung and the same total at the target bodyweight, with the section 7 cases; the DOTS/GL toggle and GL rungs.
 4. ✅ **Log test.** Steppers, live result and saving (PR #12); the dated test history with an editable date, "vs last test", exact meet dates and the "Meet in N days" pill.
-5. ☐ **Progress.** The chart, the weight-class lever, the lift split, and the tests-and-meets list.
-   *Done when:* the screen renders correctly with 0, 1 and 10+ saved tests.
+5. ✅ **Progress.** The chart (one, a few and 10+ tests), the weight-class lever, the lift split, and the editable list of tests.
 6. ✅ **PWA.** `manifest.webmanifest` and a network-first service worker that caches the app shell and the rung data; installs and works offline. (PR #3, before the redesign)
