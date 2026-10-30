@@ -184,6 +184,12 @@ function drawPlot(model, selected, next, m) {
   }
   const ringed = selected ?? latest;
   for (const point of model.points) nodes.push(...pointMarks(point, point.id === ringed.id, model.dense));
+  // When the glint reaches your latest entry it wraps its ring both ways, over and under, meeting on the far side.
+  const end = model.points.at(-1);
+  if (model.points.length > 1 && end.id === ringed.id) {
+    const ring = { class: "chart-arrive", cx: end.x, cy: end.y, r: 9.5, pathLength: 1, "aria-hidden": "true" };
+    nodes.push(svg("circle", { ...ring, transform: `rotate(180 ${end.x} ${end.y})` }), svg("circle", { ...ring, transform: `matrix(-1 0 0 1 ${2 * end.x} 0)` }));
+  }
   plot.replaceChildren(...nodes);
   // A PR label that would touch a rung or band label goes below its point instead.
   const labels = [...plot.querySelectorAll(".chart-rung-label, .chart-band-label")].map((t) => t.getBBox());
