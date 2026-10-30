@@ -100,6 +100,13 @@ function drawPlot(model, selected, next) {
   );
 
   const nodes = [];
+  // Beyond the top or lowest rung: a faint band, named in the label gutter ("Top 10%" above its line, "Bottom 10%" at the foot).
+  for (const band of model.bands) {
+    nodes.push(
+      svg("rect", { class: "chart-band", x: left, y: band.y1, width: width - right - left, height: Math.max(0, band.y2 - band.y1) }),
+      svg("text", { class: "chart-band-label", x: width - right, y: band.edge === "top" ? band.y2 - 5 : band.y2 - 4, "text-anchor": "end" }, band.label),
+    );
+  }
   for (const { value, y } of model.values) {
     nodes.push(
       svg("line", { class: "chart-grid", x1: left, x2: width - right, y1: y, y2: y }),

@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { CHART, DENSE_FROM, chartModel, monthTicks, nearestPoint, onePerDay, progressStats, rungCrossings, rungLines, tipPlacement, valueTicks } from "./chart.js";
+import { CHART, DENSE_FROM, chartModel, edgeBands, monthTicks, nearestPoint, onePerDay, progressStats, rungCrossings, rungLines, tipPlacement, valueTicks } from "./chart.js";
 
 const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
 const entry = (id, date, score) => ({ id, date, score, otherSex: false });
@@ -138,5 +138,19 @@ test("above the top rung there's no next-rung label, so the plot uses the space 
   const top = (list) => Math.min(...chartModel(list, rungs).points.map((p) => p.y));
   assert.ok(top(highest) < CHART.top, `${top(highest)}: the top point rises into the label room`);
   assert.ok(top(below) > CHART.top, "with a next rung, its label keeps that room");
+});
+
+test("edge bands: Top and Bottom beyond the published rungs, never P0 or P100", () => {
+  assert.deepEqual(edgeBands(rungs, [280, 290]), [], "inside the rungs: no band");
+  assert.deepEqual(edgeBands(rungs, [300, 345]).map((b) => [b.edge, b.label]), [["top", "Top 50%"]], "above the group's top rung (P50 here)");
+  assert.deepEqual(edgeBands(rungs, [250, 290]).map((b) => [b.edge, b.label]), [["bottom", "Bottom 10%"]]);
+  const full = [{ percentile: 10, score: 266 }, { percentile: 50, score: 338 }, { percentile: 90, score: 401 }];
+  assert.deepEqual(edgeBands(full, [250, 410]).map((b) => b.label), ["Top 10%", "Bottom 10%"]);
+  assert.deepEqual(edgeBands([], [300]), []);
+  const model = chartModel([entry("a", "2026-05-01", 250), entry("b", "2026-06-01", 345)], rungs);
+  const [top, bottom] = model.bands;
+  assert.ok(top.y1 < top.y2 && bottom.y1 < bottom.y2, "each band spans from its rung to the plot's edge");
+  assert.ok(model.rungs.some((r) => r.percentile === 50) && model.rungs.some((r) => r.percentile === 10), "the edge rungs are drawn");
+  assert.ok(!JSON.stringify(model).includes("P100") && !JSON.stringify(model).includes("P0 "), "no extremes");
 });
 

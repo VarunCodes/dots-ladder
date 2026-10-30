@@ -73,6 +73,20 @@ export function progressStats(days, rungs) {
   };
 }
 
+/**
+ * Bands for scores beyond the published rungs: "Top 10%" above the group's top rung and "Bottom 10%" below its
+ * lowest, each only when a test sits in it. The extremes themselves (P0, P100) are single lifters' results, so
+ * they're never shown; the band says how far out you are instead.
+ */
+export function edgeBands(rungs, scores) {
+  if (!rungs.length) return [];
+  const [lowest, top] = [rungs[0], rungs.at(-1)];
+  const bands = [];
+  if (scores.some((s) => s >= top.score)) bands.push({ edge: "top", rung: top, label: `Top ${100 - top.percentile}%` });
+  if (scores.some((s) => s < lowest.score)) bands.push({ edge: "bottom", rung: lowest, label: `Bottom ${lowest.percentile}%` });
+  return bands;
+}
+
 /** The rungs drawn as lines: those between your lowest and highest score, and the next one above your latest. */
 export function rungLines(rungs, scores) {
   const low = Math.min(...scores);
@@ -116,7 +130,9 @@ export function chartModel(entries, rungs) {
   const toMs = Math.max(mid + span / 2 + pad, ahead.at + 6 * DAY_MS);
 
   const scores = entries.map((e) => e.score);
-  const lines = rungLines(rungs, scores);
+  const bands = edgeBands(rungs, scores);
+  // A band's edge rung is always drawn, so the band has a line to sit against.
+  const lines = [...new Set([...rungLines(rungs, scores), ...bands.map((b) => b.rung)])].sort((a, b) => a.score - b.score);
   const values = [...scores, ...lines.map((r) => r.score)];
   const lowest = Math.min(...values);
   const highest = Math.max(...values);
@@ -133,6 +149,8 @@ export function chartModel(entries, rungs) {
   return {
     points: entries.map((e, i) => ({ ...e, x: x(times[i]), y: y(e.score), cleared: cleared.has(e.id) })),
     rungs: lines.map((r) => ({ ...r, y: y(r.score) })),
+    // From the edge rung's line to the top or bottom of the plot.
+    bands: bands.map((b) => ({ ...b, y1: b.edge === "top" ? roof : y(b.rung.score), y2: b.edge === "top" ? y(b.rung.score) : height - bottom })),
     ticks: monthTicks(fromMs, toMs, x, every),
     values: valueTicks(yLow, yHigh).map((value) => ({ value, y: y(value) })),
     // The first rung above the top of the plot, named under the header so it isn't forgotten.

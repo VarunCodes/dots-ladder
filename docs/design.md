@@ -126,6 +126,7 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - **Rung cleared:** the test where you first reached a rung (after a test below it) is a hollow accent ring. A rung cleared from your first test isn't marked.
    - **Other sex category:** a muted (`--text-2`) dot, so it isn't read as this category's.
    - **Y-axis:** about three round values on the left (270, 290, 310) with faint `--divider` gridlines.
+   - **Beyond the published rungs:** when a test sits above the group's top rung, a faint band (`--text` at 4%) fills the plot above that line, named in the gutter: "Top 10%" (or "Top 25%" for a group whose top rung is P75). Below the lowest rung: "Bottom 10%" at the foot. No P0 or P100: those are single lifters' exact results, which the privacy rules never show.
    - **A gutter on the right** holds the rung labels: points stop before it, so your latest test never covers a label at any width. Rung lines run on into it.
    - **Rung lines** (no goal line): dashed lines for the rungs between your lowest and highest score, plus the next rung above your latest. Labels carry the value: the next rung in `--accent` above its line, "Next rung · P25 · 300"; others `--muted` below theirs, "P10 · 266". They come from the group the Ladder shows (class and experience tab), so the two always agree.
    - Month labels at 11px in `--muted`: every month, or every 2nd once the range passes 7 months; January shows the year ("Jan ’27"). The range always reaches the next label after your latest test, so the month ahead is in view.
