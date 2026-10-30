@@ -438,6 +438,9 @@ a:hover { color: var(--accent-hover); }
 .view-option[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
 .view-range .view-option { min-width: 44px; padding: 0 10px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; }
 .view-range .view-option[aria-pressed="true"] { background: none; color: var(--text); border-bottom-color: var(--accent); }
+/* Lifts' second choice (Total | Squat | Bench | Deadlift), under the top row, in the same underlined style. */
+.view-lift { margin: -4px 0 8px; }
+.view-lift[hidden] { display: none; }
 .chart-card { display: flex; flex-direction: column; gap: 10px; }
 /* On narrow screens the change drops onto its own line rather than squeezing the score. */
 .chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }

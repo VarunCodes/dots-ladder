@@ -4,7 +4,7 @@
 // this file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
-import { CHART, TIP_GAP, TIP_LIFT, chartModel, inRange, nearestPoint, onePerDay, progressStats, tipSide } from "./chart.js";
+import { CHART, TIP_GAP, TIP_LIFT, chartModel, inRange, liftDays, nearestPoint, onePerDay, progressStats, tipSide } from "./chart.js";
 import { $, el, formulaButtons } from "./dom.js";
 import { fmtDay } from "./events.js";
 
@@ -68,15 +68,26 @@ function dayParts(entry) {
 /** The chart's points: each day's last-saved test (several tests on one day would otherwise sit on top of each other). */
 const days = () => onePerDay(entries());
 
-/** The days the chart shows: all, or the last 3 months' (the tiles and "since" follow the same range). */
-const viewDays = () => inRange(days(), view.range, ctx.state.today);
+/** The days in range: all, or the last 3 months' (the tiles and "since" follow the same range). */
+const rangeDays = () => inRange(days(), view.range, ctx.state.today);
 
-const kgChange = (n) => `${n >= 0 ? "+" : "−"}${Math.abs(Math.round(n * 10) / 10)} kg`;
+/** The days the chart plots: in range, and for a single lift only the days that lift was logged. */
+const chartDays = () => {
+  const lift = view.metric === "lifts" && view.lift !== "total" ? view.lift : null;
+  return lift ? inRange(liftDays(days(), lift), view.range, ctx.state.today) : rangeDays();
+};
+
+// "+30 kg", "−2.1 kg", or "±0 kg" when nothing changed.
+const kgChange = (n) => {
+  const kg = Math.round(n * 10) / 10;
+  return `${kg === 0 ? "±" : kg > 0 ? "+" : "−"}${Math.abs(kg)} kg`;
+};
 const kgValue = (n) => String(Math.round(n * 10) / 10);
 
 /**
- * What the chart plots, and how to write it: your score in the chosen formula (with the rungs), your total, or
- * your bodyweight. Rungs are scores, so only the Score view draws them.
+ * What the chart plots, and how to write it: your score in the chosen formula (with the rungs), your total or a
+ * single lift (Lifts), or your bodyweight. Rungs are scores, so only the Score view draws them; a single lift
+ * marks its PRs instead.
  */
 function measure() {
   const { formula } = ctx.state.profile;
@@ -86,16 +97,24 @@ function measure() {
     score: { name: label, value: (e) => e.score, num: scoreText, text: scoreText, change: (n) => signed(formula, n), unit: `${label} now`, rungs: true },
     total: { name: "Total", value: (e) => L.sumLifts(e.test), num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: "kg total now", rungs: false },
     bw: { name: "Bodyweight", value: (e) => e.test.bodyweight, num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: "kg bodyweight now", rungs: false },
-  }[view.metric];
+    ...Object.fromEntries(
+      L.LIFTS.map((lift) => [
+        lift,
+        { name: LIFT_NAMES[lift], value: (e) => e.test[lift], num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: `kg ${lift} now`, rungs: false, lift },
+      ]),
+    ),
+  }[view.metric === "lifts" ? view.lift : view.metric];
 }
 
 function renderChart() {
   const m = measure();
-  const list = viewDays();
+  const list = chartDays();
   const scoreRungs = groupRungs();
   const rungs = m.rungs ? scoreRungs : [];
+  // A single lift marks the days it set a PR.
+  const prDays = m.lift ? liftPrDays(m.lift) : new Set();
   // The plotted value is the chosen measure; the tiles below always work on the score.
-  const plotted = list.map((e) => ({ ...e, score: m.value(e) }));
+  const plotted = list.map((e) => ({ ...e, score: m.value(e), pr: prDays.has(e.date) }));
   const model = chartModel(plotted, rungs);
   if (!list.some((e) => e.id === selectedId)) selectedId = null;
   const selected = model.points.find((p) => p.id === selectedId) ?? model.points.at(-1);
@@ -106,8 +125,14 @@ function renderChart() {
   drawPlot(model, tipShown ? selected : null, L.nextRung(rungs, plotted.at(-1).score), m);
   renderTip(plotted, tipShown ? selected : null, m, scoreRungs, list);
   renderLegend(model, m);
-  renderStats(list, scoreRungs);
+  renderStats(rangeDays(), scoreRungs);
   $("chart-hit").hidden = list.length < 2;
+}
+
+/** The days a record set a PR on this lift. */
+function liftPrDays(lift) {
+  const prs = L.prs(ctx.state.tests);
+  return new Set(ctx.state.tests.filter((t) => prs.get(t.id)?.includes(lift)).map((t) => t.date));
 }
 
 /** Score | Total | BW and 3M | All: pressed buttons, saved on this device. */
@@ -127,7 +152,10 @@ function renderControls() {
         return button;
       }),
     );
-  group("chart-metric", [["score", "Score"], ["total", "Total"], ["bw", "BW"]], "metric");
+  group("chart-metric", [["score", "Score"], ["lifts", "Lifts"], ["bw", "BW"]], "metric");
+  // Lifts has a second choice: the total or one lift.
+  $("chart-lift").hidden = view.metric !== "lifts";
+  group("chart-lift", [["total", "Total"], ...L.LIFTS.map((lift) => [lift, LIFT_NAMES[lift]])], "lift");
   group("chart-range", [["3m", "3M"], ["all", "All"]], "range");
 }
 
@@ -193,12 +221,13 @@ function drawPlot(model, selected, next, m) {
   plot.replaceChildren(...nodes);
 }
 
-/** A test's dot: hollow where it first cleared a rung, muted for your other sex category, ringed when selected, smaller when dense. */
+/** A test's dot: hollow where it first cleared a rung (or, for a single lift, set a PR), muted for your other sex category, ringed when selected, smaller when dense. */
 function pointMarks(point, selected, dense) {
   const marks = [];
   if (selected) marks.push(svg("circle", { class: "chart-ring", cx: point.x, cy: point.y, r: 9.5 }));
-  const kind = point.cleared ? " cleared" : point.otherSex ? " other" : "";
-  const r = point.cleared ? 6 : selected || !dense ? 5 : 3;
+  const hollow = point.cleared || point.pr;
+  const kind = hollow ? " cleared" : point.otherSex ? " other" : "";
+  const r = hollow ? 6 : selected || !dense ? 5 : 3;
   marks.push(svg("circle", { class: `chart-dot${kind}`, cx: point.x, cy: point.y, r }));
   return marks;
 }
@@ -268,10 +297,11 @@ function dayPrs() {
 
 /** The key: only what this chart shows. */
 function renderLegend(model, m) {
-  const items = [["dot", "1RM test"]];
+  const items = [["dot", "1RM"]];
   if (m.rungs) items.push(["rung", "Rung"]);
   if (model.points.some((p) => p.cleared)) items.push(["cleared", "Rung cleared"]);
-  const other = model.points.find((p) => p.otherSex && !p.cleared);
+  if (model.points.some((p) => p.pr)) items.push(["cleared", "PR"]);
+  const other = model.points.find((p) => p.otherSex && !p.cleared && !p.pr);
   if (other) items.push(["other", `${SEX_WORDS[other.test.sex]} test`]);
   $("chart-legend").replaceChildren(
     ...items.map(([kind, text]) => {
@@ -303,7 +333,9 @@ function renderStats(list, rungs) {
   );
   const top = stats.cleared.at(-1);
   const next = L.nextRung(rungs, list.at(-1).score);
-  tile("stat-rungs", String(stats.cleared.length), top ? `P${top.percentile} · ${shortDay(top.date)}` : next ? `Next: P${next.percentile}` : "Top rung reached");
+  // A rung you cleared and have since fallen back below still counts, but says so.
+  const dropped = top && list.at(-1).score < top.score ? " · since dropped" : "";
+  tile("stat-rungs", String(stats.cleared.length), top ? `P${top.percentile} · ${shortDay(top.date)}${dropped}` : next ? `Next: P${next.percentile}` : "Top rung reached");
   $("stat-tiles").setAttribute("aria-label", view.range === "all" ? "Since your first test" : "Over the last 3 months");
 }
 
@@ -318,7 +350,7 @@ function setupChartTouch() {
     const box = $("chart").getBoundingClientRect();
     const x = ((event.clientX - box.left) / box.width) * CHART.width;
     // Points sit by date, whatever is plotted, so the days in view are enough to find the nearest.
-    const { points } = chartModel(viewDays(), []);
+    const { points } = chartModel(chartDays(), []);
     const nearest = nearestPoint(points, x);
     // Tapping the test that's already showing hides its tooltip (it can cover a neighbouring test).
     const showing = tipShown && nearest.id === (points.find((p) => p.id === selectedId) ?? points.at(-1)).id;
@@ -330,7 +362,7 @@ function setupChartTouch() {
   $("chart-hit").addEventListener("keydown", (event) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
-    const list = viewDays();
+    const list = chartDays();
     const i = Math.max(0, list.findIndex((e) => e.id === selectedId));
     const at = selectedId == null ? list.length - 1 : i;
     const next = Math.min(list.length - 1, Math.max(0, at + (event.key === "ArrowRight" ? 1 : -1)));

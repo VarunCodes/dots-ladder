@@ -123,8 +123,9 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
 ### 5.3 Progress (`#/progress`)
 
 1. Header: eyebrow "PROGRESS", title "THE CLIMB", and the same DOTS / GL toggle as the Ladder's, top right and out of the layout flow (so the header keeps its spacing; under 360px it sits in the row). Switching it redraws Progress and is saved for every screen.
-2. **Chart controls**, above the card: **Score | Total | BW** on the left (chalk when chosen, like the experience tabs) and **3M | All** on the right (text, the chosen one underlined in `--accent`), each at least 44px. Both are remembered on the device (`dots-ladder:progress-view`).
-   - **Score** plots your score with everything below (rungs, bands, rung-cleared rings). **Total** and **BW** plot kg ("370 kg total now", "70 kg bodyweight now") with no rungs, since rungs are scores. A bodyweight change is never in the accent: lighter isn't automatically better.
+2. **Chart controls**, above the card: **Score | Lifts | BW** on the left (chalk when chosen, like the experience tabs) and **3M | All** on the right (text, the chosen one underlined in `--accent`), each at least 44px. **Lifts** adds a second row underneath in the same underlined style: **Total | Squat | Bench | Deadlift**. All of it is remembered on the device (`dots-ladder:progress-view`).
+   - **Score** plots your score with everything below (rungs, bands, rung-cleared rings). **Lifts** and **BW** plot kg ("370 kg total now", "120 kg bench now", "70 kg bodyweight now") with no rungs, since rungs are scores. A bodyweight change is never in the accent: lighter isn't automatically better. No change reads "±0 kg".
+   - **Total** has a point on every day you logged anything (the rest carried forward). **A single lift** has a point only on the days that lift was logged, never a carried value, and marks its PRs with the hollow ring ("PR" in the legend).
    - **3M** shows the last 3 months (from the same day 3 months ago; with no test that recent, the latest still shows). The header's "since", and the tiles, follow the range.
 3. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
    - Header: your latest score (44px) with "{DOTS|GL} now"; on the right "+x since {first test's date}" (`--accent` when up), or "Starting point" with one test. On a narrow screen the change drops onto its own line rather than squeezing the score. Under it, the first rung above the plot, e.g. "P50 · 338 ↑ off chart".
@@ -150,7 +151,8 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
    - **Total:** latest total, and its change in kg (`--accent` when up; "First test" with one).
    - **Bodyweight:** latest bodyweight, and its change in kg (always `--muted`: lighter isn't automatically better).
    - **Avg per month:** the change in score from first to latest test, divided by the months between them; "—" with under 4 weeks between them. A plain average of what happened, not a prediction.
-   - **Rungs cleared:** how many rungs you've reached since your first test, with the highest and when ("P10 · 20 Aug"), or the next one ("Next: P25").
+   - **Rungs cleared:** how many rungs you've reached since your first test, with the highest and when ("P10 · 20 Aug"), or the next one ("Next: P25"). If your latest score has fallen back below it: "P50 · 3 Oct · since dropped".
+   - The tiles always cover every day in range, whatever the chart plots.
 5. **"Weight-class lever" card** (outlined)
    - "Same {total} kg total at {targetBw} kg = **{score} {DOTS|GL}**", with the number in accent.
    - Caption: "+{delta} from bodyweight alone", plus ", enough to clear P{n}" when it would clear a rung of the Ladder's group.
@@ -176,7 +178,7 @@ Three keys. Each new field defaults when it's missing, so older saved data loads
   - `weightClass` is `null` when it's worked out from bodyweight.
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
   - `targetBw` is the weight-class lever's bodyweight, or `null` for the default.
-- `dots-ladder:progress-view`: `{ "metric": "score", "range": "all" }`, what the Progress chart plots (`score`, `total`, `bw`) and over which range (`3m`, `all`). A per-device convenience; anything missing or unknown is Score and All.
+- `dots-ladder:progress-view`: `{ "metric": "score", "lift": "total", "range": "all" }`, what the Progress chart plots (`score`, `lifts`, `bw`), which lift Lifts shows (`total`, `squat`, `bench`, `deadlift`) and over which range (`3m`, `all`). A per-device convenience; anything missing or unknown is Score, Total and All, and the old `total` tab opens as Lifts → Total.
 - `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }, { "id": "uuid", "date": "2027-02-03", "sex": "M", "squat": 155 }]`
   - Every record, oldest first; same-day records keep their save order. **A record holds only what was logged** (any of bodyweight, squat, bench, deadlift): a full 1RM test, a single 1RM, or a bodyweight.
   - **Your numbers on a date** are the latest of each value up to that date, carried forward. The earliest record must hold all four, so every record has a full set to score; saving refuses a history that doesn't start that way.

@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { CHART, DENSE_FROM, chartModel, edgeBands, inRange, monthTicks, windowStart, nearestPoint, onePerDay, progressStats, rungCrossings, rungLines, tipSide, valueTicks } from "./chart.js";
+import { CHART, DENSE_FROM, chartModel, edgeBands, inRange, liftDays, monthTicks, windowStart, nearestPoint, onePerDay, progressStats, rungCrossings, rungLines, tipSide, valueTicks } from "./chart.js";
 
 const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
 const entry = (id, date, score) => ({ id, date, score, otherSex: false });
@@ -179,5 +179,16 @@ test("3M keeps the last 3 months' days, or just the latest when none are that re
   assert.deepEqual(inRange(list, "all", "2026-10-30").map((d) => d.id), ["a", "b", "c", "d"]);
   assert.deepEqual(inRange(list, "3m", "2026-10-30").map((d) => d.id), ["c", "d"]);
   assert.deepEqual(inRange(list, "3m", "2027-06-01").map((d) => d.id), ["d"], "nothing recent: the latest still shows");
+});
+
+test("a single lift's chart shows only the days that lift was logged, never carried values", () => {
+  const day = (id, date, from) => ({ ...entry(id, date, 0), from });
+  const days = [
+    day("a", "2026-10-01", { squat: "2026-10-01", bench: "2026-10-01" }),
+    day("b", "2026-10-10", { squat: "2026-10-10", bench: "2026-10-01" }),
+    day("c", "2026-10-20", { squat: "2026-10-10", bench: "2026-10-20" }),
+  ];
+  assert.deepEqual(liftDays(days, "squat").map((d) => d.id), ["a", "b"]);
+  assert.deepEqual(liftDays(days, "bench").map((d) => d.id), ["a", "c"]);
 });
 
