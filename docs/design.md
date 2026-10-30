@@ -119,7 +119,10 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 ### 5.3 Progress (`#/progress`)
 
 1. Header: eyebrow "PROGRESS", title "THE CLIMB", and the same DOTS / GL toggle as the Ladder's, top right and out of the layout flow (so the header keeps its spacing; under 360px it sits in the row). Switching it redraws Progress and is saved for every screen.
-2. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
+2. **Chart controls**, above the card: **Score | Total | BW** on the left (chalk when chosen, like the experience tabs) and **3M | All** on the right (text, the chosen one underlined in `--accent`), each at least 44px. Both are remembered on the device (`dots-ladder:progress-view`).
+   - **Score** plots your score with everything below (rungs, bands, rung-cleared rings). **Total** and **BW** plot kg ("370 kg total now", "70 kg bodyweight now") with no rungs, since rungs are scores. A bodyweight change is never in the accent: lighter isn't automatically better.
+   - **3M** shows the last 3 months (from the same day 3 months ago; with no test that recent, the latest still shows). The header's "since", and the tiles, follow the range.
+3. **Chart card** (`--surface`): one component, the same height from one test to many, so the page doesn't jump as data grows. Hand-drawn SVG (no chart library); layout in `app/chart.js`.
    - Header: your latest score (44px) with "{DOTS|GL} now"; on the right "+x since {first test's date}" (`--accent` when up), or "Starting point" with one test. On a narrow screen the change drops onto its own line rather than squeezing the score. Under it, the first rung above the plot, e.g. "P50 · 338 ↑ off chart".
    - **One point per day:** the day's last-saved test, the one the Ladder treats as latest. Several tests on one day would otherwise sit on top of each other; all of them stay in the Tests list, and the tooltip says "2 more that day".
    - Each day's score, in that test's own sex: `--accent` dots (10px) joined by a 2.5px line. The selected test (the latest by default) is ringed, with a thin guide line down to the axis.
@@ -138,22 +141,22 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - **Legend** under the plot, listing only what's drawn: 1RM test, Rung, Rung cleared, and the other category's test.
    - The SVG has `role="img"` and an aria-label summing up first and latest scores.
    - With no tests there's nothing to draw, but that can't happen: the first visit saves a first test, and the last test can't be deleted.
-3. **Stat tiles** (2 × 2, `--surface`), since your first test:
+4. **Stat tiles** (2 × 2, `--surface`), since your first test (or over the last 3 months with 3M), always about your score and numbers whatever the chart plots:
    - **Total:** latest total, and its change in kg (`--accent` when up; "First test" with one).
    - **Bodyweight:** latest bodyweight, and its change in kg (always `--muted`: lighter isn't automatically better).
    - **Avg per month:** the change in score from first to latest test, divided by the months between them; "—" with under 4 weeks between them. A plain average of what happened, not a prediction.
    - **Rungs cleared:** how many rungs you've reached since your first test, with the highest and when ("P10 · 20 Aug"), or the next one ("Next: P25").
-4. **"Weight-class lever" card** (outlined)
+5. **"Weight-class lever" card** (outlined)
    - "Same {total} kg total at {targetBw} kg = **{score} {DOTS|GL}**", with the number in accent.
    - Caption: "+{delta} from bodyweight alone", plus ", enough to clear P{n}" when it would clear a rung of the Ladder's group.
    - The target bodyweight is a field (saved as `profile.targetBw`; empty means the default). The default is the top of the next lighter class, i.e. cutting one class (66 kg at 70 kg), or the top of your class if it's the lightest.
-5. **"LIFT SPLIT"**: three horizontal bars (Squat, Bench, Deadlift).
+6. **"LIFT SPLIT"**: three horizontal bars (Squat, Bench, Deadlift).
    - Track `--divider`, fill `--text-2`, height 10px, radius 5px.
    - Width is relative to your best lift; the kg value sits on the right.
-6. **"TESTS"**: every test, newest first: the date, a caption of "{total} kg @ {bw} kg" ("· Women's" for the other category), and the score on the right.
+7. **"TESTS"**: every test, newest first: the date, a caption of "{total} kg @ {bw} kg" ("· Women's" for the other category), and the score on the right.
    - Open a test to fix its date, sex, bodyweight or lifts. Valid changes save straight away; closing a test with invalid values undoes them.
    - "Delete test" asks first. Your only test can't be deleted ("Clear my numbers" on Log test starts over).
-7. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date).
+8. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date).
 
 **Nice to have, later:** a gym test or meet type for each entry (meets as diamonds on the chart, with the class competed in), and a trend line with a projection ("P25 around Mar 2027").
 
@@ -168,6 +171,7 @@ Three keys. Each new field defaults when it's missing, so older saved data loads
   - `weightClass` is `null` when it's worked out from bodyweight.
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
   - `targetBw` is the weight-class lever's bodyweight, or `null` for the default.
+- `dots-ladder:progress-view`: `{ "metric": "score", "range": "all" }`, what the Progress chart plots (`score`, `total`, `bw`) and over which range (`3m`, `all`). A per-device convenience; anything missing or unknown is Score and All.
 - `dots-ladder:tests`: `[{ "id": "uuid", "date": "2027-01-15", "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190 }]`
   - Every saved test, oldest first; same-day tests keep their save order.
   - Each test records its sex, so it's always scored in the category it was done in ("vs last test", and the chart later). A test saved before this takes the profile's sex, which it was saved under.

@@ -4,7 +4,7 @@
 // this file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
-import { CHART, chartModel, nearestPoint, onePerDay, progressStats, tipPlacement } from "./chart.js";
+import { CHART, chartModel, inRange, nearestPoint, onePerDay, progressStats, tipPlacement } from "./chart.js";
 import { $, el, formulaButtons } from "./dom.js";
 import { fmtDay } from "./events.js";
 
@@ -13,7 +13,8 @@ const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
 const SEX_WORDS = { M: "Men's", F: "Women's" };
 
 let ctx; // { rungsData, state, storage, onChange }
-let selectedId = null; // the 1RM test shown in the chart's detail row; null means the latest
+let selectedId = null; // the 1RM test shown in the chart's tooltip; null means the latest
+let view; // { metric, range }: what the chart plots and over which range, remembered on this device
 
 const capital = (text) => text && text[0].toUpperCase() + text.slice(1);
 const signed = (formula, n) => `${n >= 0 ? "+" : "−"}${S.formatScore(formula, Math.abs(n))}`;
@@ -55,39 +56,86 @@ function entries() {
 /** The chart's points: each day's last-saved test (several tests on one day would otherwise sit on top of each other). */
 const days = () => onePerDay(entries());
 
+/** The days the chart shows: all, or the last 3 months' (the tiles and "since" follow the same range). */
+const viewDays = () => inRange(days(), view.range, ctx.state.today);
+
+const kgChange = (n) => `${n >= 0 ? "+" : "−"}${Math.abs(Math.round(n * 10) / 10)} kg`;
+const kgValue = (n) => String(Math.round(n * 10) / 10);
+
+/**
+ * What the chart plots, and how to write it: your score in the chosen formula (with the rungs), your total, or
+ * your bodyweight. Rungs are scores, so only the Score view draws them.
+ */
+function measure() {
+  const { formula } = ctx.state.profile;
+  const label = S.FORMULAS[formula].label;
+  const scoreText = (n) => S.formatScore(formula, n);
+  return {
+    score: { name: label, value: (e) => e.score, num: scoreText, text: scoreText, change: (n) => signed(formula, n), unit: `${label} now`, rungs: true },
+    total: { name: "Total", value: (e) => L.sumLifts(e.test), num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: "kg total now", rungs: false },
+    bw: { name: "Bodyweight", value: (e) => e.test.bodyweight, num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: "kg bodyweight now", rungs: false },
+  }[view.metric];
+}
+
 function renderChart() {
-  const list = days();
-  const rungs = groupRungs();
-  const model = chartModel(list, rungs);
+  const m = measure();
+  const list = viewDays();
+  const scoreRungs = groupRungs();
+  const rungs = m.rungs ? scoreRungs : [];
+  // The plotted value is the chosen measure; the tiles below always work on the score.
+  const plotted = list.map((e) => ({ ...e, score: m.value(e) }));
+  const model = chartModel(plotted, rungs);
   if (!list.some((e) => e.id === selectedId)) selectedId = null;
   const selected = model.points.find((p) => p.id === selectedId) ?? model.points.at(-1);
 
-  renderHeader(list, model);
-  drawPlot(model, selected, L.nextRung(rungs, list.at(-1).score));
-  renderTip(list, model, selected, rungs);
-  renderLegend(model);
-  renderStats(list, rungs);
+  renderControls();
+  renderHeader(plotted, model, m);
+  drawPlot(model, selected, L.nextRung(rungs, plotted.at(-1).score), m);
+  renderTip(plotted, selected, m, scoreRungs, list);
+  renderLegend(model, m);
+  renderStats(list, scoreRungs);
   $("chart-hit").hidden = list.length < 2;
 }
 
-/** Score now, the change since the first day ("Starting point" with one), and a rung too high to draw. */
-function renderHeader(list, model) {
+/** Score | Total | BW and 3M | All: pressed buttons, saved on this device. */
+function renderControls() {
+  const group = (id, options, key) =>
+    $(id).replaceChildren(
+      ...options.map(([value, text]) => {
+        const button = el("button", "view-option", text);
+        button.type = "button";
+        button.setAttribute("aria-pressed", view[key] === value);
+        button.addEventListener("click", () => {
+          if (view[key] === value) return;
+          view = { ...view, [key]: value };
+          L.saveView(ctx.storage, view);
+          renderChart();
+        });
+        return button;
+      }),
+    );
+  group("chart-metric", [["score", "Score"], ["total", "Total"], ["bw", "BW"]], "metric");
+  group("chart-range", [["3m", "3M"], ["all", "All"]], "range");
+}
+
+/** The value now, the change since the first day in range ("Starting point" with one), and a rung too high to draw. */
+function renderHeader(list, model, m) {
   const { formula } = ctx.state.profile;
   const latest = list.at(-1);
-  $("chart-now").textContent = S.formatScore(formula, latest.score);
-  $("chart-unit").textContent = `${S.FORMULAS[formula].label} now`;
+  $("chart-now").textContent = m.num(latest.score);
+  $("chart-unit").textContent = m.unit;
   const change = latest.score - list[0].score;
-  $("chart-change").textContent = list.length === 1 ? "Starting point" : `${signed(formula, change)} since ${shortDay(list[0].date)}`;
-  $("chart-change").className = list.length > 1 && change > 0 ? "up" : "";
+  $("chart-change").textContent = list.length === 1 ? "Starting point" : `${m.change(change)} since ${shortDay(list[0].date)}`;
+  // Up is good for the score and the total; a bodyweight change is neither, so it stays muted.
+  $("chart-change").className = list.length > 1 && change > 0 && view.metric !== "bw" ? "up" : "";
   const off = model.offChart;
   $("chart-offchart").hidden = !off;
   if (off) $("chart-offchart").textContent = `P${off.percentile} · ${S.formatRung(formula, off.score)} ↑ off chart`;
 }
 
-/** The SVG: value gridlines and labels, rung lines with their values, month labels, the line, and the points. */
-function drawPlot(model, selected, next) {
+/** The SVG: bands, value gridlines and labels, rung lines with their values, month labels, the line, and the points. */
+function drawPlot(model, selected, next, m) {
   const { formula } = ctx.state.profile;
-  const label = S.FORMULAS[formula].label;
   const { width, height, left, right, bottom } = CHART;
   const [first, latest] = [model.points[0], model.points.at(-1)];
   const plot = $("chart");
@@ -95,8 +143,8 @@ function drawPlot(model, selected, next) {
   plot.setAttribute(
     "aria-label",
     model.points.length === 1
-      ? `${label} over time: one test, ${S.formatScore(formula, latest.score)} on ${fmtDay(latest.date)}.`
-      : `${label} over time: ${S.formatScore(formula, first.score)} on ${fmtDay(first.date)} to ${S.formatScore(formula, latest.score)} on ${fmtDay(latest.date)}, across ${model.points.length} days of tests.`,
+      ? `${m.name} over time: one test, ${m.text(latest.score)} on ${fmtDay(latest.date)}.`
+      : `${m.name} over time: ${m.text(first.score)} on ${fmtDay(first.date)} to ${m.text(latest.score)} on ${fmtDay(latest.date)}, across ${model.points.length} days of tests.`,
   );
 
   const nodes = [];
@@ -141,9 +189,8 @@ function pointMarks(point, selected, dense) {
   return marks;
 }
 
-/** The tooltip by the selected point, and the same words for screen readers. */
-function renderTip(list, model, selected, rungs) {
-  const { formula } = ctx.state.profile;
+/** The tooltip by the selected point, and the same words for screen readers (with where its score sat among the rungs). */
+function renderTip(list, selected, m, scoreRungs, scored) {
   const i = list.findIndex((e) => e.id === selected.id);
   const { test } = list[i];
   const delta = i > 0 ? selected.score - list[i - 1].score : null;
@@ -151,10 +198,10 @@ function renderTip(list, model, selected, rungs) {
     selected.otherSex ? `${SEX_WORDS[test.sex]} test` : "",
     selected.sameDay ? `${selected.sameDay} more that day` : "",
   ].filter(Boolean);
-  const score = S.formatScore(formula, selected.score);
+  const value = m.text(selected.score);
 
   $("tip-title").textContent = `${shortDay(test.date)} · 1RM test`;
-  $("tip-score").textContent = `${score} · ${delta == null ? "first test" : signed(formula, delta)}`;
+  $("tip-score").textContent = `${value} · ${delta == null ? "first test" : m.change(delta)}`;
   $("tip-sub").textContent =
     ctx.state.tests.length === 1 ? "Log another to see your progress." : [`${L.sumLifts(test)} kg @ ${test.bodyweight}`, ...extras].join(" · ");
   const { side, level, room } = tipPlacement(selected);
@@ -167,17 +214,18 @@ function renderTip(list, model, selected, rungs) {
   tip.style.top = `${(selected.y / CHART.height) * 100}%`;
 
   $("chart-live").textContent = [
-    `${fmtDay(test.date)}: ${score} ${S.FORMULAS[formula].label}`,
-    delta == null ? "your first test" : `${signed(formula, delta)} on the test before`,
+    `${fmtDay(test.date)}: ${view.metric === "score" ? `${value} ${m.name}` : `${m.name} ${value}`}`,
+    delta == null ? "your first test" : `${m.change(delta)} on the test before`,
     `${L.sumLifts(test)} kg at ${test.bodyweight} kg`,
-    capital(L.rungPosition(rungs, selected.score)),
+    capital(L.rungPosition(scoreRungs, scored[i].score)),
     ...extras,
   ].filter(Boolean).join(". ");
 }
 
 /** The key: only what this chart shows. */
-function renderLegend(model) {
-  const items = [["dot", "1RM test"], ["rung", "Rung"]];
+function renderLegend(model, m) {
+  const items = [["dot", "1RM test"]];
+  if (m.rungs) items.push(["rung", "Rung"]);
   if (model.points.some((p) => p.cleared)) items.push(["cleared", "Rung cleared"]);
   const other = model.points.find((p) => p.otherSex && !p.cleared);
   if (other) items.push(["other", `${SEX_WORDS[other.test.sex]} test`]);
@@ -191,19 +239,18 @@ function renderLegend(model) {
   );
 }
 
-/** The four tiles: total and bodyweight with their change, the average per month, and the rungs cleared. */
+/** The four tiles, over the same range as the chart: total and bodyweight with their change, the average per month, and the rungs cleared. */
 function renderStats(list, rungs) {
   const { formula } = ctx.state.profile;
   const stats = progressStats(list, rungs);
   const one = list.length === 1;
-  const kg = (n) => `${n >= 0 ? "+" : "−"}${Math.abs(Math.round(n * 10) / 10)} kg`;
   const tile = (id, value, sub, up = false) => {
     $(id).textContent = value;
     $(`${id}-sub`).textContent = sub;
     $(`${id}-sub`).className = `tile-sub${up ? " up" : ""}`;
   };
-  tile("stat-total", `${stats.total.now} kg`, one ? "First test" : kg(stats.total.change), !one && stats.total.change > 0);
-  tile("stat-bw", `${stats.bodyweight.now} kg`, one ? "First test" : kg(stats.bodyweight.change));
+  tile("stat-total", `${stats.total.now} kg`, one ? "First test" : kgChange(stats.total.change), !one && stats.total.change > 0);
+  tile("stat-bw", `${stats.bodyweight.now} kg`, one ? "First test" : kgChange(stats.bodyweight.change));
   tile(
     "stat-month",
     stats.perMonth == null ? "—" : signed(formula, stats.perMonth),
@@ -213,6 +260,7 @@ function renderStats(list, rungs) {
   const top = stats.cleared.at(-1);
   const next = L.nextRung(rungs, list.at(-1).score);
   tile("stat-rungs", String(stats.cleared.length), top ? `P${top.percentile} · ${shortDay(top.date)}` : next ? `Next: P${next.percentile}` : "Top rung reached");
+  $("stat-tiles").setAttribute("aria-label", view.range === "all" ? "Since your first test" : "Over the last 3 months");
 }
 
 function setupChartTouch() {
@@ -224,12 +272,13 @@ function setupChartTouch() {
   $("chart-hit").addEventListener("click", (event) => {
     const box = $("chart").getBoundingClientRect();
     const x = ((event.clientX - box.left) / box.width) * CHART.width;
-    select(nearestPoint(chartModel(days(), groupRungs()).points, x).id);
+    // Points sit by date, whatever is plotted, so the days in view are enough to find the nearest.
+    select(nearestPoint(chartModel(viewDays(), []).points, x).id);
   });
   $("chart-hit").addEventListener("keydown", (event) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
-    const list = days();
+    const list = viewDays();
     const i = Math.max(0, list.findIndex((e) => e.id === selectedId));
     const at = selectedId == null ? list.length - 1 : i;
     const next = Math.min(list.length - 1, Math.max(0, at + (event.key === "ArrowRight" ? 1 : -1)));
@@ -453,6 +502,7 @@ function renderTests() {
 
 export function setupProgress(context) {
   ctx = context;
+  view = L.loadView(ctx.storage);
   setupChartTouch();
   setupLever();
 }

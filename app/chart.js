@@ -24,6 +24,23 @@ export function onePerDay(entries) {
   });
 }
 
+/** The first day of the 3-month window ending today ("2026-07-30" for "2026-10-30"); a short month clamps (31 May → 28 Feb). */
+export function windowStart(today) {
+  const [y, m, d] = today.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - 4, 1));
+  const last = new Date(Date.UTC(y, m - 3, 0)).getUTCDate(); // days in that month
+  first.setUTCDate(Math.min(d, last));
+  return first.toISOString().slice(0, 10);
+}
+
+/** The days in view: all of them, or the last 3 months'. With nothing that recent, the latest day still shows. */
+export function inRange(days, range, today) {
+  if (range === "all") return days;
+  const start = windowStart(today);
+  const recent = days.filter((d) => d.date >= start);
+  return recent.length ? recent : days.slice(-1);
+}
+
 /** Round values for the y-axis labels: about three, on a 1, 2 or 5 step (270, 290, 310). */
 export function valueTicks(low, high) {
   const span = high - low;

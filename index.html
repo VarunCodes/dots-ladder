@@ -174,6 +174,11 @@
         </div>
         <h1 id="progress-title">The climb</h1>
       </header>
+      <!-- What the chart plots, and over which range; both remembered on this device. -->
+      <div class="chart-controls">
+        <div id="chart-metric" class="view-group" role="group" aria-label="Chart shows"></div>
+        <div id="chart-range" class="view-group view-range" role="group" aria-label="Range"></div>
+      </div>
       <section class="card chart-card" aria-labelledby="chart-heading">
         <h2 id="chart-heading" class="visually-hidden">Your score over time</h2>
         <div class="chart-head">
@@ -196,7 +201,7 @@
         <ul id="chart-legend" class="chart-legend" aria-label="Key"></ul>
       </section>
 
-      <section class="stat-tiles" aria-label="Since your first test">
+      <section id="stat-tiles" class="stat-tiles" aria-label="Since your first test">
         <div class="tile"><p class="tile-label">Total</p><p id="stat-total" class="tile-value"></p><p id="stat-total-sub" class="tile-sub"></p></div>
         <div class="tile"><p class="tile-label">Bodyweight</p><p id="stat-bw" class="tile-value"></p><p id="stat-bw-sub" class="tile-sub"></p></div>
         <div class="tile"><p class="tile-label">Avg per month</p><p id="stat-month" class="tile-value"></p><p id="stat-month-sub" class="tile-sub"></p></div>

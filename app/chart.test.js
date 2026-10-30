@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { CHART, DENSE_FROM, chartModel, edgeBands, monthTicks, nearestPoint, onePerDay, progressStats, rungCrossings, rungLines, tipPlacement, valueTicks } from "./chart.js";
+import { CHART, DENSE_FROM, chartModel, edgeBands, inRange, monthTicks, windowStart, nearestPoint, onePerDay, progressStats, rungCrossings, rungLines, tipPlacement, valueTicks } from "./chart.js";
 
 const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
 const entry = (id, date, score) => ({ id, date, score, otherSex: false });
@@ -152,5 +152,19 @@ test("edge bands: Top and Bottom beyond the published rungs, never P0 or P100", 
   assert.ok(top.y1 < top.y2 && bottom.y1 < bottom.y2, "each band spans from its rung to the plot's edge");
   assert.ok(model.rungs.some((r) => r.percentile === 50) && model.rungs.some((r) => r.percentile === 10), "the edge rungs are drawn");
   assert.ok(!JSON.stringify(model).includes("P100") && !JSON.stringify(model).includes("P0 "), "no extremes");
+});
+
+test("the 3-month window ends today; a short month clamps the day", () => {
+  assert.equal(windowStart("2026-10-30"), "2026-07-30");
+  assert.equal(windowStart("2026-05-31"), "2026-02-28");
+  assert.equal(windowStart("2024-05-31"), "2024-02-29", "leap year");
+  assert.equal(windowStart("2026-01-15"), "2025-10-15", "across the new year");
+});
+
+test("3M keeps the last 3 months' days, or just the latest when none are that recent; All keeps everything", () => {
+  const list = [entry("a", "2026-02-13", 240), entry("b", "2026-06-18", 321), entry("c", "2026-08-13", 358), entry("d", "2026-10-29", 371)];
+  assert.deepEqual(inRange(list, "all", "2026-10-30").map((d) => d.id), ["a", "b", "c", "d"]);
+  assert.deepEqual(inRange(list, "3m", "2026-10-30").map((d) => d.id), ["c", "d"]);
+  assert.deepEqual(inRange(list, "3m", "2027-06-01").map((d) => d.id), ["d"], "nothing recent: the latest still shows");
 });
 

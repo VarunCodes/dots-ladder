@@ -238,6 +238,37 @@ export function saveTests(storage, tests) {
   }
 }
 
+// --- Progress view: what the chart plots and over which range ---------------------------
+// A per-device convenience (not part of your data): { metric: "score" | "total" | "bw", range: "all" | "3m" }.
+
+export const VIEW_KEY = "dots-ladder:progress-view";
+export const METRICS = ["score", "total", "bw"];
+export const RANGES = ["3m", "all"];
+const DEFAULT_VIEW = { metric: "score", range: "all" };
+
+/** The saved chart view, with anything missing or unknown back to the default (Score, All). */
+export function loadView(storage) {
+  try {
+    const raw = JSON.parse(storage.getItem(VIEW_KEY)) ?? {};
+    return {
+      metric: METRICS.includes(raw.metric) ? raw.metric : DEFAULT_VIEW.metric,
+      range: RANGES.includes(raw.range) ? raw.range : DEFAULT_VIEW.range,
+    };
+  } catch {
+    return { ...DEFAULT_VIEW };
+  }
+}
+
+/** Saves the chart view; returns whether it was saved. */
+export function saveView(storage, view) {
+  try {
+    storage.setItem(VIEW_KEY, JSON.stringify({ metric: view.metric, range: view.range }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // --- Events: upcoming meets or test days, with conservative and optimistic lifts ---------
 // An event is { id, name, month: "YYYY-MM", date: "YYYY-MM-DD" or null, bodyweight, conservative, optimistic };
 // each scenario is { squat, bench, deadlift } or null, and at least one is given. The exact date is optional

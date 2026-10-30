@@ -194,6 +194,18 @@ test("rung position: between, below, above, or nothing without rungs", () => {
   assert.equal(L.rungPosition([], 277.9), "");
 });
 
+test("the chart view is remembered, with anything unknown back to Score and All", () => {
+  const storage = fakeStorage();
+  assert.deepEqual(L.loadView(storage), { metric: "score", range: "all" }, "nothing saved");
+  assert.equal(L.saveView(storage, { metric: "bw", range: "3m", extra: 1 }), true);
+  assert.deepEqual(L.loadView(storage), { metric: "bw", range: "3m" });
+  storage.data.set(L.VIEW_KEY, JSON.stringify({ metric: "wilks", range: "1y" }));
+  assert.deepEqual(L.loadView(storage), { metric: "score", range: "all" });
+  assert.deepEqual(L.loadView(fakeStorage({ [L.VIEW_KEY]: "{not json" })), { metric: "score", range: "all" });
+  assert.deepEqual(L.loadView(fakeStorage({}, { fail: true })), { metric: "score", range: "all" });
+  assert.equal(L.saveView(fakeStorage({}, { fail: true }), { metric: "bw", range: "3m" }), false);
+});
+
 // --- Test history ----------------------------------------------------------------
 
 const test1 = { id: "a", date: "2026-10-25", sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150 };
