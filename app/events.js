@@ -1,6 +1,8 @@
 // "Your events" card: upcoming meets or test days with conservative and optimistic lifts.
 // Logic lives in ladder.js; this file only builds and updates the card.
 import * as L from "./ladder.js";
+import * as store from "./store.js";
+import { derived } from "./derive.js";
 import * as S from "./scoring.js";
 import { $, el } from "./dom.js";
 
@@ -27,22 +29,22 @@ function problemText(name) {
   return `${capital(scenario)} ${LIFT_NAMES[lift].toLowerCase()} must be ${L.LIMITS.lift.join("–")} kg.`;
 }
 
-let ctx; // { state, storage, thisMonth, onChange }
+const now = () => derived(store.getState());
 
-export function setupEvents(context) {
-  ctx = context;
+export function setupEvents() {
   $("add-event").addEventListener("click", addEvent);
   renderList();
 }
 
-function persist() {
-  const ok = L.saveEvents(ctx.storage, ctx.state.events);
-  $("events-note").textContent = ok ? "" : "Couldn't save events on this device; changes last until you close the page.";
+/** Saves the events through the store (whose subscriber redraws the Ladder and this card); says if storage refused. */
+function persist(events) {
+  const { saved } = store.update(() => ({ events }));
+  $("events-note").textContent = saved ? "" : "Couldn't save events on this device; changes last until you close the page.";
 }
 
 /** Rebuilds the list, soonest first. Only on add, delete and reset, so no field is rewritten while being typed in. */
 function renderList(openId) {
-  const events = [...ctx.state.events].sort((x, y) => x.month.localeCompare(y.month));
+  const events = [...now().events].sort((x, y) => x.month.localeCompare(y.month));
   $("event-list").replaceChildren(
     ...(events.length
       ? events.map((event) => eventItem(event, event.id === openId))
@@ -53,7 +55,7 @@ function renderList(openId) {
 /** Puts the existing rows in date order. Moving them keeps whatever is typed in other open events. */
 function sortList() {
   const list = $("event-list");
-  const month = (item) => ctx.state.events.find((e) => e.id === item.dataset.id).month;
+  const month = (item) => now().events.find((e) => e.id === item.dataset.id).month;
   const items = [...list.querySelectorAll("details.event")];
   const sorted = [...items].sort((x, y) => month(x).localeCompare(month(y)));
   if (sorted.some((item, i) => item !== items[i])) list.append(...sorted);
@@ -120,9 +122,9 @@ function eventItem(event, open) {
   item.addEventListener("toggle", () => {
     if (item.open) return;
     if (item.dataset.invalid) {
-      fillEvent(form, ctx.state.events.find((e) => e.id === item.dataset.id));
+      fillEvent(form, now().events.find((e) => e.id === item.dataset.id));
       form.querySelector(".event-note").textContent = "Invalid changes were undone.";
-      ctx.onChange();
+      refreshEvents(now());
     }
     sortList();
   });
@@ -172,50 +174,48 @@ function onInput(item, form, input) {
   item.dataset.invalid = problems.length ? "true" : "";
   if (problems.length) {
     form.querySelector(".event-note").textContent = `Not saved: ${problems.map(problemText).join(" ")}`;
-    ctx.onChange();
+    refreshEvents(now()); // nothing saved, so the store doesn't redraw: show "not saved" here
     return;
   }
   const event = L.validEvent(raw);
-  ctx.state.events = ctx.state.events.map((e) => (e.id === event.id ? event : e));
-  persist();
+  persist(now().events.map((e) => (e.id === event.id ? event : e)));
   form.querySelector(".event-note").textContent = "Saved on this device only.";
-  ctx.onChange();
 }
 
 function addEvent() {
-  const { profile } = ctx.state;
+  const { profile, thisMonth } = now();
   const event = {
     id: L.newId("event"),
     name: "",
-    month: L.nextMonth(ctx.thisMonth),
+    month: L.nextMonth(thisMonth),
     date: null,
     bodyweight: profile.bodyweight,
     conservative: Object.fromEntries(L.LIFTS.map((lift) => [lift, profile[lift]])),
     optimistic: null,
   };
-  ctx.state.events = [...ctx.state.events, event];
-  persist();
+  persist([...now().events, event]);
   renderList(event.id);
-  ctx.onChange();
+  refreshEvents(now());
   $("event-list").querySelector(`[data-id="${event.id}"] input[name="name"]`)?.focus();
 }
 
 function deleteEvent(id) {
-  const event = ctx.state.events.find((e) => e.id === id);
+  const event = now().events.find((e) => e.id === id);
   if (!window.confirm(`Delete "${eventLabel(event)}"?`)) return;
-  ctx.state.events = ctx.state.events.filter((e) => e.id !== id);
-  persist();
+  persist(now().events.filter((e) => e.id !== id));
   renderList();
-  ctx.onChange();
+  refreshEvents(now());
 }
 
 /** Updates each event's title, scores and notes for the current profile, formula and ladder group, without touching its fields. */
-export function refreshEvents(state, group, experience) {
-  const { formula } = state.profile;
-  const onLadder = new Set(L.ladderEvents(state.events, ctx.thisMonth).map((e) => e.id));
+export function refreshEvents(d) {
+  const { profile, group, experience, thisMonth } = d;
+  if (!profile) return;
+  const { formula } = profile;
+  const onLadder = new Set(d.ladderEvents.map((e) => e.id));
   for (const item of $("event-list").querySelectorAll("details.event")) {
-    const event = state.events.find((e) => e.id === item.dataset.id);
-    const scores = L.eventScores(event, state.profile.sex, formula);
+    const event = d.events.find((e) => e.id === item.dataset.id);
+    const scores = d.eventScores(event.id);
     item.querySelector(".event-title").textContent = eventLabel(event);
     // Two scores read as "276.0 to 293.0": a plain "to" keeps them apart in the condensed face.
     const values = scores.map((s) => el("span", null, S.formatScore(formula, s.score)));
@@ -233,10 +233,10 @@ export function refreshEvents(state, group, experience) {
     );
 
     const notes = [];
-    if (event.month < ctx.thisMonth) notes.push("This month has passed, so it's not on the ladder.");
+    if (event.month < thisMonth) notes.push("This month has passed, so it's not on the ladder.");
     else if (!onLadder.has(event.id)) notes.push(`Only the next ${L.MAX_LADDER_EVENTS} events appear on the ladder.`);
-    const wclass = L.eventClass(event, state.profile);
-    if (wclass) notes.push(`At ${event.bodyweight} kg that's the ${wclass} kg class; your ladder shows ${L.effectiveClass(state.profile)} kg.`);
+    const wclass = L.eventClass(event, profile);
+    if (wclass) notes.push(`At ${event.bodyweight} kg that's the ${wclass} kg class; your ladder shows ${L.effectiveClass(profile)} kg.`);
     item.querySelector(".event-info").textContent = notes.join(" ");
   }
 }

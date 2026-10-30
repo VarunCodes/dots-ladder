@@ -58,16 +58,6 @@ test("nextRung is the first rung strictly above the score", () => {
 
 const me70 = { sex: "M", bodyweight: 70, squat: 120, bench: 100, deadlift: 150, weightClass: null, formula: "dots", targetBw: null };
 
-/** A stand-in for localStorage; `fail` makes every call throw, like blocked storage. */
-function fakeStorage(initial = {}, { fail = false } = {}) {
-  const data = new Map(Object.entries(initial));
-  return {
-    data,
-    getItem: (key) => { if (fail) throw new Error("blocked"); return data.get(key) ?? null; },
-    setItem: (key, value) => { if (fail) throw new Error("blocked"); data.set(key, value); },
-  };
-}
-
 test("weight classes list every IPF class plus the open class, lightest first", () => {
   assert.deepEqual(L.weightClasses("M"), ["59", "66", "74", "83", "93", "105", "120", "120+"]);
   assert.deepEqual(L.weightClasses("F"), ["47", "52", "57", "63", "69", "76", "84", "84+"]);
@@ -133,34 +123,27 @@ test("a class that doesn't exist for the sex falls back to working it out from b
   assert.equal(L.validProfile({ ...me70, weightClass: 74 }).weightClass, null, "class labels are strings");
 });
 
-test("only the settings are saved: your numbers live in your records", () => {
-  const storage = fakeStorage();
-  assert.equal(L.saveSettings(storage, { ...me70, weightClass: "66", formula: "gl", targetBw: 64 }), true);
-  assert.deepEqual(JSON.parse(storage.data.get(L.PROFILE_KEY)), { weightClass: "66", formula: "gl", targetBw: 64 }, "no sex, bodyweight or lifts");
-  assert.deepEqual(L.loadSaved(storage), { settings: { weightClass: "66", formula: "gl", targetBw: 64 }, legacy: null });
-  assert.equal(L.saveSettings(fakeStorage({}, { fail: true }), me70), false, "blocked storage reports failure");
+test("settings hold only the class, formula and target bodyweight: your numbers live in your records", () => {
+  assert.deepEqual(L.settingsOf({ ...me70, weightClass: "66", formula: "gl", targetBw: 64 }), { weightClass: "66", formula: "gl", targetBw: 64 });
 });
 
 test("settings default when missing or invalid; a profile saved without a formula is DOTS", () => {
   assert.deepEqual(L.settingsOf(null), { weightClass: null, formula: "dots", targetBw: null });
   assert.deepEqual(L.settingsOf({ weightClass: 66, formula: "wilks", targetBw: 500 }), { weightClass: null, formula: "dots", targetBw: null });
   const { formula, ...old } = me70;
-  assert.equal(L.loadSaved(fakeStorage({ [L.PROFILE_KEY]: JSON.stringify(old) })).settings.formula, "dots");
+  assert.equal(L.settingsOf(old).formula, "dots");
 });
 
 test("a record without a sex borrows the old profile's, or another record's, rather than being dropped", () => {
   const { sex, ...older } = test1;
-  const storage = fakeStorage({ [L.TESTS_KEY]: JSON.stringify([older, test2]) });
-  assert.deepEqual(L.loadTests(storage, null, "2026-12-31", []).map((t) => t.sex), ["M", "M"]);
+  assert.deepEqual(L.cleanTests([older, test2]).map((t) => t.sex), ["M", "M"]);
+  assert.deepEqual(L.cleanTests([older], "F").map((t) => t.sex), ["F"], "the old profile's sex comes first");
 });
 
-test("a profile saved by an older version, numbers included, is read once as legacy", () => {
-  const saved = L.loadSaved(fakeStorage({ [L.PROFILE_KEY]: JSON.stringify({ ...me70, weightClass: "66" }) }));
-  assert.deepEqual(saved.legacy, { ...me70, weightClass: "66" });
-  assert.deepEqual(saved.settings, { weightClass: "66", formula: "dots", targetBw: null });
-  assert.equal(L.loadSaved(fakeStorage()), null, "nothing saved");
-  assert.equal(L.loadSaved(fakeStorage({ [L.PROFILE_KEY]: "{not json" })), null);
-  assert.equal(L.loadSaved(fakeStorage({}, { fail: true })), null, "blocked storage");
+test("a profile saved by an older version, numbers included, is read as legacy", () => {
+  assert.deepEqual(L.legacyProfile({ ...me70, weightClass: "66" }), { ...me70, weightClass: "66" });
+  assert.equal(L.legacyProfile({ weightClass: "66", formula: "dots", targetBw: null }), null, "settings alone aren't a legacy profile");
+  assert.equal(L.legacyProfile(null), null);
 });
 
 test("your profile is your latest numbers from your records, with your settings", () => {
@@ -203,19 +186,12 @@ test("rung position: between, below, above, or nothing without rungs", () => {
   assert.equal(L.rungPosition([], 277.9), "");
 });
 
-test("the chart view is remembered, with anything unknown back to Score, Total and All", () => {
+test("the chart view is cleaned, with anything unknown back to Score, Total and All", () => {
   const fallback = { metric: "score", lift: "total", range: "all" };
-  const storage = fakeStorage();
-  assert.deepEqual(L.loadView(storage), fallback, "nothing saved");
-  assert.equal(L.saveView(storage, { metric: "lifts", lift: "squat", range: "3m", extra: 1 }), true);
-  assert.deepEqual(L.loadView(storage), { metric: "lifts", lift: "squat", range: "3m" });
-  storage.data.set(L.VIEW_KEY, JSON.stringify({ metric: "wilks", lift: "curl", range: "1y" }));
-  assert.deepEqual(L.loadView(storage), fallback);
-  storage.data.set(L.VIEW_KEY, JSON.stringify({ metric: "total", range: "3m" }));
-  assert.deepEqual(L.loadView(storage), { metric: "lifts", lift: "total", range: "3m" }, "the old Total tab opens as Lifts → Total");
-  assert.deepEqual(L.loadView(fakeStorage({ [L.VIEW_KEY]: "{not json" })), fallback);
-  assert.deepEqual(L.loadView(fakeStorage({}, { fail: true })), fallback);
-  assert.equal(L.saveView(fakeStorage({}, { fail: true }), fallback), false);
+  assert.deepEqual(L.cleanView(null), fallback, "nothing saved");
+  assert.deepEqual(L.cleanView({ metric: "lifts", lift: "squat", range: "3m", extra: 1 }), { metric: "lifts", lift: "squat", range: "3m" });
+  assert.deepEqual(L.cleanView({ metric: "wilks", lift: "curl", range: "1y" }), fallback);
+  assert.deepEqual(L.cleanView({ metric: "total", range: "3m" }), { metric: "lifts", lift: "total", range: "3m" }, "the old Total tab opens as Lifts → Total");
 });
 
 // --- Test history ----------------------------------------------------------------
@@ -288,8 +264,8 @@ test("the first record must hold all four values, so it can't be deleted while t
   assert.equal(L.deleteProblem([test1, squatPr], "a"), "earliest");
   assert.equal(L.deleteProblem([test1, squatPr], "s"), null);
   assert.equal(L.deleteProblem([test1, test2], "a"), null, "the next one is a full test");
-  assert.equal(L.saveTests(fakeStorage(), [squatPr]), false, "a history can't start without all four");
-  assert.equal(L.saveTests(fakeStorage(), [test1, squatPr]), true);
+  assert.equal(L.canSaveTests([squatPr]), false, "a history can't start without all four");
+  assert.equal(L.canSaveTests([test1, squatPr]), true);
 });
 
 test("a stored test keeps only its fields; one dated after today still loads (the clock may have changed)", () => {
@@ -305,9 +281,8 @@ test("each test keeps its sex; one saved before tests recorded it takes the prof
   assert.equal(L.validTest(older), null, "no sex and no fallback");
   assert.equal(L.validTest({ ...test1, sex: "X" }), null);
   assert.equal(L.validTest({ ...test1, sex: "F" }, "M").sex, "F", "a recorded sex wins over the fallback");
-  const storage = fakeStorage({ [L.TESTS_KEY]: JSON.stringify([older]) });
-  assert.deepEqual(L.loadTests(storage, { ...me70, sex: "M" }, "2026-10-29", []), [test1]);
-  assert.equal(L.saveTests(fakeStorage(), [older]), false, "new saves must have a sex");
+  assert.deepEqual(L.cleanTests([older], "M"), [test1]);
+  assert.equal(L.canSaveTests([older]), false, "new saves must have a sex");
 });
 
 test("the profile's sex follows the latest test, so a backfill in another category doesn't flip the Ladder", () => {
@@ -352,21 +327,13 @@ test("the profile's numbers come from the latest test by date, not the last one 
   assert.deepEqual(L.withLatestTest(profile, [test1, { id: "s", date: "2026-11-10", sex: "M", squat: 130 }]).squat, 130, "the latest values, carried");
 });
 
-test("numbers saved before the history existed become its first test, dated today", () => {
-  assert.deepEqual(L.loadTests(fakeStorage(), me70, "2026-10-29", []), [L.testFrom(me70, "2026-10-29", "first")]);
-  assert.deepEqual(L.loadTests(fakeStorage(), null, "2026-10-29", []), [], "a new visitor has no tests");
-});
-
-test("tests round-trip sorted; invalid ones are dropped; corrupt or blocked storage falls back", () => {
-  const storage = fakeStorage();
-  assert.equal(L.saveTests(storage, [test2, test1]), true);
-  assert.deepEqual(L.loadTests(storage, me70, "2026-10-29", []), [test1, test2]);
-  storage.data.set(L.TESTS_KEY, JSON.stringify([test1, { ...test2, squat: -5 }]));
-  assert.deepEqual(L.loadTests(storage, me70, "2026-10-29", []), [test1]);
-  assert.deepEqual(L.loadTests(fakeStorage({ [L.TESTS_KEY]: "{not json" }), me70, "2026-10-29", ["fallback"]), ["fallback"]);
-  assert.deepEqual(L.loadTests(fakeStorage({}, { fail: true }), me70, "2026-10-29", ["fallback"]), ["fallback"]);
-  assert.equal(L.saveTests(fakeStorage(), [{ ...test1, date: "nope" }]), false);
-  assert.equal(L.saveTests(fakeStorage({}, { fail: true }), [test1]), false);
+test("saved records are cleaned: sorted, invalid ones dropped, and not a list → null", () => {
+  assert.deepEqual(L.cleanTests([test2, test1]), [test1, test2]);
+  assert.deepEqual(L.cleanTests([test1, { ...test2, squat: -5 }]), [test1]);
+  assert.equal(L.cleanTests({}), null);
+  assert.equal(L.cleanTests(null), null);
+  assert.equal(L.canSaveTests([{ ...test1, date: "nope" }]), false);
+  assert.equal(L.canSaveTests([test2, test1]), true);
 });
 
 test("ids are unique", () => {
@@ -466,24 +433,12 @@ test("rungBeaten is the highest rung at or below the score", () => {
   assert.equal(L.rungBeaten(rungs, 400).percentile, 75);
 });
 
-test("saved events round-trip; invalid entries are dropped; an empty list stays empty", () => {
-  const storage = fakeStorage();
-  assert.equal(L.saveEvents(storage, [may]), true);
-  assert.deepEqual(L.loadEvents(storage, []), [may]);
-  storage.data.set(L.EVENTS_KEY, JSON.stringify([may, { ...may, id: "bad", month: "nope" }]));
-  assert.deepEqual(L.loadEvents(storage, []), [may]);
-  assert.equal(L.saveEvents(storage, []), true);
-  assert.deepEqual(L.loadEvents(storage, [may]), [], "deleting every event is kept, not reset");
-});
-
-test("events fall back when nothing is saved, the JSON is corrupt or storage is blocked; invalid ones aren't saved", () => {
-  const fallback = [may];
-  assert.equal(L.loadEvents(fakeStorage(), fallback), fallback);
-  assert.equal(L.loadEvents(fakeStorage({ [L.EVENTS_KEY]: "{not json" }), fallback), fallback);
-  assert.equal(L.loadEvents(fakeStorage({ [L.EVENTS_KEY]: "{}" }), fallback), fallback);
-  assert.equal(L.loadEvents(fakeStorage({}, { fail: true }), fallback), fallback);
-  assert.equal(L.saveEvents(fakeStorage(), [{ ...may, bodyweight: -1 }]), false);
-  assert.equal(L.saveEvents(fakeStorage({}, { fail: true }), [may]), false);
+test("saved events are cleaned: invalid ones dropped, an empty list kept, not a list → null", () => {
+  assert.deepEqual(L.cleanEvents([may, { ...may, id: "bad", month: "nope" }]), [may]);
+  assert.deepEqual(L.cleanEvents([]), [], "deleting every event is kept, not reset");
+  assert.equal(L.cleanEvents({}), null);
+  assert.equal(L.canSaveEvents([may]), true);
+  assert.equal(L.canSaveEvents([{ ...may, bodyweight: -1 }]), false);
 });
 
 // --- Reference marker ------------------------------------------------------------

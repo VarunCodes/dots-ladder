@@ -1,10 +1,12 @@
 // "Progress" screen. A test here is a powerlifting 1RM test: your one-rep max on squat, bench and deadlift
 // on a given day, at a given bodyweight. The screen shows the chart of your scores at those tests, the
-// weight-class lever, the lift split and the editable list of tests. Logic lives in ladder.js and chart.js;
-// this file only renders.
+// weight-class lever, the lift split and the editable list of tests. Its numbers come from derive.js, and
+// changes go through the store; logic lives in ladder.js and chart.js. This file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
-import { CHART, TIP_GAP, TIP_LIFT, chartModel, inRange, liftDays, nearestPoint, onePerDay, progressStats, tipSide } from "./chart.js";
+import * as store from "./store.js";
+import { derived } from "./derive.js";
+import { CHART, TIP_GAP, TIP_LIFT, chartModel, nearestPoint, progressStats, tipSide } from "./chart.js";
 import { $, el, formulaButtons } from "./dom.js";
 import { fmtDay } from "./events.js";
 
@@ -12,10 +14,9 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
 const SEX_WORDS = { M: "Men's", F: "Women's" };
 
-let ctx; // { rungsData, state, storage, onChange }
+const now = () => derived(store.getState());
 let selectedId = null; // the 1RM test shown in the chart's tooltip; null means the latest
 let tipShown = true; // tapping the selected test again hides its tooltip; selecting any test shows it
-let view; // { metric, range }: what the chart plots and over which range, remembered on this device
 
 const capital = (text) => text && text[0].toUpperCase() + text.slice(1);
 const signed = (formula, n) => `${n >= 0 ? "+" : "−"}${S.formatScore(formula, Math.abs(n))}`;
@@ -24,7 +25,7 @@ const shortDay = (day) =>
   new Date(`${day}T00:00:00`).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
-    ...(day.slice(0, 4) === ctx.state.today.slice(0, 4) ? {} : { year: "numeric" }),
+    ...(day.slice(0, 4) === now().today.slice(0, 4) ? {} : { year: "numeric" }),
   });
 
 function svg(tag, attrs, text) {
@@ -32,29 +33,6 @@ function svg(tag, attrs, text) {
   for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
   if (text != null) node.textContent = text;
   return node;
-}
-
-/** The rungs for the group the Ladder is showing, in the chosen formula, so the chart and the Ladder agree. */
-function groupRungs() {
-  const { profile, experience } = ctx.state;
-  return L.rungsFor(ctx.rungsData, profile.formula, profile.sex, L.effectiveClass(profile), experience)?.rungs ?? [];
-}
-
-/**
- * Every record, oldest first, with your full numbers as of it (`test`: what it logged plus the rest carried
- * forward, with `from`, when each was last logged), scored in its own sex and the chosen formula.
- */
-function entries() {
-  const { profile, tests } = ctx.state;
-  return L.carried(tests).map(({ record, values, from }) => ({
-    id: record.id,
-    date: record.date,
-    record,
-    test: { ...values, date: record.date },
-    from,
-    score: L.profileScore({ ...profile, ...values }),
-    otherSex: values.sex !== profile.sex,
-  }));
 }
 
 /** What a day logged (every record that day, combined) and what it carried from earlier days. */
@@ -65,17 +43,8 @@ function dayParts(entry) {
 
 // --- The chart: one point per day of 1RM testing ---------------------------------------
 
-/** The chart's points: each day's last-saved test (several tests on one day would otherwise sit on top of each other). */
-const days = () => onePerDay(entries());
-
-/** The days in range: all, or the last 3 months' (the tiles and "since" follow the same range). */
-const rangeDays = () => inRange(days(), view.range, ctx.state.today);
-
-/** The days the chart plots: in range, and for a single lift only the days that lift was logged. */
-const chartDays = () => {
-  const lift = view.metric === "lifts" && view.lift !== "total" ? view.lift : null;
-  return lift ? inRange(liftDays(days(), lift), view.range, ctx.state.today) : rangeDays();
-};
+// The chart's points come from derive.js: one per day (the day's last-saved record), the days in range, and the
+// days it plots (for a single lift, only the days that lift was logged).
 
 // "+30 kg", "−2.1 kg", or "±0 kg" when nothing changed.
 const kgChange = (n) => {
@@ -90,10 +59,11 @@ const kgValue = (n) => String(Math.round(n * 10) / 10);
  * (same lifters); the total and bodyweight have none. A single lift also marks its PRs.
  */
 function measure() {
-  const { formula } = ctx.state.profile;
+  const { profile, view } = now();
+  const { formula } = profile;
   const label = S.FORMULAS[formula].label;
   const scoreText = (n) => S.formatScore(formula, n);
-  return {
+  const measures = {
     score: { name: label, value: (e) => e.score, num: scoreText, text: scoreText, change: (n) => signed(formula, n), unit: `${label} now`, rungs: true, rungText: (n) => S.formatRung(formula, n) },
     total: { name: "Total", value: (e) => L.sumLifts(e.test), num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: "kg total now", rungs: false },
     bw: { name: "Bodyweight", value: (e) => e.test.bodyweight, num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: "kg bodyweight now", rungs: false },
@@ -103,16 +73,18 @@ function measure() {
         { name: LIFT_NAMES[lift], value: (e) => e.test[lift], num: kgValue, text: (n) => `${kgValue(n)} kg`, change: kgChange, unit: `kg ${lift} now`, rungs: true, rungText: (n) => `${kgValue(n)} kg`, lift },
       ]),
     ),
-  }[view.metric === "lifts" ? view.lift : view.metric];
+  };
+  return measures[view.metric === "lifts" ? view.lift : view.metric];
 }
 
 function renderChart() {
   const m = measure();
-  const list = chartDays();
-  const scoreRungs = groupRungs();
-  const rungs = m.lift ? liftRungs(m.lift) : m.rungs ? scoreRungs : [];
+  const d = now();
+  const list = d.chartDays;
+  const scoreRungs = d.group?.rungs ?? [];
+  const rungs = m.lift ? d.liftRungs(m.lift) : m.rungs ? scoreRungs : [];
   // A single lift marks the days it set a PR.
-  const prDays = m.lift ? liftPrDays(m.lift) : new Set();
+  const prDays = m.lift ? d.prDays(m.lift) : new Set();
   // The plotted value is the chosen measure; the tiles below always work on the score.
   const plotted = list.map((e) => ({ ...e, score: m.value(e), pr: prDays.has(e.date) }));
   const model = chartModel(plotted, rungs);
@@ -125,26 +97,14 @@ function renderChart() {
   drawPlot(model, tipShown ? selected : null, L.nextRung(rungs, plotted.at(-1).score), m);
   renderTip(plotted, tipShown ? selected : null, m, scoreRungs, list);
   renderLegend(model, m);
-  renderStats(rangeDays(), scoreRungs);
+  renderStats(d.rangeDays, scoreRungs);
   $("chart-hit").hidden = list.length < 2;
 }
 
 /** "men 83 kg, first meet": the group the rungs come from (the Ladder's class and experience). */
 function groupName() {
-  const { profile, experience } = ctx.state;
+  const { profile, experience } = now();
   return `${profile.sex === "M" ? "men" : "women"} ${L.effectiveClass(profile)} kg, ${experience}`;
-}
-
-/** One lift's rungs in kg for the group the Ladder is showing (empty if the group has none for that lift). */
-function liftRungs(lift) {
-  const { profile, experience } = ctx.state;
-  return L.liftRungsFor(ctx.rungsData, lift, profile.sex, L.effectiveClass(profile), experience)?.rungs ?? [];
-}
-
-/** The days a record set a PR on this lift. */
-function liftPrDays(lift) {
-  const prs = L.prs(ctx.state.tests);
-  return new Set(ctx.state.tests.filter((t) => prs.get(t.id)?.includes(lift)).map((t) => t.date));
 }
 
 /** Score | Total | BW and 3M | All: pressed buttons, saved on this device. */
@@ -154,19 +114,17 @@ function renderControls() {
       ...options.map(([value, text]) => {
         const button = el("button", "view-option", text);
         button.type = "button";
-        button.setAttribute("aria-pressed", view[key] === value);
+        button.setAttribute("aria-pressed", now().view[key] === value);
+        // Saved through the store; its subscriber redraws the chart.
         button.addEventListener("click", () => {
-          if (view[key] === value) return;
-          view = { ...view, [key]: value };
-          L.saveView(ctx.storage, view);
-          renderChart();
+          if (now().view[key] !== value) store.update((s) => ({ view: { ...s.view, [key]: value } }));
         });
         return button;
       }),
     );
   group("chart-metric", [["score", "Score"], ["lifts", "Lifts"], ["bw", "BW"]], "metric");
   // Lifts has a second choice: the total or one lift.
-  $("chart-lift").hidden = view.metric !== "lifts";
+  $("chart-lift").hidden = now().view.metric !== "lifts";
   group("chart-lift", [["total", "Total"], ...L.LIFTS.map((lift) => [lift, LIFT_NAMES[lift]])], "lift");
   group("chart-range", [["3m", "3M"], ["all", "All"]], "range");
 }
@@ -179,7 +137,7 @@ function renderHeader(list, model, m) {
   const change = latest.score - list[0].score;
   $("chart-change").textContent = list.length === 1 ? "Starting point" : `${m.change(change)} since ${shortDay(list[0].date)}`;
   // Up is good for the score and the total; a bodyweight change is neither, so it stays muted.
-  $("chart-change").className = list.length > 1 && change > 0 && view.metric !== "bw" ? "up" : "";
+  $("chart-change").className = list.length > 1 && change > 0 && now().view.metric !== "bw" ? "up" : "";
   const off = model.offChart;
   $("chart-offchart").hidden = !off;
   if (off) $("chart-offchart").textContent = `P${off.percentile} · ${m.rungText(off.score)} ↑ off chart`;
@@ -271,21 +229,21 @@ function renderTip(list, selected, m, scoreRungs, scored) {
   const value = m.text(selected.score);
 
   const { logged, carried } = dayParts(list[i]);
-  const pr = dayPrs().has(test.date) ? " · PR" : "";
+  const pr = now().prDays().has(test.date) ? " · PR" : "";
   $("tip-title").textContent = `${shortDay(test.date)} · ${L.recordName(Object.fromEntries(logged.map((n) => [n, true])))}${pr}`;
   // Lifts carried from earlier days count towards the score; say so, briefly, and flag any from a bodyweight
   // more than 5 kg away (the score treats them as done at this day's weight).
   const carriedLifts = L.LIFTS.filter((lift) => carried.includes(lift));
-  const stale = L.staleLifts(ctx.state.tests, test.date, test.bodyweight, logged);
+  const stale = L.staleLifts(now().tests, test.date, test.bodyweight, logged);
   if (stale.length) extras.unshift(`${stale.map((s) => s.lift).join(" & ")} from ${stale[0].bodyweight} kg`);
   else if (carriedLifts.length && carriedLifts.length < L.LIFTS.length) extras.unshift(`${carriedLifts.join(" & ")} carried`);
   $("tip-score").textContent = `${value} · ${delta == null ? "first test" : m.change(delta)}`;
   $("tip-sub").textContent =
-    ctx.state.tests.length === 1 ? "Log another to see your progress." : [`${L.sumLifts(test)} kg @ ${test.bodyweight}`, ...extras].join(" · ");
+    now().tests.length === 1 ? "Log another to see your progress." : [`${L.sumLifts(test)} kg @ ${test.bodyweight}`, ...extras].join(" · ");
   placeTip(tip, selected);
 
   $("chart-live").textContent = [
-    `${fmtDay(test.date)}${pr ? ", a PR" : ""}: ${view.metric === "score" ? `${value} ${m.name}` : `${m.name} ${value}`}`,
+    `${fmtDay(test.date)}${pr ? ", a PR" : ""}: ${now().view.metric === "score" ? `${value} ${m.name}` : `${m.name} ${value}`}`,
     carried.length ? carried.map((name) => `${name} from ${fmtDay(list[i].from[name])}`).join(", ") : "",
     stale.length ? `${capital(L.staleText(stale))}, at ${test.bodyweight} kg now; a retest would make this score accurate` : "",
     delta == null ? "your first test" : `${m.change(delta)} on the test before`,
@@ -314,12 +272,6 @@ function placeTip(tip, selected) {
   tip.style.setProperty("--tip-y", `${-TIP_LIFT[level] * 100}%`);
 }
 
-/** The days with a PR on any lift (from records that day). */
-function dayPrs() {
-  const ids = L.prs(ctx.state.tests);
-  return new Set(ctx.state.tests.filter((t) => ids.has(t.id)).map((t) => t.date));
-}
-
 /** The key: only what this chart shows. */
 function renderLegend(model, m) {
   const items = [["dot", "1RM"]];
@@ -340,7 +292,7 @@ function renderLegend(model, m) {
 
 /** The four tiles, over the same range as the chart: total and bodyweight with their change, the average per month, and the rungs cleared. */
 function renderStats(list, rungs) {
-  const { formula } = ctx.state.profile;
+  const { formula } = now().profile;
   const stats = progressStats(list, rungs);
   const one = list.length === 1;
   const tile = (id, value, sub, up = false) => {
@@ -361,7 +313,7 @@ function renderStats(list, rungs) {
   // A rung you cleared and have since fallen back below still counts, but says so.
   const dropped = top && list.at(-1).score < top.score ? " · since dropped" : "";
   tile("stat-rungs", String(stats.cleared.length), top ? `P${top.percentile} · ${shortDay(top.date)}${dropped}` : next ? `Next: P${next.percentile}` : "Top rung reached");
-  $("stat-tiles").setAttribute("aria-label", view.range === "all" ? "Since your first test" : "Over the last 3 months");
+  $("stat-tiles").setAttribute("aria-label", now().view.range === "all" ? "Since your first test" : "Over the last 3 months");
 }
 
 function setupChartTouch() {
@@ -375,7 +327,7 @@ function setupChartTouch() {
     const box = $("chart").getBoundingClientRect();
     const x = ((event.clientX - box.left) / box.width) * CHART.width;
     // Points sit by date, whatever is plotted, so the days in view are enough to find the nearest.
-    const { points } = chartModel(chartDays(), []);
+    const { points } = chartModel(now().chartDays, []);
     const nearest = nearestPoint(points, x);
     // Tapping the test that's already showing hides its tooltip (it can cover a neighbouring test).
     const showing = tipShown && nearest.id === (points.find((p) => p.id === selectedId) ?? points.at(-1)).id;
@@ -387,7 +339,7 @@ function setupChartTouch() {
   $("chart-hit").addEventListener("keydown", (event) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
-    const list = chartDays();
+    const list = now().chartDays;
     const i = Math.max(0, list.findIndex((e) => e.id === selectedId));
     const at = selectedId == null ? list.length - 1 : i;
     const next = Math.min(list.length - 1, Math.max(0, at + (event.key === "ArrowRight" ? 1 : -1)));
@@ -398,9 +350,8 @@ function setupChartTouch() {
 // --- Weight-class lever and lift split -------------------------------------------------
 
 function renderLever() {
-  const { profile } = ctx.state;
+  const { profile, lever: result } = now();
   const { formula } = profile;
-  const result = L.lever(profile, groupRungs());
   const input = $("target-bw");
   if (document.activeElement !== input) input.value = result.targetBw;
   const strong = el("strong", "lever-score", `${S.formatScore(formula, result.then)} ${S.FORMULAS[formula].label}`);
@@ -413,7 +364,7 @@ function renderLever() {
 
 /** Each lift's bar, its kg, and where it sits among that lift's rungs ("Between P50 and P75"), when the group has them. */
 function renderSplit() {
-  const { profile } = ctx.state;
+  const { profile } = now();
   const best = Math.max(...L.LIFTS.map((lift) => profile[lift]));
   $("split-for").textContent = `Against UK meet lifters: ${groupName()}.`;
   $("lift-split").replaceChildren(
@@ -428,7 +379,7 @@ function renderSplit() {
       fill.style.width = `${(profile[lift] / best) * 100}%`;
       track.append(fill);
       li.append(icon, el("span", "split-name", LIFT_NAMES[lift]), track, el("span", "split-kg", `${profile[lift]} kg`));
-      const where = L.rungPosition(liftRungs(lift), profile[lift]);
+      const where = L.rungPosition(now().liftRungs(lift), profile[lift]);
       if (where) li.append(el("span", "split-pos muted small", capital(where)));
       return li;
     }),
@@ -444,9 +395,8 @@ function setupLever() {
     input.setCustomValidity(ok ? "" : "invalid");
     $("lever-note").textContent = ok ? "" : `Target bodyweight must be ${L.LIMITS.bodyweight.join("–")} kg.`;
     if (!ok) return;
-    ctx.state.profile = { ...ctx.state.profile, targetBw: input.value === "" ? null : value };
-    L.saveSettings(ctx.storage, ctx.state.profile);
-    renderLever();
+    // Saved through the store; its subscriber redraws the lever (leaving this field alone while it's being typed in).
+    store.update((s) => ({ settings: { ...s.settings, targetBw: input.value === "" ? null : value } }));
   });
 }
 
@@ -493,7 +443,7 @@ function testSummary() {
 function testForm(record) {
   const form = el("form", "fields");
   form.autocomplete = "off";
-  const date = Object.assign(el("input"), { name: "date", type: "date", required: true, max: ctx.state.today, min: L.EARLIEST_DATE });
+  const date = Object.assign(el("input"), { name: "date", type: "date", required: true, max: now().today, min: L.EARLIEST_DATE });
   const sex = el("select");
   sex.name = "sex";
   sex.append(new Option("Men", "M"), new Option("Women", "F"));
@@ -521,7 +471,7 @@ function testForm(record) {
 function onTestClosed(item, form) {
   if (item.open) return;
   if (item.dataset.invalid) {
-    fillTest(form, ctx.state.tests.find((t) => t.id === item.dataset.id));
+    fillTest(form, now().tests.find((t) => t.id === item.dataset.id));
     form.querySelector(".event-note").textContent = "Invalid changes were undone.";
   }
   renderTests();
@@ -553,45 +503,38 @@ function readTest(form, id) {
   return { id, date: f.date.value, sex: f.sex.value, ...Object.fromEntries(logged.map((name) => [name, f[name].valueAsNumber])) };
 }
 
-/** Saves the records, and the settings; the profile takes its latest numbers from the records. Returns whether both were saved. */
+/** Saves the records through the store (whose subscriber redraws every screen); says if storage refused. */
 function persistTests(tests) {
-  ctx.state.tests = L.sortTests(tests);
-  ctx.state.profile = L.withLatestTest(ctx.state.profile, ctx.state.tests);
-  const ok = L.saveTests(ctx.storage, ctx.state.tests) && L.saveSettings(ctx.storage, ctx.state.profile);
-  $("tests-note").textContent = ok ? "" : "Couldn't save on this device; changes last until you close the page.";
-  return ok;
+  const { saved } = store.update(() => ({ entries: tests }));
+  $("tests-note").textContent = saved ? "" : "Couldn't save on this device; changes last until you close the page.";
 }
 
 function onTestInput(item, form) {
   const raw = readTest(form, item.dataset.id);
-  const problems = L.testProblems(raw, ctx.state.today);
+  const { tests, today } = now();
+  const problems = L.testProblems(raw, today);
   // Moving the record before the first one would leave the history starting without all four values.
-  const next = ctx.state.tests.map((t) => (t.id === raw.id ? raw : t));
+  const next = tests.map((t) => (t.id === raw.id ? raw : t));
   if (!problems.length && !L.isComplete(L.sortTests(next)[0])) problems.push("date");
   for (const input of form.querySelectorAll("input, select")) input.setCustomValidity(problems.includes(input.name) ? TEST_TEXT[input.name] : "");
   item.dataset.invalid = problems.length ? "true" : "";
   const note = form.querySelector(".event-note");
   if (problems.length) {
-    const firstRule = problems.includes("date") && L.isDay(raw.date) && raw.date <= ctx.state.today ? "Your first record must hold bodyweight and all three lifts." : "";
+    const firstRule = problems.includes("date") && L.isDay(raw.date) && raw.date <= today ? "Your first record must hold bodyweight and all three lifts." : "";
     note.textContent = `Not saved: ${firstRule || problems.map((name) => TEST_TEXT[name]).join(" ")}`;
     return;
   }
-  persistTests(ctx.state.tests.map((t) => (t.id === raw.id ? L.validTest(raw) : t)));
+  persistTests(tests.map((t) => (t.id === raw.id ? L.validTest(raw) : t)));
   note.textContent = "Saved on this device only.";
-  refreshTestSummaries();
-  renderChart();
-  renderLever();
-  renderSplit();
-  ctx.onChange();
 }
 
 function deleteTest(id) {
-  if (L.deleteProblem(ctx.state.tests, id)) return;
-  const record = ctx.state.tests.find((t) => t.id === id);
+  const { tests } = now();
+  if (L.deleteProblem(tests, id)) return;
+  const record = tests.find((t) => t.id === id);
   if (!window.confirm(`Delete the ${lowerName(record)} from ${fmtDay(record.date)}?`)) return;
-  persistTests(ctx.state.tests.filter((t) => t.id !== id));
-  openProgress();
-  ctx.onChange();
+  persistTests(tests.filter((t) => t.id !== id));
+  renderTests(); // the store's refresh leaves the list alone, so the deleted row goes here
 }
 
 /** "150 kg" for one value, "150 / 105 kg" for two lifts, "370 kg @ 70 kg" for a test, with bodyweight when it was logged too. */
@@ -606,9 +549,9 @@ function loggedText(record) {
 
 /** Each record's date, what it logged, a PR badge and the score at it, without touching its fields. */
 function refreshTestSummaries() {
-  const { formula } = ctx.state.profile;
-  const records = L.prs(ctx.state.tests);
-  for (const { id, record, score, otherSex } of entries()) {
+  const { formula } = now().profile;
+  const { prs: records, tests, points } = now();
+  for (const { id, record, score, otherSex } of points) {
     const item = $("test-list").querySelector(`[data-id="${id}"]`);
     if (!item) continue;
     const title = item.querySelector(".event-title");
@@ -616,7 +559,7 @@ function refreshTestSummaries() {
     if (records.has(id)) title.append(" ", el("span", "pr-badge", "PR"));
     item.querySelector(".test-sub").textContent = [L.recordName(record), loggedText(record), otherSex ? SEX_WORDS[record.sex] : ""].filter(Boolean).join(" · ");
     item.querySelector(".event-score").textContent = item.dataset.invalid ? "not saved" : S.formatScore(formula, score);
-    const problem = L.deleteProblem(ctx.state.tests, id);
+    const problem = L.deleteProblem(tests, id);
     const remove = item.querySelector(".link-button");
     remove.disabled = Boolean(problem);
     remove.title = problem ? DELETE_TEXT[problem] : "";
@@ -626,7 +569,7 @@ function refreshTestSummaries() {
 /** Rebuilds the list of records newest first, keeping open whichever was open. */
 function renderTests() {
   const open = $("test-list").querySelector("details[open]")?.dataset.id;
-  const items = [...ctx.state.tests].reverse().map((record) => {
+  const items = [...now().tests].reverse().map((record) => {
     const item = testItem(record);
     item.open = record.id === open;
     return item;
@@ -637,9 +580,7 @@ function renderTests() {
 
 // --- Wiring -------------------------------------------------------------------------
 
-export function setupProgress(context) {
-  ctx = context;
-  view = L.loadView(ctx.storage);
+export function setupProgress() {
   setupChartTouch();
   setupLever();
 }
@@ -647,20 +588,22 @@ export function setupProgress(context) {
 /** The same DOTS / GL toggle as the Ladder's: switching redraws this screen and saves the choice for every screen. */
 function renderFormula() {
   $("progress-formula").replaceChildren(
-    ...formulaButtons(ctx.state.profile.formula, (id) => {
-      ctx.state.profile = { ...ctx.state.profile, formula: id };
-      L.saveSettings(ctx.storage, ctx.state.profile);
-      openProgress();
-      ctx.onChange();
-    }),
+    ...formulaButtons(now().profile.formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } }))),
   );
 }
 
-/** Draws the whole screen; called each time it opens, after a test is deleted, and when the formula changes. */
+/** Draws the whole screen, the 1RMs list included; called each time it opens. */
 export function openProgress() {
+  refreshProgress();
+  renderTests();
+}
+
+/** After a change (from the store's subscriber): redraws everything but the 1RMs list's fields, so a record being edited keeps what's typed. */
+export function refreshProgress() {
+  if (!now().profile) return;
   renderFormula();
   renderChart();
   renderLever();
   renderSplit();
-  renderTests();
+  refreshTestSummaries();
 }

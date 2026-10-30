@@ -4,6 +4,8 @@
 // numbers before it. Logic lives in ladder.js; this file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
+import * as store from "./store.js";
+import { derived } from "./derive.js";
 import { $, formulaButtons } from "./dom.js";
 import { fmtDay } from "./events.js";
 
@@ -17,7 +19,8 @@ export const FIELD_TEXT = {
 const LIMITS_FOR = { bodyweight: L.LIMITS.bodyweight, squat: L.LIMITS.lift, bench: L.LIMITS.lift, deadlift: L.LIMITS.lift };
 const STALE_BODYWEIGHT_DAYS = 7; // older than this, the bodyweight hint asks for a fresh weigh-in
 
-let ctx; // { rungsData, state, storage, onSaved, onCleared }; state has profile, tests and today
+let ctx; // { onSaved }
+const now = () => derived(store.getState()); // your saved numbers and records; the draft lives in the form
 let changed = new Set(); // the values touched since the screen opened: only these are saved
 const hints = {}; // each stepper's own hint ("kg · 2.5 steps"), shown once its value is changed
 
@@ -33,15 +36,15 @@ function read() {
     bodyweight: f.bodyweight.valueAsNumber,
     ...Object.fromEntries(L.LIFTS.map((lift) => [lift, f[lift].valueAsNumber])),
     weightClass: f.weightClass.value || null,
-    formula: ctx.state.profile.formula,
+    formula: now().profile.formula,
     date: f.date.value,
   };
 }
 
 /** Your numbers as of the chosen date, or the earliest record's for a date before it (then everything is saved). */
 function base(date) {
-  const at = L.isDay(date) ? L.valuesAt(ctx.state.tests, date) : null;
-  return at ?? { ...L.carried(ctx.state.tests)[0], before: true };
+  const at = L.isDay(date) ? L.valuesAt(now().tests, date) : null;
+  return at ?? { ...L.carried(now().tests)[0], before: true };
 }
 
 /** Rebuilds the class dropdown for the sex; its "auto" option shows the class the bodyweight gives. */
@@ -65,7 +68,7 @@ function renderClassNote(profile) {
 
 /** Under the date: a date before your first record saves all four values; one before your latest leaves the Ladder alone. */
 function renderDateNote(date, before) {
-  const latest = L.latestTest(ctx.state.tests);
+  const { latest } = now();
   $("date-note").textContent = !L.isDay(date)
     ? ""
     : before
@@ -99,7 +102,7 @@ function renderResult() {
   const raw = read();
   const at = base(raw.date);
   const toSave = at.before ? L.VALUES : L.VALUES.filter((name) => changed.has(name));
-  const dateOk = !L.testProblems(raw, ctx.state.today).includes("date");
+  const dateOk = !L.testProblems(raw, now().today).includes("date");
   const draft = dateOk ? L.validProfile(raw) : null;
   const problems = [...(dateOk ? [] : ["date"]), ...L.invalidFields(raw)];
   const label = L.saveLabel(toSave);
@@ -109,16 +112,12 @@ function renderResult() {
   renderDateNote(raw.date, at.before);
   renderSteppers(at, raw.date);
   renderClassNote(draft);
-  const { formula } = ctx.state.profile;
+  const { formula } = now().profile;
   const unit = S.FORMULAS[formula].label;
   $("result-unit").textContent = unit;
   // The toggle changes only the saved formula, never the draft's numbers.
   $("log-formula").replaceChildren(
-    ...formulaButtons(formula, (id) => {
-      ctx.state.profile = { ...ctx.state.profile, formula: id };
-      L.saveSettings(ctx.storage, ctx.state.profile);
-      renderResult();
-    }),
+    ...formulaButtons(formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } }))),
   );
   if (!draft) {
     $("result-stale").textContent = "";
@@ -144,12 +143,12 @@ function renderResult() {
   $("result-delta").className = before && delta > 0 ? "up" : "";
   $("result-score").textContent = S.formatScore(formula, score);
   // Lifts carried from a bodyweight more than 5 kg away make the score treat them as done at today's weight.
-  const stale = L.staleLifts(ctx.state.tests, raw.date, draft.bodyweight, toSave);
+  const stale = L.staleLifts(now().tests, raw.date, draft.bodyweight, toSave);
   $("result-stale").textContent = stale.length
     ? `${capital(L.staleText(stale))}; you're ${draft.bodyweight} kg now. Retest ${stale.length === 1 ? "it" : "them"} for an accurate score.`
     : "";
 
-  const group = L.rungsFor(ctx.rungsData, formula, draft.sex, L.effectiveClass(draft), ctx.state.experience);
+  const group = L.rungsFor(now().rungsData, formula, draft.sex, L.effectiveClass(draft), now().experience);
   if (!group) {
     $("result-rungs").textContent = "Not enough lifters in this group to publish rungs.";
     return;
@@ -163,16 +162,21 @@ function renderResult() {
   ].filter(Boolean).join(" ");
 }
 
+/** After a change elsewhere (e.g. DOTS / GL): redraws the result for the draft as it stands, keeping what's typed. */
+export function refreshLog() {
+  if (now().tests.length) renderResult();
+}
+
 /** Fills the form with your latest numbers, dated today, nothing changed; called each time the screen opens, so a draft is dropped. */
 export function openLog({ focusClass = false } = {}) {
-  const profile = ctx.state.profile;
+  const { profile, today } = now();
   const f = form().elements;
   changed = new Set();
-  f.date.value = ctx.state.today;
-  f.date.max = ctx.state.today;
+  f.date.value = today;
+  f.date.max = today;
   f.date.min = L.EARLIEST_DATE;
   f.sex.value = profile.sex;
-  fillUnchanged(base(ctx.state.today));
+  fillUnchanged(base(today));
   fillClassSelect(profile);
   renderResult();
   if (focusClass) f.weightClass.focus();
@@ -194,7 +198,7 @@ export function setupLog(context) {
 
   form().addEventListener("input", (event) => {
     // With no records the first-visit form is showing, and this form has nothing to start from.
-    if (!ctx.state.tests.length) return;
+    if (!now().tests.length) return;
     const { name } = event.target;
     if (L.VALUES.includes(name)) changed.add(name);
     // A new date brings that day's numbers into the fields you haven't changed.
@@ -214,24 +218,19 @@ export function setupLog(context) {
     const draft = L.validProfile(raw);
     const at = base(raw.date);
     const names = at.before ? L.VALUES : L.VALUES.filter((name) => changed.has(name));
-    if (!draft || !names.length || L.testProblems(raw, ctx.state.today).length) return;
-    const tests = L.sortTests([...ctx.state.tests, L.testFrom(draft, raw.date, L.newId("test"), names)]);
-    ctx.state.tests = tests;
-    ctx.state.profile = L.withLatestTest(draft, tests);
-    ctx.onSaved(L.saveTests(ctx.storage, tests) && L.saveSettings(ctx.storage, ctx.state.profile));
+    if (!draft || !names.length || L.testProblems(raw, now().today).length) return;
+    // The record, and the class picked here (the only setting on this screen; the rest are kept).
+    const { ok } = store.update((s) => ({
+      entries: [...s.entries, L.testFrom(draft, raw.date, L.newId("test"), names)],
+      settings: { ...s.settings, weightClass: draft.weightClass },
+    }));
+    if (ok) ctx.onSaved();
   });
 
   // Clearing goes back to the first-visit form; there are no default numbers to fall back to.
   $("clear-numbers").addEventListener("click", () => {
     if (!window.confirm("Clear your numbers and 1RM history from this phone? You'll be asked for them again.")) return;
-    try {
-      ctx.storage?.removeItem(L.PROFILE_KEY);
-      ctx.storage?.removeItem(L.TESTS_KEY);
-    } catch {
-      // Nothing saved to clear.
-    }
-    ctx.state.profile = null;
-    ctx.state.tests = [];
-    ctx.onCleared();
+    // The store forgets your records and settings; its subscriber goes back to the first-visit form.
+    store.clearNumbers();
   });
 }

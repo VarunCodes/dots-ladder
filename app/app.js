@@ -1,10 +1,14 @@
-// Page wiring: loads the rungs, routes between the three screens, and renders the Ladder with the pure logic in ladder.js.
+// Page wiring: loads the rungs, starts the store, routes between the three screens, and renders the Ladder.
+// Every screen reads derive.js and changes things only through the store; one subscriber refreshes the screen
+// that's showing after each change.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
+import * as store from "./store.js";
+import { derived } from "./derive.js";
 import { $, el, formulaButtons } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
-import { FIELD_TEXT, openLog, setupLog } from "./log.js";
-import { openProgress, setupProgress } from "./progress.js";
+import { FIELD_TEXT, openLog, refreshLog, setupLog } from "./log.js";
+import { openProgress, refreshProgress, setupProgress } from "./progress.js";
 
 const fmtDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -34,12 +38,12 @@ async function loadJson(path) {
 }
 
 /** Rows to place among the rungs: you, the gym-goer estimate (DOTS only), and each upcoming event's scenarios (named only when there are two). */
-function markers(state, points) {
-  const { profile, events, thisMonth } = state;
+function markers(d) {
+  const { profile } = d;
   const reference = L.referenceMarker(profile.sex, profile.formula);
-  const list = [{ kind: "you", label: "You", score: points }, ...(reference ? [{ kind: "reference", ...reference }] : [])];
-  for (const event of L.ladderEvents(events, thisMonth)) {
-    const scores = L.eventScores(event, profile.sex, profile.formula);
+  const list = [{ kind: "you", label: "You", score: d.score }, ...(reference ? [{ kind: "reference", ...reference }] : [])];
+  for (const event of d.ladderEvents) {
+    const scores = d.eventScores(event.id);
     for (const { scenario, score } of scores) {
       list.push({ kind: "event", label: eventLabel(event), scenario: scores.length > 1 ? scenario : null, score });
     }
@@ -48,8 +52,8 @@ function markers(state, points) {
 }
 
 /** "Meet in N days" for the soonest event with an exact date, today or later; hidden without one. */
-function renderMeetPill(state) {
-  const next = L.nextMeet(state.events, state.today);
+function renderMeetPill(d) {
+  const next = d.nextMeet;
   $("meet-pill").hidden = !next;
   if (!next) return;
   const { days, event } = next;
@@ -127,30 +131,25 @@ function renderRow(row, profile) {
 }
 
 /** Redraws the Ladder for the current profile, formula and experience group. */
-function render(rungsData, state, storage) {
-  const { profile, experience } = state;
+function render() {
+  const d = derived(store.getState());
+  const { profile, experience, group } = d;
   const { formula } = profile;
   const wclass = L.effectiveClass(profile);
-  const points = L.profileScore(profile);
-  const group = L.rungsFor(rungsData, formula, profile.sex, wclass, experience);
-  const rows = L.ladderRows(group?.rungs ?? [], points, markers(state, points));
+  const points = d.score;
+  const rows = L.ladderRows(group?.rungs ?? [], points, markers(d));
   // Rungs built before this formula was added have none of its percentiles; say so rather than show nothing.
-  const missing = rungsData.rungs.some((r) => r[formula]) ? "" : `${S.FORMULAS[formula].label} rungs coming soon.`;
+  const missing = d.rungsData.rungs.some((r) => r[formula]) ? "" : `${S.FORMULAS[formula].label} rungs coming soon.`;
 
-  $("formula").replaceChildren(
-    ...formulaButtons(formula, (id) => {
-      state.profile = { ...profile, formula: id };
-      L.saveSettings(storage, state.profile);
-      render(rungsData, state, storage);
-    }),
-  );
+  // Both choices go through the store, and its subscriber redraws.
+  $("formula").replaceChildren(...formulaButtons(formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } }))));
 
   $("experience").replaceChildren(
     ...L.EXPERIENCE.map((name) => {
       const button = el("button", "tab", name);
       button.type = "button";
       button.setAttribute("aria-pressed", name === experience);
-      button.addEventListener("click", () => render(rungsData, Object.assign(state, { experience: name }), storage));
+      button.addEventListener("click", () => store.update((s) => ({ session: { ...s.session, experience: name } })));
       return button;
     }),
   );
@@ -161,25 +160,16 @@ function render(rungsData, state, storage) {
   $("class-chip-text").textContent = `${sexWord} ${wclass} kg`;
   $("class-chip").setAttribute("aria-label", `${sexWord}, ${wclass} kg class${profile.weightClass ? " (chosen)" : ""}. Change weight class`);
 
-  refreshEvents(state, group, experience);
+  refreshEvents(d);
   $("group-note").textContent = missing
     ? missing
     : group
       ? `${group.lifters} lifters in this group.`
       : `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
   renderHero(profile, points, group?.rungs ?? []);
-  renderMeetPill(state);
+  renderMeetPill(d);
   renderNext(profile, points, group, missing);
   $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
-}
-
-/** localStorage, or null where the browser blocks it; the ladder.js helpers treat null as "nothing saved". */
-function deviceStorage() {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 /** Shows one screen. With nothing saved, only the Ladder's first-visit form is reachable, and the tab bar stays hidden. */
@@ -193,7 +183,7 @@ function showScreen(screen) {
 }
 
 /** The first-visit form: the button stays disabled until all five values are valid, and only entered values are flagged. */
-function setupOnboarding(state, storage, onDone) {
+function setupOnboarding() {
   const form = $("onboarding");
   const button = form.querySelector('button[type="submit"]');
   const read = () => ({
@@ -209,67 +199,65 @@ function setupOnboarding(state, storage, onDone) {
     button.disabled = !L.validProfile(raw);
   });
 
-  // The first numbers are the first test in the history, dated today.
+  // The first numbers are the first record in the history, dated today; the store's subscriber leaves this form.
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const profile = L.validProfile(read());
     if (!profile) return;
-    state.profile = profile;
-    state.tests = [L.testFrom(profile, state.today, L.newId("test"))];
-    onDone(L.saveTests(storage, state.tests) && L.saveSettings(storage, profile));
+    store.update((s) => ({ entries: [L.testFrom(profile, s.session.today, L.newId("test"))] }));
   });
 }
 
 try {
   const rungsData = await loadJson("data/rungs.json");
-  const storage = deviceStorage();
-  const thisMonth = L.monthOf(new Date());
-  const today = L.dayOf(new Date());
-  // New visitors start blank: no records means the onboarding form, and events and records start empty.
-  const saved = L.loadSaved(storage);
-  const tests = L.loadTests(storage, saved?.legacy ?? null, today, []);
-  // A profile saved by an older version still holds numbers: if there was no history yet they became its first
-  // record (saving now keeps that record's date), and either way the saved profile is cut down to settings only.
-  if (saved?.legacy && tests.length && L.saveTests(storage, tests)) L.saveSettings(storage, saved.settings);
-  const state = {
-    // Your numbers are always worked out from your records; only the settings come from the saved profile.
-    profile: L.currentProfile(saved?.settings ?? L.settingsOf(null), tests),
-    tests,
-    events: L.loadEvents(storage, []),
-    thisMonth,
-    today,
+  // New visitors start blank: no records means the first-visit form, and events and records start empty. A
+  // version 1 save is migrated once, as the store starts.
+  store.start({
+    rungs: rungsData,
+    today: L.dayOf(new Date()),
+    thisMonth: L.monthOf(new Date()),
     experience: L.EXPERIENCE[0],
-  };
+  });
   if (rungsData.snapshot) $("snapshot").textContent = `, snapshot ${fmtDate(rungsData.snapshot)}`;
+  const hasNumbers = () => Boolean(derived(store.getState()).profile);
 
   // Routing: "#/ladder" (default), "#/log" and "#/progress". Without saved numbers, everything is the first-visit form.
   const route = () => {
-    const hasNumbers = Boolean(state.profile);
-    $("onboarding").hidden = hasNumbers;
-    $("standing").hidden = !hasNumbers;
-    $("tabbar").hidden = !hasNumbers;
-    const screen = hasNumbers ? L.routeFrom(location.hash) : "ladder";
+    const numbers = hasNumbers();
+    $("onboarding").hidden = numbers;
+    $("standing").hidden = !numbers;
+    $("tabbar").hidden = !numbers;
+    const screen = numbers ? L.routeFrom(location.hash) : "ladder";
     showScreen(screen);
-    if (!hasNumbers) return;
+    if (!numbers) return;
     if (screen === "log") openLog({ focusClass: location.hash.endsWith("?class") });
-    else render(rungsData, state, storage);
+    else render();
     if (screen === "progress") openProgress();
   };
-  const askForNumbers = () => {
-    $("onboarding").reset();
-    $("onboarding").querySelector('button[type="submit"]').disabled = true;
-    $("onboard-note").textContent = "";
-    if (location.hash !== "#/ladder") location.hash = "#/ladder";
-    else route();
-  };
 
-  setupOnboarding(state, storage, () => {
+  // After every change: gaining or losing your numbers re-routes (into or out of the first-visit form); otherwise
+  // the Ladder redraws (the events panel is on it) and the open screen refreshes in place, keeping what's typed.
+  store.subscribe(() => {
+    if (hasNumbers() === $("onboarding").hidden) {
+      render();
+      const screen = L.routeFrom(location.hash);
+      if (screen === "log") refreshLog();
+      if (screen === "progress") refreshProgress();
+      return;
+    }
+    if (!hasNumbers()) {
+      $("onboarding").reset();
+      $("onboarding").querySelector('button[type="submit"]').disabled = true;
+      $("onboard-note").textContent = "";
+    }
     if (location.hash !== "#/ladder") location.hash = "#/ladder";
     else route();
   });
-  setupLog({ rungsData, state, storage, onSaved: () => { location.hash = "#/ladder"; }, onCleared: askForNumbers });
-  setupEvents({ state, storage, thisMonth, onChange: () => render(rungsData, state, storage) });
-  setupProgress({ rungsData, state, storage, onChange: () => render(rungsData, state, storage) });
+
+  setupOnboarding();
+  setupLog({ onSaved: () => { location.hash = "#/ladder"; } });
+  setupEvents();
+  setupProgress();
   window.addEventListener("hashchange", route);
   route();
 } catch (error) {
