@@ -115,3 +115,53 @@ test("clock times read and write as HH:MM", () => {
   assert.equal(A.clockTime(545), "09:05");
   assert.equal(A.clockTime(-10), "23:50");
 });
+
+// --- Meet attempts ---------------------------------------------------------------------------
+
+const good = (kg) => ({ kg, good: true });
+const miss = (kg) => ({ kg, good: false });
+// The mockup's meet: a missed squat third, every other attempt good.
+const meet = {
+  squat: [good(100), good(105), miss(112.5)],
+  bench: [good(107.5), good(115), good(122.5)],
+  deadlift: [good(145), good(152.5), good(162.5)],
+};
+const result = A.meetResult(meet, { best: lifts, ...lifter });
+
+test("8 of 9 made is 89%", () => {
+  assert.deepEqual([result.made, result.taken, result.pct], [8, 9, 89]);
+});
+
+test("the best total uses only good lifts", () => {
+  assert.equal(result.lifts.squat.best, 105, "the missed 112.5 doesn't count");
+  assert.equal(result.total, 390);
+  assert.equal(formatScore("dots", result.score), "299.0");
+});
+
+test("kg left on the platform: the heaviest miss above the heaviest make", () => {
+  assert.equal(result.left, 7.5);
+  assert.equal(A.meetResult({ squat: [good(100), miss(110), miss(107.5)] }, { ...lifter }).left, 10);
+});
+
+test("PRs: good attempts heavier than your best before the meet and earlier attempts", () => {
+  const prs = (lift) => result.lifts[lift].attempts.map((a) => a.pr);
+  assert.deepEqual(prs("squat"), [false, false, false]);
+  assert.deepEqual(prs("bench"), [false, false, true]);
+  assert.deepEqual(prs("deadlift"), [false, false, true]);
+});
+
+test("no total until all three lifts have a good attempt", () => {
+  const partial = A.meetResult({ squat: [good(100)], bench: [miss(110)] }, { ...lifter });
+  assert.deepEqual([partial.total, partial.score, partial.pct], [null, null, 50]);
+  assert.equal(A.meetResult({}, { ...lifter }).pct, null);
+});
+
+test("your best before a meet counts only earlier records", () => {
+  const entries = [
+    { date: "2026-08-01", squat: 110, bench: 120, deadlift: 160 },
+    { date: "2026-10-01", squat: 115 },
+    { date: "2026-11-14", squat: 130 },
+  ];
+  assert.deepEqual(A.bestBefore(entries, "2026-11-14"), { squat: 115, bench: 120, deadlift: 160 });
+  assert.deepEqual(A.bestBefore([], "2026-11-14"), { squat: null, bench: null, deadlift: null });
+});

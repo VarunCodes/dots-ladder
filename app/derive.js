@@ -134,7 +134,7 @@ function eventValues({ events, session }, base) {
 }
 
 /** The Meet screen's values: the attempt plan for your next meet (or for now, without one), and the plates. */
-function meetValues({ settings, session }, base, rungs, plans) {
+function meetValues({ settings, session, events, entries }, base, rungs, plans) {
   const attemptPlan = memoizeOnce(() => {
       const p = base.profile();
       if (!p) return null;
@@ -185,10 +185,20 @@ function meetValues({ settings, session }, base, rungs, plans) {
       sets: timeline.sets.map((set, i) => ({ ...set, due: i === due, ticked: ticked.includes(i) })),
     };
   });
+  // The latest meet with attempts recorded: its result, scored at its bodyweight, PRs against your records before it.
+  const meetResult = memoizeOnce(() => {
+    const p = base.profile();
+    const withAttempts = events.filter((e) => e.date && Object.keys(e.day?.attempts ?? {}).length);
+    const event = withAttempts.sort((x, y) => x.date.localeCompare(y.date)).at(-1);
+    if (!p || !event) return null;
+    const best = A.bestBefore(entries, event.date);
+    return { event, ...A.meetResult(event.day.attempts, { best, bodyweight: event.bodyweight, sex: p.sex, formula: p.formula }) };
+  });
   return {
     attemptPlan,
     meetDay,
     warmups,
+    meetResult,
     // The loader's weight is the session's (not saved); it starts at your next attempt, else your squat opener.
     plates: memoizeOnce(() => {
       const total = session.plateKg ?? meetDay()?.next?.kg ?? attemptPlan()?.steps[0].lifts.squat ?? 60;
@@ -296,6 +306,13 @@ function make(state) {
      */
     get warmups() {
       return meet.warmups();
+    },
+    /**
+     * Your latest meet with attempts, or null: { event, lifts: { squat: { attempts: [{ kg, good, pr }], best } },
+     * taken, made, pct, total (good lifts only; null without one of each), score, left (kg left on the platform) }.
+     */
+    get meetResult() {
+      return meet.meetResult();
     },
     /** The plate loader: { total, plates (one side, inside to outside), perSide, exact }. */
     get plates() {

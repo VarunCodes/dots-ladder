@@ -311,6 +311,74 @@ function tickClock() {
   if (store.getState().session.clock !== minutes) store.update((s) => ({ session: { ...s.session, clock: minutes } }));
 }
 
+// --- Meet attempts ---------------------------------------------------------------------------
+
+const resultsCard = {
+  id: "results",
+  title: "Meet attempts",
+  eyebrow: (d) => (d.meetResult ? eventLabel(d.meetResult.event) : meetEyebrow(d)),
+  setup(body) {
+    const empty = el("p", "muted meet-empty", "Your attempts show here as you record them on Meet day.");
+    const grid = el("div", "result-grid");
+    grid.setAttribute("role", "table");
+    grid.setAttribute("aria-label", "Attempts by lift");
+    const tiles = el("div", "result-tiles");
+    body.append(empty, grid, tiles);
+    return { empty, grid, tiles };
+  },
+  render(d, parts) {
+    const r = d.meetResult;
+    parts.empty.hidden = Boolean(r);
+    parts.grid.hidden = parts.tiles.hidden = !r;
+    if (!r) return;
+    const { formula } = d.profile;
+    const row = (cells) => {
+      const div = el("div", "result-row");
+      div.setAttribute("role", "row");
+      div.append(...cells);
+      return div;
+    };
+    const header = (text) => {
+      const span = el("span", "result-head", text);
+      span.setAttribute("role", "columnheader");
+      return span;
+    };
+    parts.grid.replaceChildren(
+      row([header(""), header("1st"), header("2nd"), header("3rd")]),
+      ...L.LIFTS.map((lift) => {
+        const name = el("span", "result-lift", LIFT_NAMES[lift]);
+        name.setAttribute("role", "rowheader");
+        const cells = [0, 1, 2].map((i) => {
+          const a = r.lifts[lift].attempts[i];
+          const span = el("span", `result-cell${a ? (a.good ? " result-good" : " result-miss") : ""}`);
+          span.setAttribute("role", "cell");
+          if (!a) {
+            span.textContent = "–";
+            span.setAttribute("aria-label", `${ATTEMPT_NAMES[i]} not taken`);
+            return span;
+          }
+          span.append(el("span", "result-kg", kg(a.kg)));
+          if (a.pr) span.append(el("span", "pr-badge", "PR"));
+          span.setAttribute("aria-label", `${ATTEMPT_NAMES[i]} ${kg(a.kg)} kg, ${a.good ? "good lift" : "no lift"}${a.pr ? ", personal record" : ""}`);
+          return span;
+        });
+        return row([name, ...cells]);
+      }),
+    );
+    const tile = (label, value, sub) => {
+      const div = el("div", "result-tile");
+      div.append(el("span", "tile-label", label), el("span", "result-value", value));
+      if (sub) div.append(el("span", "tile-label", sub));
+      return div;
+    };
+    parts.tiles.replaceChildren(
+      tile("Made", `${r.made} / ${r.taken}`, r.pct == null ? "" : `${r.pct}%`),
+      tile("Total", r.total == null ? "–" : `${kg(r.total)} kg`, r.score == null ? "needs all three lifts" : `${S.formatScore(formula, r.score)} ${S.FORMULAS[formula].label}`),
+      tile("Left on platform", `${kg(r.left)} kg`),
+    );
+  },
+};
+
 // --- Plate loader ------------------------------------------------------------------------
 
 // Each plate drawn by weight: bigger plates are taller and thicker; greyscale, heaviest brightest.
@@ -383,7 +451,7 @@ const plateLoader = {
  * The cards, in the order they're shown. Each: { id, title, setup(body) → parts, render(derived, parts) }, and
  * optionally eyebrow(derived) for its own eyebrow (else your next meet).
  */
-export const CARDS = [planner, plateLoader, meetDayCard, warmupsCard];
+export const CARDS = [planner, plateLoader, meetDayCard, warmupsCard, resultsCard];
 
 const built = new Map(); // card id → { eyebrow, parts }
 

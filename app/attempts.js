@@ -153,3 +153,55 @@ export function dueSet({ sets, openerAt }, now) {
   if (openerAt == null || now == null || now >= openerAt) return -1;
   return sets.findLastIndex((set) => set.at <= now);
 }
+
+// --- Meet attempts: the result ----------------------------------------------------------------
+
+/** Your best of each lift from records dated before `date` (null for a lift never logged). */
+export function bestBefore(entries, date) {
+  const earlier = entries.filter((entry) => entry.date < date);
+  return Object.fromEntries(
+    LIFTS.map((lift) => {
+      const values = earlier.map((entry) => entry[lift]).filter((kg) => kg != null);
+      return [lift, values.length ? Math.max(...values) : null];
+    }),
+  );
+}
+
+/**
+ * A meet's result from its attempts. Each attempt is marked a PR when it was good and heavier than your best
+ * before the meet and every good attempt before it. Per lift, `best` is the heaviest good attempt; the total
+ * counts good lifts only and needs one of each (else null), scored at the meet's bodyweight. `left` is the kg
+ * left on the platform: for each lift, how far the heaviest miss was above the heaviest make.
+ */
+export function meetResult(attempts, { best: before = {}, bodyweight, sex, formula }) {
+  let taken = 0;
+  let made = 0;
+  let left = 0;
+  const lifts = {};
+  for (const lift of LIFTS) {
+    let best = before[lift] ?? -Infinity;
+    const marked = (attempts?.[lift] ?? []).map((a) => {
+      const pr = a.good && a.kg > best;
+      if (a.good) best = Math.max(best, a.kg);
+      return { ...a, pr };
+    });
+    const madeKg = marked.filter((a) => a.good).map((a) => a.kg);
+    const missedKg = marked.filter((a) => !a.good).map((a) => a.kg);
+    const heaviest = madeKg.length ? Math.max(...madeKg) : null;
+    if (missedKg.length) left += Math.max(0, Math.max(...missedKg) - (heaviest ?? 0));
+    taken += marked.length;
+    made += madeKg.length;
+    lifts[lift] = { attempts: marked, best: heaviest };
+  }
+  const complete = LIFTS.every((lift) => lifts[lift].best != null);
+  const total = complete ? LIFTS.reduce((sum, lift) => sum + lifts[lift].best, 0) : null;
+  return {
+    lifts,
+    taken,
+    made,
+    pct: taken ? Math.round((made / taken) * 100) : null,
+    total,
+    score: total == null ? null : score(formula, { total, bw: bodyweight, sex }),
+    left,
+  };
+}
