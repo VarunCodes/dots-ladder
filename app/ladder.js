@@ -65,8 +65,10 @@ export function nextRung(rungs, points) {
   return rungs.find((r) => r.score > points) ?? null;
 }
 
-// --- The lifter's editable numbers ---------------------------------------------------
-// A profile is { sex, bodyweight, squat, bench, deadlift, weightClass, formula, targetBw }, all kg.
+// --- The lifter's numbers and settings ---------------------------------------------------
+// In memory a profile is { sex, bodyweight, squat, bench, deadlift, weightClass, formula, targetBw }, all kg: your
+// latest numbers, always worked out from your records (never stored twice), plus your settings. Only the
+// settings are saved, under PROFILE_KEY: { weightClass, formula, targetBw }.
 // weightClass null means "work it out from bodyweight"; formula is the score shown everywhere ("dots" or "gl");
 // targetBw is the weight-class lever's bodyweight on Progress, null for the default.
 
@@ -133,21 +135,39 @@ export function lever(profile, rungs) {
   return { targetBw, now, then, delta: then - now, cleared };
 }
 
-/** The saved profile from storage (e.g. localStorage), or the fallback if there's none, it's unreadable or it's invalid. */
-export function loadProfile(storage, fallback) {
+/** A profile's settings, the only part that's saved: { weightClass, formula, targetBw }, with defaults for anything missing or invalid. */
+export function settingsOf(profile) {
+  return {
+    weightClass: typeof profile?.weightClass === "string" ? profile.weightClass : null,
+    formula: FORMULA_IDS.includes(profile?.formula) ? profile.formula : DEFAULT_FORMULA,
+    targetBw: inRange(profile?.targetBw, LIMITS.bodyweight) ? profile.targetBw : null,
+  };
+}
+
+/** Your profile: your latest numbers from your records, with your settings; null before your first record. */
+export function currentProfile(settings, tests) {
+  const latest = carried(tests).at(-1);
+  return latest ? validProfile({ ...settings, ...latest.values }) : null;
+}
+
+/**
+ * What's saved under PROFILE_KEY: { settings, legacy }, or null when nothing readable is saved. `legacy` is the
+ * full profile, numbers included, that versions before this one saved: used once to start the history, else null.
+ */
+export function loadSaved(storage) {
   try {
-    return validProfile(JSON.parse(storage.getItem(PROFILE_KEY))) ?? fallback;
+    const raw = JSON.parse(storage.getItem(PROFILE_KEY));
+    if (raw == null || typeof raw !== "object") return null;
+    return { settings: settingsOf(raw), legacy: validProfile(raw) };
   } catch {
-    return fallback;
+    return null;
   }
 }
 
-/** Saves a valid profile; returns whether it was saved (storage can be full, blocked or missing). */
-export function saveProfile(storage, profile) {
-  const clean = validProfile(profile);
-  if (!clean) return false;
+/** Saves the profile's settings only (your numbers live in your records); returns whether it was saved (storage can be full, blocked or missing). */
+export function saveSettings(storage, profile) {
   try {
-    storage.setItem(PROFILE_KEY, JSON.stringify(clean));
+    storage.setItem(PROFILE_KEY, JSON.stringify(settingsOf(profile)));
     return true;
   } catch {
     return false;
@@ -318,13 +338,16 @@ export function deleteProblem(tests, id) {
 }
 
 /**
- * The saved records, oldest first. Numbers saved before the history existed become the first record, dated today
- * (their real date wasn't recorded). Unreadable or missing storage gives the fallback; invalid records are dropped.
+ * The saved records, oldest first. Numbers saved before the history existed (`profile`, from loadSaved's legacy)
+ * become the first record, dated today (their real date wasn't recorded). Unreadable or missing storage gives the
+ * fallback; invalid records are dropped.
  */
 export function loadTests(storage, profile, today, fallback) {
   try {
     const raw = JSON.parse(storage.getItem(TESTS_KEY));
-    if (Array.isArray(raw)) return sortTests(raw.map((test) => validTest(test, profile?.sex)).filter(Boolean));
+    // A record from before records kept their sex takes the old profile's, or failing that another record's.
+    const fallbackSex = profile?.sex ?? (Array.isArray(raw) ? raw.find((r) => r?.sex in CLASSES)?.sex : undefined);
+    if (Array.isArray(raw)) return sortTests(raw.map((test) => validTest(test, fallbackSex)).filter(Boolean));
     return profile ? [testFrom(profile, today, "first")] : fallback;
   } catch {
     return fallback;

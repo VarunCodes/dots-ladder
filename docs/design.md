@@ -175,8 +175,9 @@ Everything stays on the device. Nothing the lifter enters is sent anywhere.
 
 Three keys. Each new field defaults when it's missing, so older saved data loads without a migration step.
 
-- `dots-ladder:profile`: `{ "sex": "M", "bodyweight": 82.5, "squat": 150, "bench": 105, "deadlift": 190, "weightClass": null, "formula": "dots" }`
-  - The settings (`weightClass`, `formula`) plus the latest test's sex and numbers, so the Ladder reads one place.
+- `dots-ladder:profile`: `{ "weightClass": null, "formula": "dots", "targetBw": null }`, **settings only**.
+  - Your numbers (sex, bodyweight, lifts) are never stored here: every screen works them out from your records (the latest of each, carried forward), so there's one source of truth.
+  - A profile saved by an older version still holds numbers: if there's no history yet they become its first record, and either way it's cut down to settings on the next load.
   - `weightClass` is `null` when it's worked out from bodyweight.
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
   - `targetBw` is the weight-class lever's bodyweight, or `null` for the default.
