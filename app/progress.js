@@ -175,18 +175,20 @@ function drawPlot(model, selected, next, m) {
     );
   }
   for (const tick of model.ticks) nodes.push(svg("text", { class: "chart-tick", x: tick.x, y: height - 6, "text-anchor": "middle" }, tick.label));
+  const ringed = selected ?? latest;
+  const upTo = model.points.findIndex((p) => p.id === ringed.id);
   if (model.points.length > 1) {
     if (selected) nodes.push(svg("line", { class: "chart-guide", x1: selected.x, x2: selected.x, y1: selected.y, y2: height - bottom }));
-    const line = model.points.map((p) => `${p.x},${p.y}`).join(" ");
-    nodes.push(svg("polyline", { class: `chart-line${model.dense ? " dense" : ""}`, points: line }));
-    // A soft glint that runs along the line towards your latest entry (decorative; CSS animates it).
-    nodes.push(svg("polyline", { class: "chart-pulse", points: line, pathLength: 1, "aria-hidden": "true" }));
+    const line = (points) => points.map((p) => `${p.x},${p.y}`).join(" ");
+    nodes.push(svg("polyline", { class: `chart-line${model.dense ? " dense" : ""}`, points: line(model.points) }));
+    // A soft glint that runs along the line to the ringed entry (your latest, or the one selected); decorative,
+    // animated by CSS. The first entry has no line before it, so it only gets the wrap below.
+    if (upTo > 0) nodes.push(svg("polyline", { class: "chart-pulse", points: line(model.points.slice(0, upTo + 1)), pathLength: 1, "aria-hidden": "true" }));
   }
-  const ringed = selected ?? latest;
   for (const point of model.points) nodes.push(...pointMarks(point, point.id === ringed.id, model.dense));
-  // When the glint reaches your latest entry it wraps its ring both ways, over and under, meeting on the far side.
-  const end = model.points.at(-1);
-  if (model.points.length > 1 && end.id === ringed.id) {
+  // As the glint arrives it wraps the ringed entry's ring both ways, over and under, meeting on the far side.
+  const end = model.points[upTo];
+  if (model.points.length > 1 && end) {
     const ring = { class: "chart-arrive", cx: end.x, cy: end.y, r: 9.5, pathLength: 1, "aria-hidden": "true" };
     nodes.push(svg("circle", { ...ring, transform: `rotate(180 ${end.x} ${end.y})` }), svg("circle", { ...ring, transform: `matrix(-1 0 0 1 ${2 * end.x} 0)` }));
   }
