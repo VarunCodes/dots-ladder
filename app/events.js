@@ -177,7 +177,8 @@ function onInput(item, form, input) {
     refreshEvents(now()); // nothing saved, so the store doesn't redraw: show "not saved" here
     return;
   }
-  const event = L.validEvent(raw);
+  // The form holds the plan; the saved event's other parts (its meet day) are kept.
+  const event = L.validEvent({ ...now().events.find((e) => e.id === raw.id), ...raw });
   persist(now().events.map((e) => (e.id === event.id ? event : e)));
   form.querySelector(".event-note").textContent = "Saved on this device only.";
 }
@@ -215,6 +216,7 @@ export function refreshEvents(d) {
   const onLadder = new Set(d.ladderEvents.map((e) => e.id));
   for (const item of $("event-list").querySelectorAll("details.event")) {
     const event = d.events.find((e) => e.id === item.dataset.id);
+    if (!event) continue; // the list is rebuilt on add and delete; until then, skip one that's gone
     const scores = d.eventScores(event.id);
     item.querySelector(".event-title").textContent = eventLabel(event);
     // Two scores read as "276.0 to 293.0": a plain "to" keeps them apart in the condensed face.

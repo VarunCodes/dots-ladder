@@ -155,9 +155,18 @@ export function lever(profile, rungs) {
 
 export const OPENER_PCTS = [88, 90, 91, 93]; // the attempt planner's opener choices (attempts.js)
 
+export const RACK_KEYS = ["squat", "safeties", "bench"]; // squat rack height, squat safeties, bench rack height
+
+/** Your rack settings, cleaned: { squat: "9", safeties: "4", bench: "6 / 3" } with only those set; null if none. */
+function cleanRack(raw) {
+  const rack = Object.fromEntries(RACK_KEYS.map((key) => [key, shortText(raw?.[key])]).filter(([, value]) => value));
+  return Object.keys(rack).length ? rack : null;
+}
+
 /**
  * A profile's settings, the only part that's saved: { weightClass, formula, targetBw }, with defaults for anything
- * missing or invalid, plus the optional ones only when set: openerPct (the attempt planner's choice).
+ * missing or invalid, plus the optional ones only when set: openerPct (the attempt planner's choice) and rack
+ * (your rack heights for meet day).
  */
 export function settingsOf(profile) {
   return {
@@ -165,6 +174,7 @@ export function settingsOf(profile) {
     formula: FORMULA_IDS.includes(profile?.formula) ? profile.formula : DEFAULT_FORMULA,
     targetBw: inRange(profile?.targetBw, LIMITS.bodyweight) ? profile.targetBw : null,
     ...(OPENER_PCTS.includes(profile?.openerPct) && { openerPct: profile.openerPct }),
+    ...(cleanRack(profile?.rack) && { rack: cleanRack(profile.rack) }),
   };
 }
 
@@ -418,7 +428,39 @@ export function eventProblems(raw) {
   return bad;
 }
 
-/** A clean copy of the event, or null if it has no id or any problem. */
+export const MAX_LABEL = 12; // a flight ("Flight B") or a rack setting ("9", "4 / 5")
+
+/** Short optional text (a flight, a rack setting), trimmed; null when blank or too long. */
+function shortText(raw) {
+  const text = typeof raw === "string" ? raw.trim() : "";
+  return text && text.length <= MAX_LABEL ? text : null;
+}
+
+/**
+ * The optional meet-day part of an event, cleaned: { flight, attempts: { squat: [{ kg, good }], ... } }. Anything
+ * invalid is dropped rather than refusing the event (it's typed and tapped on the day); null if nothing's left.
+ * A lift keeps at most three attempts, and only up to its first invalid one, so the order stays true.
+ */
+export function cleanDay(raw) {
+  if (raw == null || typeof raw !== "object") return null;
+  const day = {};
+  const flight = shortText(raw.flight);
+  if (flight) day.flight = flight;
+  const attempts = {};
+  for (const lift of LIFTS) {
+    const list = Array.isArray(raw.attempts?.[lift]) ? raw.attempts[lift].slice(0, 3) : [];
+    const valid = [];
+    for (const a of list) {
+      if (!inRange(a?.kg, LIMITS.lift) || typeof a.good !== "boolean") break;
+      valid.push({ kg: a.kg, good: a.good });
+    }
+    if (valid.length) attempts[lift] = valid;
+  }
+  if (Object.keys(attempts).length) day.attempts = attempts;
+  return Object.keys(day).length ? day : null;
+}
+
+/** A clean copy of the event, or null if it has no id or any problem. Its meet-day part is kept, cleaned. */
 export function validEvent(raw) {
   if (raw == null || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id || eventProblems(raw).length) return null;
   const pick = (lifts) => (scenarioGiven(lifts) ? Object.fromEntries(LIFTS.map((lift) => [lift, lifts[lift]])) : null);
@@ -429,6 +471,7 @@ export function validEvent(raw) {
     date: blankText(raw.date) ? null : raw.date,
     bodyweight: raw.bodyweight,
     ...Object.fromEntries(SCENARIOS.map((scenario) => [scenario, pick(raw[scenario])])),
+    ...(cleanDay(raw.day) && { day: cleanDay(raw.day) }),
   };
 }
 

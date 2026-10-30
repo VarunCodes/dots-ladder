@@ -7,7 +7,7 @@ import * as store from "./store.js";
 import { derived } from "./derive.js";
 import { $, choiceGroup, el } from "./dom.js";
 import { eventLabel } from "./events.js";
-import { BAR_KG, BAR_LIMITS, COLLAR_KG, OPENER_PCTS, STEP_KG } from "./attempts.js";
+import { ATTEMPT_NAMES, BAR_KG, BAR_LIMITS, COLLAR_KG, OPENER_PCTS, STEP_KG } from "./attempts.js";
 
 const now = () => derived(store.getState());
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
@@ -76,6 +76,142 @@ function noteText(note, formula) {
   if (note.kind === "short") return `${S.formatScore(formula, note.by)} short of P${note.rung.percentile}`;
   return "Above every rung";
 }
+
+// --- Meet day ----------------------------------------------------------------------------
+
+const RACK_FOR = { squat: [["squat", "rack"], ["safeties", "safeties"]], bench: [["bench", "rack"]], deadlift: [] };
+const RACK_FIELDS = [["squat", "Squat rack"], ["safeties", "Squat safeties"], ["bench", "Bench rack"]];
+
+/** Saves (or clears) a meet-day field on the event: today, its flight. */
+function saveDay(eventId, change) {
+  store.update((s) => ({ events: s.events.map((e) => (e.id === eventId ? { ...e, day: change(e.day ?? {}) } : e)) }));
+}
+
+/** Records the next attempt as good or not, and forgets the weight chosen for it. */
+function record(day, good) {
+  const { event, next } = day;
+  store.update((s) => ({
+    events: s.events.map((e) => {
+      if (e.id !== event.id) return e;
+      const attempts = { ...e.day?.attempts, [next.lift]: [...(e.day?.attempts?.[next.lift] ?? []), { kg: next.kg, good }] };
+      return { ...e, day: { ...e.day, attempts } };
+    }),
+    session: { ...s.session, attemptKg: null },
+  }));
+}
+
+/** Takes back the last attempt recorded (a mistap). */
+function undo(day) {
+  const lift = [...L.LIFTS].reverse().find((l) => day.attempts[l]?.length);
+  saveDay(day.event.id, (d) => ({ ...d, attempts: { ...d.attempts, [lift]: d.attempts[lift].slice(0, -1) } }));
+}
+
+const meetDayCard = {
+  id: "meet-day",
+  title: "Meet day",
+  setup(body) {
+    const empty = el("p", "muted meet-empty", "Add a meet with an exact date (Progress → Upcoming) to run your attempts from here.");
+    const live = el("div", "day-live");
+    const top = el("div", "day-top");
+    const flight = el("span", "eyebrow");
+    top.append(flight);
+    const strip = el("div", "day-strip");
+    strip.setAttribute("role", "img");
+    const current = el("div", "day-now");
+    const what = el("p", "day-what");
+    const stepper = el("div", "day-stepper");
+    const weight = el("output", "day-kg");
+    const step = (direction, label, text) => {
+      const button = el("button", "step-btn", text);
+      button.type = "button";
+      button.setAttribute("aria-label", label);
+      button.addEventListener("click", () => {
+        const { next } = now().meetDay;
+        const kgNow = L.stepValue(next.kg, STEP_KG, direction, [next.min, L.LIMITS.lift[1]]);
+        store.update((s) => ({ session: { ...s.session, attemptKg: { key: `${next.lift}:${next.number}`, kg: kgNow } } }));
+      });
+      return button;
+    };
+    stepper.append(step(-1, `${STEP_KG} kg lighter`, "−"), weight, step(1, `${STEP_KG} kg heavier`, "+"));
+    const rack = el("p", "muted day-rack");
+    current.append(what, stepper, rack);
+    const plates = el("p", "day-plates");
+    const actions = el("div", "day-actions");
+    const good = el("button", "day-good");
+    good.type = "button";
+    good.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>Good lift';
+    const bad = el("button", "day-bad");
+    bad.type = "button";
+    bad.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>No lift';
+    good.addEventListener("click", () => record(now().meetDay, true));
+    bad.addEventListener("click", () => record(now().meetDay, false));
+    actions.append(good, bad);
+    const after = el("p", "muted small day-after");
+    const undoButton = el("button", "link-button", "Undo last");
+    undoButton.type = "button";
+    undoButton.addEventListener("click", () => undo(now().meetDay));
+    // The flight and your rack heights: typed once, saved as you leave each field.
+    const setup = el("details", "day-setup");
+    const summary = el("summary", "", "Flight and rack heights");
+    const fields = el("div", "fields");
+    const field = (labelText, name, save) => {
+      const label = el("label", "", labelText);
+      const input = el("input");
+      input.name = name;
+      input.maxLength = L.MAX_LABEL;
+      input.autocomplete = "off";
+      input.addEventListener("change", () => save(input.value));
+      label.append(input);
+      fields.append(label);
+      return input;
+    };
+    const flightInput = field("Flight", "flight", (value) => saveDay(now().meetDay.event.id, (d) => ({ ...d, flight: value })));
+    const rackInputs = RACK_FIELDS.map(([key, text]) =>
+      field(text, key, (value) => store.update((s) => ({ settings: { ...s.settings, rack: { ...s.settings.rack, [key]: value } } }))),
+    );
+    setup.append(summary, fields);
+    live.append(top, strip, current, plates, actions, after, undoButton);
+    body.append(empty, live, setup);
+    return { empty, live, setup, flight, strip, what, stepper, weight, rack, plates, actions, after, undoButton, flightInput, rackInputs };
+  },
+  render(d, parts) {
+    const day = d.meetDay;
+    parts.empty.hidden = Boolean(day);
+    parts.live.hidden = parts.setup.hidden = !day;
+    if (!day) return;
+    const { next, event } = day;
+    parts.flight.textContent = event.day?.flight ?? "";
+    parts.flight.hidden = !event.day?.flight;
+    parts.strip.replaceChildren(
+      ...day.states.map(({ state, number }) => el("span", `day-seg seg-${state}${number === 1 ? " seg-first" : ""}`)),
+    );
+    parts.strip.setAttribute("aria-label", `${day.taken} of 9 attempts taken, ${day.states.filter((a) => a.state === "good").length} good`);
+    parts.actions.hidden = parts.plates.hidden = !next;
+    parts.stepper.hidden = parts.rack.hidden = !next;
+    if (next) {
+      parts.what.textContent = `${LIFT_NAMES[next.lift]} · ${ATTEMPT_NAMES[next.number - 1]}`;
+      parts.weight.textContent = kg(next.kg);
+      const rack = RACK_FOR[next.lift].map(([key, word]) => d.settings.rack?.[key] && `${word} ${d.settings.rack[key]}`).filter(Boolean);
+      parts.rack.textContent = ["kg", ...rack].join(" · ");
+      parts.plates.replaceChildren(
+        el("span", "muted small", "Each side"),
+        el("strong", "", next.plates.plates.length ? `${listed(next.plates.plates)} + collar` : "Collars only"),
+      );
+      parts.after.textContent =
+        next.kg === next.planned ? `On plan: ${kg(next.planned)} kg.` : `Plan said ${kg(next.planned)} kg; you've set ${kg(next.kg)}.`;
+    } else {
+      parts.what.textContent = "All nine attempts in";
+      parts.after.textContent = "Your results are under Meet attempts.";
+    }
+    parts.undoButton.hidden = !day.taken;
+    // Fill the setup fields from what's saved, except one being typed in.
+    const fill = (input, value) => {
+      if (document.activeElement !== input) input.value = value ?? "";
+    };
+    fill(parts.flightInput, event.day?.flight);
+    RACK_FIELDS.forEach(([key], i) => fill(parts.rackInputs[i], d.settings.rack?.[key]));
+  },
+};
 
 // --- Plate loader ------------------------------------------------------------------------
 
@@ -149,7 +285,7 @@ const plateLoader = {
  * The cards, in the order they're shown. Each: { id, title, setup(body) → parts, render(derived, parts) }, and
  * optionally eyebrow(derived) for its own eyebrow (else your next meet).
  */
-export const CARDS = [planner, plateLoader];
+export const CARDS = [planner, plateLoader, meetDayCard];
 
 const built = new Map(); // card id → { eyebrow, parts }
 

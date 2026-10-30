@@ -148,11 +148,27 @@ function meetValues({ settings, session }, base, rungs, plans) {
         now: L.profileScore(p),
       });
   });
+  // Your next meet's day: the attempts taken, the next one (at the weight you've set, if it's allowed) and its plates.
+  const meetDay = memoizeOnce(() => {
+    const event = plans.nextMeet()?.event;
+    const plan = attemptPlan();
+    if (!event || !plan) return null;
+    const attempts = event.day?.attempts ?? {};
+    const next = A.nextAttempt(attempts, plan);
+    if (next) {
+      const chosen = session.attemptKg; // { key: "squat:2", kg }, set with − and + before the attempt
+      if (chosen?.key === `${next.lift}:${next.number}` && chosen.kg >= next.min) next.kg = chosen.kg;
+      next.plates = A.platesPerSide(next.kg);
+    }
+    const taken = Object.values(attempts).flat().length;
+    return { event, attempts, next, taken, states: A.attemptStates(attempts, next) };
+  });
   return {
     attemptPlan,
-    // The loader's weight is the session's (not saved); it starts at your planned squat opener.
+    meetDay,
+    // The loader's weight is the session's (not saved); it starts at your next attempt, else your squat opener.
     plates: memoizeOnce(() => {
-      const total = session.plateKg ?? attemptPlan()?.steps[0].lifts.squat ?? 60;
+      const total = session.plateKg ?? meetDay()?.next?.kg ?? attemptPlan()?.steps[0].lifts.squat ?? 60;
       return { total, ...A.platesPerSide(total) };
     }),
   };
@@ -243,6 +259,13 @@ function make(state) {
      */
     get attemptPlan() {
       return meet.attemptPlan();
+    },
+    /**
+     * Your next meet's day, or null without a meet with a date: { event, attempts, next (null once all nine are
+     * taken: { lift, number, planned, min, kg, plates }), taken, states (the nine, for the progress strip) }.
+     */
+    get meetDay() {
+      return meet.meetDay();
     },
     /** The plate loader: { total, plates (one side, inside to outside), perSide, exact }. */
     get plates() {

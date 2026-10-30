@@ -75,3 +75,34 @@ export function platesPerSide(total) {
   const perSide = plates.reduce((sum, plate) => sum + plate, 0);
   return { plates, perSide, exact: BAR_KG + 2 * (COLLAR_KG + perSide) === total };
 }
+
+// --- Meet day --------------------------------------------------------------------------------
+
+export const ATTEMPT_NAMES = ["Opener", "Second attempt", "Third attempt"];
+
+/**
+ * Your next attempt from what's been taken so far ({ squat: [{ kg, good }], ... }) and the plan: squat, then bench,
+ * then deadlift, three each. { lift, number (1–3), planned, min, kg }: min is the lightest allowed (the same weight
+ * again after a miss, 2.5 kg more after a good lift), and kg is the plan's weight, raised to min if needed.
+ * Null once all nine are taken.
+ */
+export function nextAttempt(attempts, plan) {
+  const lift = LIFTS.find((l) => (attempts?.[l]?.length ?? 0) < 3);
+  if (!lift) return null;
+  const done = attempts?.[lift] ?? [];
+  const planned = plan.steps[done.length].lifts[lift];
+  const last = done.at(-1);
+  const min = last ? last.kg + (last.good ? STEP_KG : 0) : BAR_KG + 2 * COLLAR_KG;
+  return { lift, number: done.length + 1, planned, min, kg: Math.max(planned, min) };
+}
+
+/** All nine attempts in order, each "good", "miss", "next" or "todo", for the progress strip. */
+export function attemptStates(attempts, next) {
+  return LIFTS.flatMap((lift) =>
+    [0, 1, 2].map((i) => {
+      const taken = attempts?.[lift]?.[i];
+      const state = taken ? (taken.good ? "good" : "miss") : next?.lift === lift && next.number === i + 1 ? "next" : "todo";
+      return { lift, number: i + 1, state };
+    }),
+  );
+}

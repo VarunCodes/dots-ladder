@@ -60,3 +60,28 @@ test("an empty bar has no plates; a weight the set can't make loads the nearest 
   assert.deepEqual(A.platesPerSide(20), { plates: [], perSide: 0, exact: false });
   assert.deepEqual(A.platesPerSide(101), { plates: [25, 10, 2.5], perSide: 37.5, exact: false });
 });
+
+// --- Meet day --------------------------------------------------------------------------------
+
+const plan = A.attemptPlan(lifts, { pct: 91, ...lifter });
+
+test("the next attempt follows the plan: squat, bench, deadlift, three each", () => {
+  assert.deepEqual(A.nextAttempt({}, plan), { lift: "squat", number: 1, planned: 100, min: 25, kg: 100 });
+  assert.deepEqual(A.nextAttempt({ squat: [{ kg: 100, good: true }] }, plan), { lift: "squat", number: 2, planned: 105, min: 102.5, kg: 105 });
+  const squatsDone = { squat: [{ kg: 100, good: true }, { kg: 105, good: true }, { kg: 112.5, good: false }] };
+  assert.deepEqual(A.nextAttempt(squatsDone, plan), { lift: "bench", number: 1, planned: 107.5, min: 25, kg: 107.5 });
+});
+
+test("after a miss the same weight is allowed; a plan below the last good lift is raised", () => {
+  assert.equal(A.nextAttempt({ squat: [{ kg: 100, good: false }] }, plan).min, 100);
+  const heavyOpener = A.nextAttempt({ squat: [{ kg: 107.5, good: true }] }, plan);
+  assert.deepEqual([heavyOpener.planned, heavyOpener.min, heavyOpener.kg], [105, 110, 110]);
+});
+
+test("all nine taken: no next attempt; the strip marks good, miss, next and to do", () => {
+  const three = [{ kg: 100, good: true }, { kg: 105, good: true }, { kg: 110, good: true }];
+  assert.equal(A.nextAttempt({ squat: three, bench: three, deadlift: three }, plan), null);
+  const attempts = { squat: [{ kg: 100, good: true }, { kg: 105, good: false }] };
+  const states = A.attemptStates(attempts, A.nextAttempt(attempts, plan)).map((a) => a.state);
+  assert.deepEqual(states, ["good", "miss", "next", "todo", "todo", "todo", "todo", "todo", "todo"]);
+});
