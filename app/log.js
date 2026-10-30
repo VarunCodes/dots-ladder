@@ -6,7 +6,7 @@ import * as L from "./ladder.js";
 import * as S from "./scoring.js";
 import * as store from "./store.js";
 import { derived } from "./derive.js";
-import { $, formulaButtons } from "./dom.js";
+import { $, formulaChoice } from "./dom.js";
 import { fmtDay } from "./events.js";
 
 export const FIELD_TEXT = {
@@ -116,9 +116,7 @@ function renderResult() {
   const unit = S.FORMULAS[formula].label;
   $("result-unit").textContent = unit;
   // The toggle changes only the saved formula, never the draft's numbers.
-  $("log-formula").replaceChildren(
-    ...formulaButtons(formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } }))),
-  );
+  formulaChoice($("log-formula"), formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } })));
   if (!draft) {
     $("result-stale").textContent = "";
     $("result-total").textContent = "Total –";

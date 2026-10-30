@@ -25,7 +25,18 @@
 
   --display: "Barlow Condensed", "Arial Narrow", sans-serif-condensed, system-ui, sans-serif;
   --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Motion, named after the transitions.dev scale. Quick for presses, swaps and closes; fast for opens, slides
+     and screens. Every transition uses these; reduced motion keeps the fades and drops the movement. */
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: ease-in-out;
+  --distance-micro: 4px;
+  --distance-base: 8px;
+  --scale-press: 0.96;
   color-scheme: dark;
+  interpolate-size: allow-keywords; /* lets an event's details animate to their natural height */
 }
 
 * { box-sizing: border-box; }
@@ -38,6 +49,8 @@ body {
   color: var(--text);
   font: 16px/1.5 var(--body);
   font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 main, footer { max-width: 480px; margin: 0 auto; padding: 0 20px; }
@@ -46,9 +59,9 @@ main { padding-top: max(16px, env(safe-area-inset-top)); }
 /* The fixed tab bar is about 84 px tall; the footer's bottom padding keeps the last row clear of it. */
 footer { padding-top: 20px; padding-bottom: calc(110px + env(safe-area-inset-bottom)); font-size: 0.75rem; line-height: 1.45; }
 
-h1, h2 { margin: 0; font-family: var(--display); line-height: 1.1; }
+h1, h2 { margin: 0; font-family: var(--display); line-height: 1.1; text-wrap: balance; }
 h2 { font-size: 1.375rem; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
-p { margin: 0; }
+p { margin: 0; text-wrap: pretty; }
 
 .muted { color: var(--muted); }
 .small { font-size: 0.8125rem; }
@@ -59,6 +72,59 @@ a:hover { color: var(--accent-hover); }
 .eyebrow { font-size: 0.8125rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 
 .card { background: var(--surface); border-radius: 16px; padding: 16px; }
+
+/* --- Motion: choices, presses, screens, numbers ------------------------------------------ */
+
+/* A row of choices (dom.js choiceGroup): one track, and an indicator that slides to the chosen button. The
+   indicator draws the chosen fill; the buttons stay transparent so it shows through. */
+.slide { position: relative; isolation: isolate; }
+.slide::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: var(--ind-w, 0);
+  height: var(--ind-h, 0);
+  translate: var(--ind-x, 0) var(--ind-y, 0);
+  border-radius: 9px;
+  background: var(--text);
+  opacity: 0;
+  transition-property: translate, width, height;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-smooth-out);
+}
+.slide.slide-ready::before { opacity: 1; }
+.slide.slide-still::before { transition: none; }
+.slide > button, .slide > button[aria-pressed="true"] {
+  background: transparent;
+  transition: color var(--duration-fast) var(--ease-smooth-out);
+}
+
+/* Press feedback on buttons that act (choices have the slide instead). */
+.primary, .step-btn, .button, .chip-button {
+  transition-property: scale, background-color, border-color, color;
+  transition-duration: var(--duration-quick);
+  transition-timing-function: var(--ease-smooth-out);
+}
+:is(.primary, .step-btn, .button, .chip-button):active:not(:disabled) { scale: var(--scale-press); }
+
+/* Hover only where there's a pointer, so a tap doesn't leave a button lit. */
+@media (hover: hover) {
+  :is(.step-btn, .button):hover { background: var(--divider); }
+  .chip-button:hover { border-color: var(--muted); }
+  .slide > button[aria-pressed="false"]:hover { color: var(--text-2); }
+  .tabbar a:not([aria-current]):hover { color: var(--text-2); }
+}
+
+/* A screen you switch to fades in and rises a little; not on first load. */
+.screen.enter { animation: rise-in var(--duration-fast) var(--ease-smooth-out); }
+@keyframes rise-in { from { opacity: 0; translate: 0 var(--distance-base); } }
+
+/* A headline number that changes (another formula, a new record) fades the new value in. */
+#now-score, #chart-now { display: inline-block; }
+.swap { animation: swap-in var(--duration-quick) var(--ease-in-out); }
+@keyframes swap-in { from { opacity: 0; translate: 0 var(--distance-micro); } }
 
 /* --- Ladder: hero, next rung, the rungs ------------------------------------------- */
 
@@ -105,10 +171,12 @@ a:hover { color: var(--accent-hover); }
   letter-spacing: 0.06em;
   cursor: pointer;
 }
-.formula-option[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.formula-option[aria-pressed="true"] { color: var(--on-accent); }
+.formula-toggle::before { background: var(--accent); }
 /* On Log test the accent belongs to Save, so the chosen score is chalk, like the experience tabs. */
 .formula-quiet .formula-option { min-width: 48px; padding: 0 10px; }
-.formula-quiet .formula-option[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+.formula-quiet .formula-option[aria-pressed="true"] { color: var(--bg); }
+.formula-quiet::before { background: var(--text); }
 .hero-score { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
 #now-score { font-family: var(--display); font-weight: 700; font-size: 5.25rem; line-height: 0.9; letter-spacing: -0.01em; }
 .hero-unit { font-size: 0.875rem; color: var(--muted); }
@@ -140,24 +208,26 @@ a:hover { color: var(--accent-hover); }
   color: var(--text-2);
   font-size: 0.75rem;
 }
-.chip-button { background: transparent; font: inherit; font-size: 0.75rem; cursor: pointer; min-height: 28px; }
+.chip-button { position: relative; background: transparent; font: inherit; font-size: 0.75rem; cursor: pointer; min-height: 28px; }
+/* 28px to look at, 44px to tap. */
+.chip-button::before { content: ""; position: absolute; inset: -8px 0; }
 .chip-button::after { content: "▾"; color: var(--muted); }
 .chip-icon { width: 14px; height: 14px; }
 
-.segmented-tabs { display: flex; gap: 6px; }
+/* Meet experience: one track, the chosen tab chalk (the slide's indicator). */
+.segmented-tabs { display: flex; gap: 3px; padding: 3px; border-radius: 12px; background: var(--surface-2); }
 .tab {
   flex: 1 1 0;
   min-height: 44px;
   padding: 8px 6px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface-2);
+  border: 0;
+  border-radius: 9px;
   color: var(--muted);
   font: inherit;
   font-size: 0.875rem;
   cursor: pointer;
 }
-.tab[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+.tab[aria-pressed="true"] { color: var(--bg); font-weight: 600; }
 
 /* One row per rung or marker: key (P50 / You / an icon) | title and value | gap or icon. */
 .rung-list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
@@ -278,7 +348,7 @@ a:hover { color: var(--accent-hover); }
   align-items: center;
   gap: 8px;
   padding: 10px 12px 10px 16px;
-  border-radius: 14px;
+  border-radius: 18px; /* its 8px buttons + 10px padding, so the corners nest */
   background: var(--surface);
 }
 .stepper label { display: flex; flex-direction: column; }
@@ -288,7 +358,7 @@ a:hover { color: var(--accent-hover); }
   width: 44px;
   height: 44px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--surface-2);
   color: var(--text);
   font-size: 1.375rem;
@@ -394,6 +464,13 @@ a:hover { color: var(--accent-hover); }
   list-style: none;
 }
 .event summary::-webkit-details-marker { display: none; }
+/* Opening and closing glide to the natural height (Chromium; other browsers just snap). */
+.event::details-content {
+  height: 0;
+  overflow: clip;
+  transition: height var(--duration-fast) var(--ease-smooth-out), content-visibility var(--duration-fast) allow-discrete;
+}
+.event[open]::details-content { height: auto; }
 .event-title::after { content: " +"; color: var(--muted); }
 .event[open] .event-title::after { content: " −"; }
 .event-score { font-family: var(--display); font-size: 1.375rem; font-weight: 600; color: var(--text-2); white-space: nowrap; }
@@ -425,22 +502,29 @@ a:hover { color: var(--accent-hover); }
 
 /* Score | Total | BW (chalk when chosen, like the experience tabs) and 3M | All (underlined). */
 .chart-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
-.view-group { display: flex; gap: 6px; }
+.view-group { display: flex; gap: 3px; padding: 3px; border-radius: 12px; background: var(--surface-2); }
 .view-option {
   min-width: 52px;
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface-2);
+  border: 0;
+  border-radius: 9px;
   color: var(--muted);
   font: inherit;
   font-size: 0.9375rem;
   cursor: pointer;
 }
-.view-option[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
-.view-range .view-option { min-width: 44px; padding: 0 10px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; }
-.view-range .view-option[aria-pressed="true"] { background: none; color: var(--text); border-bottom-color: var(--accent); }
+.view-option[aria-pressed="true"] { color: var(--bg); font-weight: 600; }
+.view-range { gap: 0; padding: 0; background: none; }
+.view-range .view-option { min-width: 44px; padding: 0 10px; border-radius: 0; }
+.view-range .view-option[aria-pressed="true"] { color: var(--text); }
+/* The underline: a 2px accent bar along the chosen option's bottom edge. */
+.view-range::before {
+  top: calc(var(--ind-h, 0px) - 2px);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
 /* Lifts' second choice (Total | Squat | Bench | Deadlift), under the top row, in the same underlined style. */
 .view-lift { margin: -4px 0 8px; }
 .view-lift[hidden] { display: none; }
@@ -572,6 +656,11 @@ a:hover { color: var(--accent-hover); }
   white-space: nowrap;
 }
 
+/* Reduced motion: nothing moves or scales, and colours and fades still change, so every state change stays visible. */
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
+  .slide::before { transition-property: none; }
+  :is(.primary, .step-btn, .button, .chip-button):active:not(:disabled) { scale: none; }
+  .event::details-content { transition: none; }
+  @keyframes rise-in { from { opacity: 0; } }
+  @keyframes swap-in { from { opacity: 0; } }
 }

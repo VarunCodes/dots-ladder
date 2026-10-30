@@ -5,7 +5,7 @@ import * as L from "./ladder.js";
 import * as S from "./scoring.js";
 import * as store from "./store.js";
 import { derived } from "./derive.js";
-import { $, el, formulaButtons } from "./dom.js";
+import { $, choiceGroup, el, formulaChoice, replay, setNumber } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 import { FIELD_TEXT, openLog, refreshLog, setupLog } from "./log.js";
 import { openProgress, refreshProgress, setupProgress } from "./progress.js";
@@ -73,7 +73,7 @@ function scenarioWords(scenario) {
 }
 
 function renderHero(profile, points, rungs) {
-  $("now-score").textContent = S.formatScore(profile.formula, points);
+  setNumber($("now-score"), S.formatScore(profile.formula, points));
   $("now-unit").textContent = `your ${S.FORMULAS[profile.formula].label}`;
   $("now-caption").textContent = [`${L.sumLifts(profile)} kg total`, `${profile.bodyweight} kg bodyweight`, L.rungPosition(rungs, points)]
     .filter(Boolean)
@@ -142,16 +142,9 @@ function render() {
   const missing = d.rungsData.rungs.some((r) => r[formula]) ? "" : `${S.FORMULAS[formula].label} rungs coming soon.`;
 
   // Both choices go through the store, and its subscriber redraws.
-  $("formula").replaceChildren(...formulaButtons(formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } }))));
-
-  $("experience").replaceChildren(
-    ...L.EXPERIENCE.map((name) => {
-      const button = el("button", "tab", name);
-      button.type = "button";
-      button.setAttribute("aria-pressed", name === experience);
-      button.addEventListener("click", () => store.update((s) => ({ session: { ...s.session, experience: name } })));
-      return button;
-    }),
+  formulaChoice($("formula"), formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } })));
+  choiceGroup($("experience"), "tab", L.EXPERIENCE.map((name) => [name, name]), experience, (name) =>
+    store.update((s) => ({ session: { ...s.session, experience: name } })),
   );
 
   // The class chip says who you're compared with; the symbol is hidden, so the label carries "Men" or "Women".
@@ -172,9 +165,16 @@ function render() {
   $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
 }
 
-/** Shows one screen. With nothing saved, only the Ladder's first-visit form is reachable, and the tab bar stays hidden. */
+let shownScreen = null;
+
+/**
+ * Shows one screen; switching to another fades it in (not on first load). With nothing saved, only the Ladder's
+ * first-visit form is reachable, and the tab bar stays hidden.
+ */
 function showScreen(screen) {
   for (const name of L.ROUTES) $(`screen-${name}`).hidden = name !== screen;
+  if (shownScreen && shownScreen !== screen) replay($(`screen-${screen}`), "enter");
+  shownScreen = screen;
   for (const tab of $("tabbar").querySelectorAll("a")) {
     if (tab.dataset.route === screen) tab.setAttribute("aria-current", "page");
     else tab.removeAttribute("aria-current");

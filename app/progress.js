@@ -7,7 +7,7 @@ import * as S from "./scoring.js";
 import * as store from "./store.js";
 import { derived } from "./derive.js";
 import { CHART, TIP_GAP, TIP_LIFT, chartModel, nearestPoint, progressStats, tipSide } from "./chart.js";
-import { $, el, formulaButtons } from "./dom.js";
+import { $, choiceGroup, el, formulaChoice, setNumber } from "./dom.js";
 import { fmtDay } from "./events.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -109,19 +109,9 @@ function groupName() {
 
 /** Score | Total | BW and 3M | All: pressed buttons, saved on this device. */
 function renderControls() {
+  // Saved through the store; its subscriber redraws the chart.
   const group = (id, options, key) =>
-    $(id).replaceChildren(
-      ...options.map(([value, text]) => {
-        const button = el("button", "view-option", text);
-        button.type = "button";
-        button.setAttribute("aria-pressed", now().view[key] === value);
-        // Saved through the store; its subscriber redraws the chart.
-        button.addEventListener("click", () => {
-          if (now().view[key] !== value) store.update((s) => ({ view: { ...s.view, [key]: value } }));
-        });
-        return button;
-      }),
-    );
+    choiceGroup($(id), "view-option", options, now().view[key], (value) => store.update((s) => ({ view: { ...s.view, [key]: value } })));
   group("chart-metric", [["score", "Score"], ["lifts", "Lifts"], ["bw", "BW"]], "metric");
   // Lifts has a second choice: the total or one lift.
   $("chart-lift").hidden = now().view.metric !== "lifts";
@@ -132,7 +122,7 @@ function renderControls() {
 /** The value now, the change since the first day in range ("Starting point" with one), and a rung too high to draw. */
 function renderHeader(list, model, m) {
   const latest = list.at(-1);
-  $("chart-now").textContent = m.num(latest.score);
+  setNumber($("chart-now"), m.num(latest.score));
   $("chart-unit").textContent = m.unit;
   const change = latest.score - list[0].score;
   $("chart-change").textContent = list.length === 1 ? "Starting point" : `${m.change(change)} since ${shortDay(list[0].date)}`;
@@ -587,9 +577,7 @@ export function setupProgress() {
 
 /** The same DOTS / GL toggle as the Ladder's: switching redraws this screen and saves the choice for every screen. */
 function renderFormula() {
-  $("progress-formula").replaceChildren(
-    ...formulaButtons(now().profile.formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } }))),
-  );
+  formulaChoice($("progress-formula"), now().profile.formula, (id) => store.update((s) => ({ settings: { ...s.settings, formula: id } })));
 }
 
 /** Draws the whole screen, the 1RMs list included; called each time it opens. */
