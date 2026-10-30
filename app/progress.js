@@ -4,8 +4,8 @@
 // this file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
-import { CHART, chartModel, nearestPoint, onePerDay } from "./chart.js";
-import { $, el } from "./dom.js";
+import { CHART, chartModel, nearestPoint, onePerDay, progressStats, tipPlacement } from "./chart.js";
+import { $, el, formulaButtons } from "./dom.js";
 import { fmtDay } from "./events.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -56,69 +56,163 @@ function entries() {
 const days = () => onePerDay(entries());
 
 function renderChart() {
-  const { formula } = ctx.state.profile;
-  const label = S.FORMULAS[formula].label;
   const list = days();
   const rungs = groupRungs();
   const model = chartModel(list, rungs);
-  const latest = list.at(-1);
   if (!list.some((e) => e.id === selectedId)) selectedId = null;
-  const selected = list.find((e) => e.id === selectedId) ?? latest;
+  const selected = model.points.find((p) => p.id === selectedId) ?? model.points.at(-1);
 
+  renderHeader(list, model);
+  drawPlot(model, selected, L.nextRung(rungs, list.at(-1).score));
+  renderTip(list, model, selected, rungs);
+  renderLegend(model);
+  renderStats(list, rungs);
+  $("chart-hit").hidden = list.length < 2;
+}
+
+/** Score now, the change since the first day ("Starting point" with one), and a rung too high to draw. */
+function renderHeader(list, model) {
+  const { formula } = ctx.state.profile;
+  const latest = list.at(-1);
   $("chart-now").textContent = S.formatScore(formula, latest.score);
-  $("chart-unit").textContent = `${label} now`;
+  $("chart-unit").textContent = `${S.FORMULAS[formula].label} now`;
   const change = latest.score - list[0].score;
   $("chart-change").textContent = list.length === 1 ? "Starting point" : `${signed(formula, change)} since ${shortDay(list[0].date)}`;
   $("chart-change").className = list.length > 1 && change > 0 ? "up" : "";
+  const off = model.offChart;
+  $("chart-offchart").hidden = !off;
+  if (off) $("chart-offchart").textContent = `P${off.percentile} · ${S.formatRung(formula, off.score)} ↑ off chart`;
+}
 
-  const { width, height } = CHART;
+/** The SVG: value gridlines and labels, rung lines with their values, month labels, the line, and the points. */
+function drawPlot(model, selected, next) {
+  const { formula } = ctx.state.profile;
+  const label = S.FORMULAS[formula].label;
+  const { width, height, left, right, bottom } = CHART;
+  const [first, latest] = [model.points[0], model.points.at(-1)];
   const plot = $("chart");
   plot.setAttribute("viewBox", `0 0 ${width} ${height}`);
   plot.setAttribute(
     "aria-label",
-    list.length === 1
+    model.points.length === 1
       ? `${label} over time: one test, ${S.formatScore(formula, latest.score)} on ${fmtDay(latest.date)}.`
-      : `${label} over time: ${S.formatScore(formula, list[0].score)} on ${fmtDay(list[0].date)} to ${S.formatScore(formula, latest.score)} on ${fmtDay(latest.date)}, across ${list.length} days of tests.`,
+      : `${label} over time: ${S.formatScore(formula, first.score)} on ${fmtDay(first.date)} to ${S.formatScore(formula, latest.score)} on ${fmtDay(latest.date)}, across ${model.points.length} days of tests.`,
   );
-  const next = L.nextRung(rungs, latest.score);
+
   const nodes = [];
-  for (const rung of model.rungs) {
-    const isNext = rung.percentile === next?.percentile ? " next" : "";
+  // Beyond the top or lowest rung: a faint band, named in the label gutter ("Top 10%" above its line, "Bottom 10%" at the foot).
+  for (const band of model.bands) {
     nodes.push(
-      svg("line", { class: `chart-rung${isNext}`, x1: CHART.left, x2: width - CHART.right + 2, y1: rung.y, y2: rung.y }),
-      svg("text", { class: `chart-rung-label${isNext}`, x: width - CHART.right + 8, y: rung.y + 4 }, `P${rung.percentile}`),
+      svg("rect", { class: "chart-band", x: left, y: band.y1, width: width - right - left, height: Math.max(0, band.y2 - band.y1) }),
+      svg("text", { class: "chart-band-label", x: width - right, y: band.edge === "top" ? band.y2 - 5 : band.y2 - 4, "text-anchor": "end" }, band.label),
+    );
+  }
+  for (const { value, y } of model.values) {
+    nodes.push(
+      svg("line", { class: "chart-grid", x1: left, x2: width - right, y1: y, y2: y }),
+      svg("text", { class: "chart-value", x: left - 6, y: y + 4, "text-anchor": "end" }, String(value)),
+    );
+  }
+  for (const rung of model.rungs) {
+    const isNext = rung.percentile === next?.percentile;
+    const value = `P${rung.percentile} · ${S.formatRung(formula, rung.score)}`;
+    nodes.push(
+      svg("line", { class: `chart-rung${isNext ? " next" : ""}`, x1: left, x2: width - right, y1: rung.y, y2: rung.y }),
+      // The next rung is named above its line; others sit just below theirs.
+      svg("text", { class: `chart-rung-label${isNext ? " next" : ""}`, x: width - right, y: isNext ? rung.y - 5 : rung.y + 12, "text-anchor": "end" }, isNext ? `Next rung · ${value}` : value),
     );
   }
   for (const tick of model.ticks) nodes.push(svg("text", { class: "chart-tick", x: tick.x, y: height - 6, "text-anchor": "middle" }, tick.label));
   if (model.points.length > 1) {
+    nodes.push(svg("line", { class: "chart-guide", x1: selected.x, x2: selected.x, y1: selected.y, y2: height - bottom }));
     nodes.push(svg("polyline", { class: `chart-line${model.dense ? " dense" : ""}`, points: model.points.map((p) => `${p.x},${p.y}`).join(" ") }));
   }
-  for (const point of model.points) {
-    const ringed = point.id === selected.id;
-    const r = ringed || !model.dense ? 5 : 3;
-    if (ringed) nodes.push(svg("circle", { class: "chart-ring", cx: point.x, cy: point.y, r: 9.5 }));
-    nodes.push(svg("circle", { class: `chart-dot${point.otherSex ? " other" : ""}`, cx: point.x, cy: point.y, r }));
-  }
+  for (const point of model.points) nodes.push(...pointMarks(point, point.id === selected.id, model.dense));
   plot.replaceChildren(...nodes);
-  $("chart-hit").hidden = list.length < 2;
-  renderDetail(list, selected, rungs);
 }
 
-/** The row under the chart: the selected day's test (the latest by default), its change from the day before, and where it sat. */
-function renderDetail(list, selected, rungs) {
+/** A test's dot: hollow where it first cleared a rung, muted for your other sex category, ringed when selected, smaller when dense. */
+function pointMarks(point, selected, dense) {
+  const marks = [];
+  if (selected) marks.push(svg("circle", { class: "chart-ring", cx: point.x, cy: point.y, r: 9.5 }));
+  const kind = point.cleared ? " cleared" : point.otherSex ? " other" : "";
+  const r = point.cleared ? 6 : selected || !dense ? 5 : 3;
+  marks.push(svg("circle", { class: `chart-dot${kind}`, cx: point.x, cy: point.y, r }));
+  return marks;
+}
+
+/** The tooltip by the selected point, and the same words for screen readers. */
+function renderTip(list, model, selected, rungs) {
   const { formula } = ctx.state.profile;
-  const i = list.indexOf(selected);
-  const { test } = selected;
-  const prefix = selected === list.at(-1) ? "Latest · " : "";
-  $("chart-selected").textContent = `${prefix}${shortDay(test.date)} · ${L.sumLifts(test)} kg @ ${test.bodyweight}`;
+  const i = list.findIndex((e) => e.id === selected.id);
+  const { test } = list[i];
   const delta = i > 0 ? selected.score - list[i - 1].score : null;
-  $("chart-delta").textContent = delta == null ? "First entry" : `${signed(formula, delta)} vs previous`;
-  $("chart-delta").className = delta > 0 ? "up" : "";
-  const sameDay = selected.sameDay ? `${selected.sameDay} more test${selected.sameDay === 1 ? "" : "s"} that day` : "";
-  $("chart-note").textContent =
-    ctx.state.tests.length === 1
-      ? "One test so far. Log another to see your progress."
-      : [selected.otherSex ? `${SEX_WORDS[test.sex]} test` : "", capital(L.rungPosition(rungs, selected.score)), sameDay].filter(Boolean).join(" · ");
+  const extras = [
+    selected.otherSex ? `${SEX_WORDS[test.sex]} test` : "",
+    selected.sameDay ? `${selected.sameDay} more that day` : "",
+  ].filter(Boolean);
+  const score = S.formatScore(formula, selected.score);
+
+  $("tip-title").textContent = `${shortDay(test.date)} · 1RM test`;
+  $("tip-score").textContent = `${score} · ${delta == null ? "first test" : signed(formula, delta)}`;
+  $("tip-sub").textContent =
+    ctx.state.tests.length === 1 ? "Log another to see your progress." : [`${L.sumLifts(test)} kg @ ${test.bodyweight}`, ...extras].join(" · ");
+  const { side, level, room } = tipPlacement(selected);
+  const tip = $("chart-tip");
+  tip.dataset.side = side;
+  tip.dataset.level = level;
+  tip.style.left = `${(selected.x / CHART.width) * 100}%`;
+  // As wide as the room on its side of the point allows (it wraps beyond that), with a floor for very narrow charts.
+  tip.style.maxWidth = `${Math.max(120, room * $("chart").getBoundingClientRect().width - 20)}px`;
+  tip.style.top = `${(selected.y / CHART.height) * 100}%`;
+
+  $("chart-live").textContent = [
+    `${fmtDay(test.date)}: ${score} ${S.FORMULAS[formula].label}`,
+    delta == null ? "your first test" : `${signed(formula, delta)} on the test before`,
+    `${L.sumLifts(test)} kg at ${test.bodyweight} kg`,
+    capital(L.rungPosition(rungs, selected.score)),
+    ...extras,
+  ].filter(Boolean).join(". ");
+}
+
+/** The key: only what this chart shows. */
+function renderLegend(model) {
+  const items = [["dot", "1RM test"], ["rung", "Rung"]];
+  if (model.points.some((p) => p.cleared)) items.push(["cleared", "Rung cleared"]);
+  const other = model.points.find((p) => p.otherSex && !p.cleared);
+  if (other) items.push(["other", `${SEX_WORDS[other.test.sex]} test`]);
+  $("chart-legend").replaceChildren(
+    ...items.map(([kind, text]) => {
+      const li = el("li", null, text);
+      li.prepend(el("span", `key key-${kind}`));
+      li.firstChild.setAttribute("aria-hidden", "true");
+      return li;
+    }),
+  );
+}
+
+/** The four tiles: total and bodyweight with their change, the average per month, and the rungs cleared. */
+function renderStats(list, rungs) {
+  const { formula } = ctx.state.profile;
+  const stats = progressStats(list, rungs);
+  const one = list.length === 1;
+  const kg = (n) => `${n >= 0 ? "+" : "−"}${Math.abs(Math.round(n * 10) / 10)} kg`;
+  const tile = (id, value, sub, up = false) => {
+    $(id).textContent = value;
+    $(`${id}-sub`).textContent = sub;
+    $(`${id}-sub`).className = `tile-sub${up ? " up" : ""}`;
+  };
+  tile("stat-total", `${stats.total.now} kg`, one ? "First test" : kg(stats.total.change), !one && stats.total.change > 0);
+  tile("stat-bw", `${stats.bodyweight.now} kg`, one ? "First test" : kg(stats.bodyweight.change));
+  tile(
+    "stat-month",
+    stats.perMonth == null ? "—" : signed(formula, stats.perMonth),
+    stats.perMonth == null ? "Needs 4 weeks of tests" : S.FORMULAS[formula].label,
+    stats.perMonth > 0,
+  );
+  const top = stats.cleared.at(-1);
+  const next = L.nextRung(rungs, list.at(-1).score);
+  tile("stat-rungs", String(stats.cleared.length), top ? `P${top.percentile} · ${shortDay(top.date)}` : next ? `Next: P${next.percentile}` : "Top rung reached");
 }
 
 function setupChartTouch() {
@@ -363,8 +457,21 @@ export function setupProgress(context) {
   setupLever();
 }
 
-/** Draws the whole screen; called each time it opens, and after a test is deleted. */
+/** The same DOTS / GL toggle as the Ladder's: switching redraws this screen and saves the choice for every screen. */
+function renderFormula() {
+  $("progress-formula").replaceChildren(
+    ...formulaButtons(ctx.state.profile.formula, (id) => {
+      ctx.state.profile = { ...ctx.state.profile, formula: id };
+      L.saveProfile(ctx.storage, ctx.state.profile);
+      openProgress();
+      ctx.onChange();
+    }),
+  );
+}
+
+/** Draws the whole screen; called each time it opens, after a test is deleted, and when the formula changes. */
 export function openProgress() {
+  renderFormula();
   renderChart();
   renderLever();
   renderSplit();

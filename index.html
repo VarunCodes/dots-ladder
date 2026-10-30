@@ -168,7 +168,10 @@
 
     <section id="screen-progress" class="screen" aria-labelledby="progress-title" hidden>
       <header class="screen-head">
-        <p class="eyebrow">Progress</p>
+        <div class="hero-top">
+          <p class="eyebrow">Progress</p>
+          <div id="progress-formula" class="formula-toggle" role="group" aria-label="Score shown"></div>
+        </div>
         <h1 id="progress-title">The climb</h1>
       </header>
       <section class="card chart-card" aria-labelledby="chart-heading">
@@ -177,15 +180,27 @@
           <p class="chart-score"><span id="chart-now">–</span> <span id="chart-unit" class="muted">DOTS now</span></p>
           <p id="chart-change"></p>
         </div>
+        <p id="chart-offchart" class="chart-offchart muted small" hidden></p>
         <div class="chart-plot">
           <svg id="chart" role="img" aria-label="Your score over time"></svg>
+          <!-- The selected test, by its point. Screen readers get the same text from #chart-live. -->
+          <div id="chart-tip" class="chart-tip" aria-hidden="true">
+            <p id="tip-title"></p>
+            <p id="tip-score"></p>
+            <p id="tip-sub"></p>
+          </div>
           <!-- One touch area over the whole plot: tests can sit closer together than a 44px target. -->
-          <button id="chart-hit" class="chart-hit" type="button" aria-label="Select a test on the chart. Left and right arrow keys move between tests." aria-describedby="chart-detail"></button>
+          <button id="chart-hit" class="chart-hit" type="button" aria-label="Select a test on the chart. Left and right arrow keys move between tests." aria-describedby="chart-live"></button>
         </div>
-        <div id="chart-detail" class="chart-detail" aria-live="polite">
-          <p class="chart-detail-top"><span id="chart-selected"></span><span id="chart-delta"></span></p>
-          <p id="chart-note" class="muted small"></p>
-        </div>
+        <p id="chart-live" class="visually-hidden" aria-live="polite"></p>
+        <ul id="chart-legend" class="chart-legend" aria-label="Key"></ul>
+      </section>
+
+      <section class="stat-tiles" aria-label="Since your first test">
+        <div class="tile"><p class="tile-label">Total</p><p id="stat-total" class="tile-value"></p><p id="stat-total-sub" class="tile-sub"></p></div>
+        <div class="tile"><p class="tile-label">Bodyweight</p><p id="stat-bw" class="tile-value"></p><p id="stat-bw-sub" class="tile-sub"></p></div>
+        <div class="tile"><p class="tile-label">Avg per month</p><p id="stat-month" class="tile-value"></p><p id="stat-month-sub" class="tile-sub"></p></div>
+        <div class="tile"><p class="tile-label">Rungs cleared</p><p id="stat-rungs" class="tile-value"></p><p id="stat-rungs-sub" class="tile-sub"></p></div>
       </section>
 
       <section class="lever" aria-labelledby="lever-heading">
