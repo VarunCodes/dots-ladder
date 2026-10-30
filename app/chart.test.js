@@ -123,3 +123,20 @@ test("tiles: total and bodyweight change, average per month, rungs cleared", () 
   assert.equal(progressStats([list[0]], rungs).perMonth, null);
 });
 
+test("the month after your latest test is always labelled", () => {
+  const list = [entry("a", "2026-02-13", 240), entry("b", "2026-06-18", 321), entry("c", "2026-08-13", 358), entry("d", "2026-10-29", 371)];
+  const labels = chartModel(list, rungs).ticks.map((t) => t.label);
+  assert.deepEqual(labels.slice(-2), ["Oct", "Dec"], "every 2nd month, so Dec is the next label after 29 Oct");
+  const short = chartModel([entry("a", "2026-09-01", 270), entry("b", "2026-10-29", 280)], rungs).ticks.map((t) => t.label);
+  assert.ok(short.includes("Nov"), `the month after 29 Oct is labelled: ${short}`);
+  for (const model of [chartModel(list, rungs)]) assert.ok(model.ticks.at(-1).x <= CHART.width - CHART.right - CHART.gutter + 1, "the label stays in the data area");
+});
+
+test("above the top rung there's no next-rung label, so the plot uses the space at the top", () => {
+  const highest = [entry("a", "2026-05-01", 345), entry("b", "2026-06-01", 360)];
+  const below = [entry("a", "2026-05-01", 280), entry("b", "2026-06-01", 290)];
+  const top = (list) => Math.min(...chartModel(list, rungs).points.map((p) => p.y));
+  assert.ok(top(highest) < CHART.top, `${top(highest)}: the top point rises into the label room`);
+  assert.ok(top(below) > CHART.top, "with a next rung, its label keeps that room");
+});
+

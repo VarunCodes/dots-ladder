@@ -81,8 +81,11 @@ export function rungLines(rungs, scores) {
   return rungs.filter((r) => (r.score >= low && r.score <= high) || r === next);
 }
 
-/** Month labels from the first to the last day shown: every month, or every 2nd once the range passes 7 months; January shows the year. */
-export function monthTicks(fromMs, toMs, x) {
+/**
+ * Month labels from the first to the last day shown: every month, or every 2nd once the range passes 7 months
+ * (`every` fixes the step); January shows the year. Each label has its time `at` and position `x`.
+ */
+export function monthTicks(fromMs, toMs, x, every = (toMs - fromMs) / DAY_MS / 30.44 > 7 ? 2 : 1) {
   const start = new Date(fromMs);
   const year = start.getUTCFullYear();
   let month = start.getUTCMonth() + 1; // the first whole month in view; Date.UTC rolls month 12 into the next year
@@ -90,10 +93,9 @@ export function monthTicks(fromMs, toMs, x) {
   for (let at = Date.UTC(year, month, 1); at <= toMs; at = Date.UTC(year, ++month, 1)) {
     const d = new Date(at);
     const m = d.getUTCMonth();
-    ticks.push({ x: x(at), label: m === 0 ? `Jan ’${String(d.getUTCFullYear()).slice(2)}` : MONTHS[m] });
+    ticks.push({ at, x: x(at), label: m === 0 ? `Jan ’${String(d.getUTCFullYear()).slice(2)}` : MONTHS[m] });
   }
-  const span = (toMs - fromMs) / DAY_MS / 30.44;
-  return span > 7 ? ticks.filter((_, i) => i % 2 === 0) : ticks;
+  return ticks.filter((_, i) => i % every === 0);
 }
 
 /**
@@ -107,7 +109,11 @@ export function chartModel(entries, rungs) {
   const mid = (times[0] + times.at(-1)) / 2;
   const span = Math.max(times.at(-1) - times[0], MIN_SPAN_DAYS * DAY_MS);
   const pad = span * 0.06;
-  const [fromMs, toMs] = [mid - span / 2 - pad, mid + span / 2 + pad];
+  const fromMs = mid - span / 2 - pad;
+  // The range always reaches the next month label after your latest test, so the month ahead is in view.
+  const every = (span + 2 * pad) / DAY_MS / 30.44 > 7 ? 2 : 1;
+  const ahead = monthTicks(fromMs, times.at(-1) + 100 * DAY_MS, (at) => at, every).find((t) => t.at > times.at(-1));
+  const toMs = Math.max(mid + span / 2 + pad, ahead.at + 6 * DAY_MS);
 
   const scores = entries.map((e) => e.score);
   const lines = rungLines(rungs, scores);
@@ -116,16 +122,18 @@ export function chartModel(entries, rungs) {
   const highest = Math.max(...values);
   const ySpan = Math.max(highest - lowest, highest * 0.04); // a flat history still has some height
   const yMid = (lowest + highest) / 2;
-  const [yLow, yHigh] = [yMid - ySpan * 0.62, yMid + ySpan * 0.62];
+  const [yLow, yHigh] = [yMid - ySpan * 0.56, yMid + ySpan * 0.56];
+  // Room at the top only for the next rung's label; above the top rung, the plot uses that space.
+  const roof = rungs.some((r) => r.score > scores.at(-1)) ? top : 10;
 
   const x = (ms) => left + ((ms - fromMs) / (toMs - fromMs)) * (width - left - right - gutter);
-  const y = (value) => top + ((yHigh - value) / (yHigh - yLow)) * (height - top - bottom);
+  const y = (value) => roof + ((yHigh - value) / (yHigh - yLow)) * (height - roof - bottom);
 
   const cleared = new Set(rungCrossings(entries, rungs).map((c) => c.id));
   return {
     points: entries.map((e, i) => ({ ...e, x: x(times[i]), y: y(e.score), cleared: cleared.has(e.id) })),
     rungs: lines.map((r) => ({ ...r, y: y(r.score) })),
-    ticks: monthTicks(fromMs, toMs, x),
+    ticks: monthTicks(fromMs, toMs, x, every),
     values: valueTicks(yLow, yHigh).map((value) => ({ value, y: y(value) })),
     // The first rung above the top of the plot, named under the header so it isn't forgotten.
     offChart: rungs.find((r) => r.score > yHigh) ?? null,

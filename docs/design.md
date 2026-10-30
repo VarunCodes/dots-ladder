@@ -128,7 +128,8 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - **Y-axis:** about three round values on the left (270, 290, 310) with faint `--divider` gridlines.
    - **A gutter on the right** holds the rung labels: points stop before it, so your latest test never covers a label at any width. Rung lines run on into it.
    - **Rung lines** (no goal line): dashed lines for the rungs between your lowest and highest score, plus the next rung above your latest. Labels carry the value: the next rung in `--accent` above its line, "Next rung · P25 · 300"; others `--muted` below theirs, "P10 · 266". They come from the group the Ladder shows (class and experience tab), so the two always agree.
-   - Month labels at 11px in `--muted`: every month, or every 2nd once the range passes 7 months; January shows the year ("Jan ’27").
+   - Month labels at 11px in `--muted`: every month, or every 2nd once the range passes 7 months; January shows the year ("Jan ’27"). The range always reaches the next label after your latest test, so the month ahead is in view.
+   - The top of the plot keeps room for the next rung's label only when there is one; above the top rung, the points use that space.
    - **One test:** a single dot, centred in about four months, with no line, and the next rung above it.
    - **10+ tests (dense):** dots shrink to 6px and the line to 2px; only the selected test (and rung-cleared rings) stay full size.
    - **Touch:** dots can sit closer than 44px, so there's no button per dot. One button covers the plot: a tap selects the day nearest it, and the left and right arrow keys step through days.
