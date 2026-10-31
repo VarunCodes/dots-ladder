@@ -743,22 +743,25 @@ a:hover { color: var(--accent-hover); }
 
 .lever, .split { margin-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 .lever { padding: 16px; border: 1px solid var(--border); border-radius: 16px; }
-.lever-score { color: var(--accent); font-family: var(--display); font-size: 1.375rem; font-weight: 700; }
-.lever-field { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: 0.8125rem; color: var(--muted); }
-.lever-field input {
-  max-width: 140px;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 1rem;
-}
-.lever-field input:invalid { border-color: var(--error); }
-#lever-note { color: var(--error); }
-#lever-note:empty { display: none; }
+.lever { gap: 14px; }
+.lever-classes { align-self: stretch; }
+.lever-classes[hidden] { display: none; }
+.lever-classes .view-option { flex: 1; }
+.lever-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.lever-tile { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: var(--surface); }
+.lever-value { font-family: var(--display); font-size: clamp(1.375rem, 7vw, 1.875rem); font-weight: 700; line-height: 1.1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lever-score { color: var(--accent); }
+#lever-position[hidden] { display: none; }
+/* The curve: your total's score at each bodyweight, with you and the chosen class marked. */
+.lever-curve { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+#lever-chart { display: block; width: 100%; height: auto; aspect-ratio: 320 / 132; overflow: visible; }
+.lever-line { fill: none; stroke: var(--text-2); stroke-width: 2; stroke-linejoin: round; }
+.lever-mark { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.lever-mark.goal { stroke: var(--accent); }
+.lever-dot.you { fill: var(--text); }
+.lever-dot.goal { fill: var(--accent); }
+.lever-label { fill: var(--muted); font-family: var(--body); font-size: 11px; font-variant-numeric: tabular-nums; }
+.lever-label.goal, .chart-tick.goal { fill: var(--accent); font-weight: 600; }
 
 .split-list { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 0; padding: 0; list-style: none; }
 .split-row { display: grid; grid-template-columns: 24px 72px 1fr auto; align-items: center; gap: 4px 10px; }

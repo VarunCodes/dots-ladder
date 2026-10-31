@@ -93,7 +93,8 @@ function rungValues({ session }, base) {
     }),
     lever: memoizeOnce(() => {
       const p = base.profile();
-      return p && L.lever(p, group()?.rungs ?? []);
+      // Where the lever's score would sit: the target class's rungs, for the same experience group as the Ladder.
+      return p && L.lever(p, (wclass) => L.rungsFor(rungsData, p.formula, p.sex, wclass, experience)?.rungs);
     }),
   };
 }
@@ -272,7 +273,7 @@ function make(state) {
     get yourNumbers() {
       return base.yourNumbers();
     },
-    /** The weight-class lever for your target bodyweight. */
+    /** The weight-class lever for your target class. */
     get lever() {
       return rungs.lever();
     },

@@ -166,16 +166,61 @@ test("a target bodyweight is kept when it's a real bodyweight, otherwise it's th
   for (const bad of [0, 251, "66", NaN, undefined]) assert.equal(L.validProfile({ ...me70, targetBw: bad }).targetBw, null, String(bad));
 });
 
-test("the lever scores the same total at the target and names the rung that would clear", () => {
-  const rungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 285 }, { percentile: 50, score: 338 }];
-  const result = L.lever(me70, rungs);
-  assert.equal(result.targetBw, 66);
-  assert.equal(result.then.toFixed(1), "289.9");
-  assert.equal(result.delta.toFixed(1), "12.0");
-  assert.equal(result.cleared.percentile, 25);
-  assert.equal(L.lever({ ...me70, targetBw: 69.5 }, rungs).cleared, null, "a small cut clears nothing");
-  assert.ok(L.lever({ ...me70, targetBw: 74 }, rungs).delta < 0, "a heavier target scores lower");
-  assert.equal(L.lever({ ...me70, formula: "gl" }, []).then.toFixed(2), "57.68");
+test("the lever's choices are the next lighter class, yours and the next heavier, at the top of each", () => {
+  const kgs = (sex, bw) => L.leverClasses(sex, bw).map((c) => `${c.kg}${c.now ? " now" : ""}`);
+  assert.deepEqual(kgs("M", 68), ["66", "74 now", "83"]);
+  assert.deepEqual(kgs("M", 66), ["59", "66 now", "74"], "the top of a class is in it");
+  assert.deepEqual(kgs("M", 50), ["59 now", "66"], "the lightest class has nothing lighter");
+  assert.deepEqual(kgs("M", 115), ["105", "120 now"], "the open class has no top, so it's never a choice");
+  assert.deepEqual(kgs("M", 130), ["120"], "in the open class, only the class below");
+  assert.deepEqual(kgs("F", 60), ["57", "63 now", "69"]);
+});
+
+const me68 = { sex: "M", bodyweight: 68, squat: 110, bench: 120, deadlift: 160, weightClass: null, formula: "dots", targetBw: null };
+
+test("the lever scores the same total in the chosen class, with the break-even total there", () => {
+  const lighter = L.lever(me68);
+  assert.equal(lighter.targetBw, 66, "the default is the next lighter class");
+  assert.equal(lighter.now.toFixed(1), "299.0");
+  assert.equal(lighter.then.toFixed(1), "305.6");
+  assert.equal(lighter.delta.toFixed(1), "6.6");
+  assert.equal(lighter.breakEven, 382.5, "381.6 rounded up to the next 2.5 kg");
+  assert.equal(lighter.room, -7.5);
+
+  const heavier = L.lever({ ...me68, targetBw: 74 });
+  assert.equal(heavier.then.toFixed(1), "282.2");
+  assert.equal(heavier.breakEven, 415, "413.2 rounded up");
+  assert.equal(heavier.room, 25);
+
+  const gl = (targetBw) => L.lever({ ...me68, formula: "gl", targetBw });
+  assert.equal(gl(66).then.toFixed(2), "60.79");
+  assert.equal(gl(66).breakEven, 385);
+  assert.equal(gl(74).then.toFixed(2), "57.26");
+  assert.equal(gl(74).breakEven, 410);
+});
+
+test("a saved target picks the class it falls in, or the default when that class isn't a choice", () => {
+  assert.equal(L.lever({ ...me68, targetBw: 64 }).targetBw, 66, "an older bodyweight moves to its class");
+  assert.equal(L.lever({ ...me68, targetBw: 83 }).targetBw, 83);
+  assert.equal(L.lever({ ...me68, targetBw: 52 }).targetBw, 66, "two classes away isn't a choice");
+  assert.equal(L.lever({ ...me68, targetBw: 130 }).targetBw, 66, "the open class isn't a choice");
+  assert.equal(L.lever({ ...me68, bodyweight: 50 }).targetBw, 59, "in the lightest class, its own top");
+});
+
+test("the lever says where its score sits among the chosen class's rungs", () => {
+  const rungs = { 66: [{ percentile: 25, score: 290 }, { percentile: 50, score: 338 }] };
+  const asked = [];
+  const result = L.lever(me68, (wclass) => (asked.push(wclass), rungs[wclass]));
+  assert.deepEqual(asked, ["66"]);
+  assert.equal(result.position, "between P25 and P50");
+  assert.equal(L.lever({ ...me68, targetBw: 74 }, (wclass) => rungs[wclass]).position, "", "a class with no rungs has no position");
+});
+
+test("the lever's curve runs a few kilos past the choices, scoring your total at each", () => {
+  const { curve } = L.lever(me68);
+  assert.deepEqual([curve[0].bw, curve.at(-1).bw], [63, 86]);
+  assert.equal(curve.find((p) => p.bw === 66).score.toFixed(1), "305.6");
+  assert.ok(curve.every((p, i) => i === 0 || p.score < curve[i - 1].score), "a heavier bodyweight scores the same total lower");
 });
 
 test("rung position: between, below, above, or nothing without rungs", () => {

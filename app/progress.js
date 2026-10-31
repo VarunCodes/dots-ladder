@@ -380,34 +380,81 @@ function renderNumbers() {
 
 // --- Weight-class lever -------------------------------------------------------------
 
+const LEVER = { width: 320, height: 132, left: 8, right: 8, top: 22, bottom: 22 }; // the curve's viewBox and margins
+
 function renderLever() {
-  const { profile, lever: result } = now();
+  const { profile, lever: result, experience } = now();
   const { formula } = profile;
-  const input = $("target-bw");
-  if (document.activeElement !== input) input.value = result.targetBw;
-  const strong = el("strong", "lever-score", `${S.formatScore(formula, result.then)} ${S.FORMULAS[formula].label}`);
-  $("lever-text").replaceChildren(`Same ${L.sumLifts(profile)} kg total at ${result.targetBw} kg = `, strong);
-  $("lever-caption").textContent =
-    result.targetBw === profile.bodyweight
-      ? "That's your bodyweight now. Pick a lighter target to see what a cut is worth."
-      : `${signed(formula, result.delta)} from bodyweight alone${result.cleared ? `, enough to clear P${result.cleared.percentile}` : ""}.`;
+  const label = S.FORMULAS[formula].label;
+  const total = L.sumLifts(profile);
+  const { target } = result;
+  $("lever-eyebrow").textContent = `${total} kg total · now ${profile.bodyweight} kg`;
+  // Saved through the store; its subscriber redraws the lever. One choice (the class below the open class) needs no picker.
+  $("lever-classes").hidden = result.classes.length < 2;
+  choiceGroup($("lever-classes"), "view-option", result.classes.map((c) => [c.kg, c.now ? `${c.label} · now` : c.label]), target.kg, (kg) =>
+    store.update((s) => ({ settings: { ...s.settings, targetBw: kg } })),
+  );
+
+  $("lever-same-label").textContent = `Same ${total} kg at ${target.kg} kg`;
+  $("lever-same").textContent = `${S.formatScore(formula, result.then)} ${label}`;
+  const same = Math.abs(result.delta) < 0.05;
+  $("lever-same-sub").textContent = same ? "Your bodyweight now" : `${signed(formula, result.delta)} from bodyweight alone`;
+  $("lever-same-sub").className = `tile-sub${result.delta >= 0.05 ? " up" : ""}`;
+
+  $("lever-even-label").textContent = `Break-even total at ${target.kg} kg`;
+  $("lever-even").textContent = `${result.breakEven} kg`;
+  $("lever-even-sub").textContent =
+    result.room < 0 ? `${-result.room} kg of room to lose` : result.room > 0 ? `+${result.room} kg needed to stay level` : "Your total holds it";
+
+  // Cutting a class also changes who you're compared with: that class's rungs, for the Ladder's experience group.
+  const position = $("lever-position");
+  position.hidden = !result.position;
+  position.textContent = `Against ${profile.sex === "M" ? "men" : "women"} ${target.label} kg, ${experience}: ${result.position}.`;
+
+  $("lever-curve-label").textContent = `${label} for ${total} kg at each bodyweight`;
+  drawLeverCurve(result, profile, (n) => S.formatScore(formula, n), label);
+}
+
+/** Your total's score across bodyweights: the curve, a dashed line and dot at you and at the chosen class, and kg labels. */
+function drawLeverCurve(result, profile, fmt, label) {
+  const { width, height, left, right, top, bottom } = LEVER;
+  const { curve, target } = result;
+  const [first, last] = [curve[0], curve.at(-1)];
+  const scores = curve.map((p) => p.score);
+  const [lo, hi] = [Math.min(...scores), Math.max(...scores)];
+  const x = (bw) => left + ((bw - first.bw) / (last.bw - first.bw)) * (width - left - right);
+  const y = (s) => top + (hi === lo ? 0.5 : (hi - s) / (hi - lo)) * (height - top - bottom);
+  const plot = $("lever-chart");
+  plot.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  plot.setAttribute(
+    "aria-label",
+    `${label} for a ${L.sumLifts(profile)} kg total goes from ${fmt(first.score)} at ${first.bw} kg to ${fmt(last.score)} at ${last.bw} kg. ` +
+      `${target.kg} kg gives ${fmt(result.then)}; your ${profile.bodyweight} kg gives ${fmt(result.now)}.`,
+  );
+
+  const you = { x: x(profile.bodyweight), y: y(result.now) };
+  const goal = { x: x(target.kg), y: y(result.then) };
+  // The curve falls to the right, so the chosen class's label goes above and to the right of its dot (left near the
+  // edge) and yours is centred under your dot (over it when it's low), both clear of the line and the kg labels.
+  const goalRight = goal.x < width - 90;
+  const youX = Math.min(Math.max(you.x, left + 34), width - right - 34);
+  const youY = you.y + 22 > height - bottom ? you.y - 12 : you.y + 20;
+  const axis = height - 6;
+  const ticks = [first.bw, last.bw].filter((bw) => Math.abs(x(bw) - goal.x) > 28);
+  plot.replaceChildren(
+    svg("line", { class: "lever-mark you", x1: you.x, x2: you.x, y1: top - 14, y2: height - bottom }),
+    svg("line", { class: "lever-mark goal", x1: goal.x, x2: goal.x, y1: top - 14, y2: height - bottom }),
+    svg("polyline", { class: "lever-line", points: curve.map((p) => `${x(p.bw)},${y(p.score)}`).join(" ") }),
+    svg("circle", { class: "lever-dot you", cx: you.x, cy: you.y, r: 4.5 }),
+    svg("circle", { class: "lever-dot goal", cx: goal.x, cy: goal.y, r: 5.5 }),
+    svg("text", { class: "lever-label goal", x: goal.x + (goalRight ? 8 : -8), y: goal.y - 8, "text-anchor": goalRight ? "start" : "end" }, `${target.kg} · ${fmt(result.then)}`),
+    svg("text", { class: "lever-label", x: youX, y: youY, "text-anchor": "middle" }, `you · ${fmt(result.now)}`),
+    ...ticks.map((bw) => svg("text", { class: "chart-tick", x: x(bw), y: axis, "text-anchor": bw === first.bw ? "start" : "end" }, `${bw} kg`)),
+    svg("text", { class: "chart-tick goal", x: goal.x, y: axis, "text-anchor": "middle" }, `${target.kg}`),
+  );
 }
 
 /** Each lift's bar, its kg, and where it sits among that lift's rungs ("Between P50 and P75"), when the group has them. */
-
-function setupLever() {
-  $("target-bw").addEventListener("input", () => {
-    const input = $("target-bw");
-    const value = input.valueAsNumber;
-    // An empty field goes back to the default target; anything else must be a real bodyweight.
-    const ok = input.value === "" || (value >= L.LIMITS.bodyweight[0] && value <= L.LIMITS.bodyweight[1]);
-    input.setCustomValidity(ok ? "" : "invalid");
-    $("lever-note").textContent = ok ? "" : `Target bodyweight must be ${L.LIMITS.bodyweight.join("–")} kg.`;
-    if (!ok) return;
-    // Saved through the store; its subscriber redraws the lever (leaving this field alone while it's being typed in).
-    store.update((s) => ({ settings: { ...s.settings, targetBw: input.value === "" ? null : value } }));
-  });
-}
 
 // --- 1RMs: newest first, each editable ------------------------------------------------------
 // Each row is one saved record: a 1RM test (all three lifts), a single 1RM ("Squat 1RM"), or a bodyweight.
@@ -593,7 +640,6 @@ function renderTests() {
 
 export function setupProgress() {
   setupChartTouch();
-  setupLever();
 }
 
 /** The same DOTS / GL toggle as the Ladder's: switching redraws this screen and saves the choice for every screen. */
