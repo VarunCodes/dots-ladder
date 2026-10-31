@@ -6,6 +6,7 @@
 // The values come from four small builders: base (your profile and records), rungs, chart and events. Every
 // array and object handed out is frozen, so a view that tries to change one fails loudly instead of quietly
 // corrupting the cache; the Map and Set ones (prs, prDays) can't be frozen, so treat them as read-only too.
+import * as A from "./attempts.js";
 import * as L from "./ladder.js";
 import { inRange, liftDays, onePerDay } from "./chart.js";
 
@@ -132,6 +133,80 @@ function eventValues({ events, session }, base) {
   };
 }
 
+/** The Meet screen's values: the attempt plan for your next meet (or for now, without one), and the plates. */
+function meetValues({ settings, session, events, entries }, base, rungs, plans) {
+  const attemptPlan = memoizeOnce(() => {
+      const p = base.profile();
+      if (!p) return null;
+      const meet = plans.nextMeet()?.event;
+      return A.attemptPlan(p, {
+        pct: settings.openerPct ?? A.DEFAULT_OPENER,
+        bodyweight: meet?.bodyweight ?? p.bodyweight,
+        sex: p.sex,
+        formula: p.formula,
+        rungs: rungs.group()?.rungs ?? [],
+        now: L.profileScore(p),
+      });
+  });
+  // Your next meet's day: the attempts taken, the next one (at the weight you've set, if it's allowed) and its plates.
+  const meetDay = memoizeOnce(() => {
+    const event = plans.nextMeet()?.event;
+    const plan = attemptPlan();
+    if (!event || !plan) return null;
+    const attempts = event.day?.attempts ?? {};
+    const next = A.nextAttempt(attempts, plan);
+    if (next) {
+      const chosen = session.attemptKg; // { key: "squat:2", kg }, set with − and + before the attempt
+      if (chosen?.key === `${next.lift}:${next.number}` && chosen.kg >= next.min) next.kg = chosen.kg;
+      next.plates = A.platesPerSide(next.kg);
+    }
+    const taken = Object.values(attempts).flat().length;
+    return { event, attempts, next, taken, states: A.attemptStates(attempts, next) };
+  });
+  // Warm-ups for one lift: the one you picked, else the lift you're on. Its opener is what you've set for it, else
+  // the plan's; the set due now (by the session's clock, on the meet's day) and the ones you've ticked off.
+  const warmups = memoizeOnce(() => {
+    const day = meetDay();
+    if (!day) return null;
+    const lift = session.warmupLift ?? day.next?.lift ?? "squat";
+    const next = day.next;
+    const opener = next?.lift === lift && next.number === 1 ? next.kg : attemptPlan().steps[0].lifts[lift];
+    const startText = day.event.day?.start?.[lift] ?? null;
+    const before = day.event.day?.before ?? null;
+    const timeline = A.warmupTimes(A.warmupSets(opener), A.toMinutes(startText), before);
+    const due = day.event.date === session.today ? A.dueSet(timeline, session.clock) : -1;
+    const ticked = session.warmupTicks?.[lift] ?? [];
+    return {
+      lift,
+      opener,
+      start: startText,
+      before,
+      openerAt: timeline.openerAt,
+      sets: timeline.sets.map((set, i) => ({ ...set, due: i === due, ticked: ticked.includes(i) })),
+    };
+  });
+  // The latest meet with attempts recorded: its result, scored at its bodyweight, PRs against your records before it.
+  const meetResult = memoizeOnce(() => {
+    const p = base.profile();
+    const withAttempts = events.filter((e) => e.date && Object.keys(e.day?.attempts ?? {}).length);
+    const event = withAttempts.sort((x, y) => x.date.localeCompare(y.date)).at(-1);
+    if (!p || !event) return null;
+    const best = A.bestBefore(entries, event.date);
+    return { event, ...A.meetResult(event.day.attempts, { best, bodyweight: event.bodyweight, sex: p.sex, formula: p.formula }) };
+  });
+  return {
+    attemptPlan,
+    meetDay,
+    warmups,
+    meetResult,
+    // The loader's weight is the session's (not saved); it starts at your next attempt, else your squat opener.
+    plates: memoizeOnce(() => {
+      const total = session.plateKg ?? meetDay()?.next?.kg ?? attemptPlan()?.steps[0].lifts.squat ?? 60;
+      return { total, ...A.platesPerSide(total) };
+    }),
+  };
+}
+
 // --- What screens read --------------------------------------------------------------------
 
 function make(state) {
@@ -140,6 +215,7 @@ function make(state) {
   const rungs = rungValues(state, base);
   const chart = chartValues(state, base);
   const plans = eventValues(state, base);
+  const meet = meetValues(state, base, rungs, plans);
 
   return Object.freeze({
     /** The saved parts and the page's session, as stored. */
@@ -208,6 +284,39 @@ function make(state) {
     /** The events shown on the Ladder: this month or later, soonest first. */
     get ladderEvents() {
       return plans.ladderEvents();
+    },
+    /**
+     * Your attempts from your current 1RMs (openers at your chosen %, seconds at 96%, thirds a 2.5 kg PR), each step
+     * totalled and scored at the next meet's bodyweight (else yours), with where it lands on the rungs; null
+     * without numbers.
+     */
+    get attemptPlan() {
+      return meet.attemptPlan();
+    },
+    /**
+     * Your next meet's day, or null without a meet with a date: { event, attempts, next (null once all nine are
+     * taken: { lift, number, planned, min, kg, plates }), taken, states (the nine, for the progress strip) }.
+     */
+    get meetDay() {
+      return meet.meetDay();
+    },
+    /**
+     * Warm-ups for one lift at your next meet, or null without one: { lift, opener, start, before, openerAt,
+     * sets: [{ kg, reps, at (minutes after midnight, or null), due, ticked }] }.
+     */
+    get warmups() {
+      return meet.warmups();
+    },
+    /**
+     * Your latest meet with attempts, or null: { event, lifts: { squat: { attempts: [{ kg, good, pr }], best } },
+     * taken, made, pct, total (good lifts only; null without one of each), score, left (kg left on the platform) }.
+     */
+    get meetResult() {
+      return meet.meetResult();
+    },
+    /** The plate loader: { total, plates (one side, inside to outside), perSide, exact }. */
+    get plates() {
+      return meet.plates();
     },
   });
 }

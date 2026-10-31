@@ -34,6 +34,8 @@
       <symbol id="icon-tab-ladder-fill" viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="2" width="3" height="20" rx="1.5"/><rect x="15.5" y="2" width="3" height="20" rx="1.5"/><rect x="8" y="5.5" width="8" height="3"/><rect x="8" y="10.5" width="8" height="3"/><rect x="8" y="15.5" width="8" height="3"/></symbol>
       <symbol id="icon-tab-log-fill" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 7.5v9M7.5 12h9" fill="none" style="stroke: var(--bg)" stroke-width="2.2" stroke-linecap="round"/></symbol>
       <symbol id="icon-tab-progress-fill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8V21H3z" fill="currentColor" stroke="none" opacity="0.35"/><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+      <symbol id="icon-tab-meet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V3.5"/><path d="M5 4h12.5l-2.5 4.5 2.5 4.5H5"/></symbol>
+      <symbol id="icon-tab-meet-fill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V3.5"/><path d="M5 4h12.5l-2.5 4.5 2.5 4.5H5z" fill="currentColor"/></symbol>
       <symbol id="icon-tab-progress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
     </defs>
   </svg>
@@ -238,12 +240,22 @@
         <p id="tests-note" class="muted small" role="status"></p>
       </section>
 
-    <section id="events-panel" class="panel events" aria-labelledby="events-heading">
-      <h2 id="events-heading">Upcoming</h2>
-      <p class="muted small intro">Upcoming meets or test days, each with a conservative and an optimistic total. Leave a scenario empty to skip it. The next 3 show on the ladder.</p>
-      <div id="event-list"></div>
-      <p id="events-note" class="muted small" role="status"></p>
-      <button id="add-event" class="button add" type="button">Add event</button>
+      <section id="events-panel" class="panel events" aria-labelledby="events-heading">
+        <h2 id="events-heading">Upcoming</h2>
+        <p class="muted small intro">Upcoming meets or test days, each with a conservative and an optimistic total. Leave a scenario empty to skip it. The next 3 show on the ladder.</p>
+        <div id="event-list"></div>
+        <p id="events-note" class="muted small" role="status"></p>
+        <button id="add-event" class="button add" type="button">Add event</button>
+      </section>
+    </section>
+
+    <section id="screen-meet" class="screen" aria-labelledby="meet-title" hidden>
+      <header class="screen-head">
+        <p class="eyebrow">Meet</p>
+        <h1 id="meet-title">Meet day</h1>
+      </header>
+      <!-- The cards come from the list in meet.js, in its order. -->
+      <div id="meet-cards" class="meet-cards"></div>
     </section>
 
     <p id="error" class="error" hidden></p>
@@ -257,6 +269,7 @@
     <a href="#/ladder" data-route="ladder"><span class="tab-icon" aria-hidden="true"><svg class="icon-out"><use href="#icon-tab-ladder"/></svg><svg class="icon-fill"><use href="#icon-tab-ladder-fill"/></svg></span>Ladder</a>
     <a href="#/log" data-route="log"><span class="tab-icon" aria-hidden="true"><svg class="icon-out"><use href="#icon-tab-log"/></svg><svg class="icon-fill"><use href="#icon-tab-log-fill"/></svg></span>Log test</a>
     <a href="#/progress" data-route="progress"><span class="tab-icon" aria-hidden="true"><svg class="icon-out"><use href="#icon-tab-progress"/></svg><svg class="icon-fill"><use href="#icon-tab-progress-fill"/></svg></span>Progress</a>
+    <a href="#/meet" data-route="meet"><span class="tab-icon" aria-hidden="true"><svg class="icon-out"><use href="#icon-tab-meet"/></svg><svg class="icon-fill"><use href="#icon-tab-meet-fill"/></svg></span>Meet</a>
   </nav>
 </body>
 </html>

@@ -328,7 +328,7 @@ a:hover { color: var(--accent-hover); }
   position: fixed;
   inset: auto 0 0 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 8px 8px max(20px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--divider);
   background: var(--bg);
@@ -712,10 +712,184 @@ a:hover { color: var(--accent-hover); }
   white-space: nowrap;
 }
 
+/* --- Meet: a list of cards ---------------------------------------------------------- */
+
+.meet-cards { display: flex; flex-direction: column; gap: 16px; }
+.meet-card { display: flex; flex-direction: column; gap: 12px; }
+.meet-card-head { display: flex; flex-direction: column; gap: 2px; }
+.meet-card-head .eyebrow { font-size: 0.75rem; }
+.meet-card-head h2 { font-size: 1.5rem; font-weight: 700; }
+.meet-card-body { display: flex; flex-direction: column; gap: 12px; }
+
+/* Attempt planner: lifts by attempt; your thirds are your goal, so they're accent. */
+.plan-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+.plan-table th, .plan-table td { padding: 10px 0; text-align: right; }
+.plan-table thead th { padding-top: 0; font-size: 0.75rem; font-weight: 500; color: var(--muted); }
+.plan-table tbody tr { border-top: 1px solid var(--divider); }
+.plan-table th:first-child { text-align: left; }
+.plan-table tbody th { font-weight: 600; }
+.plan-1rm { font-size: 0.8125rem; font-weight: 400; color: var(--muted); }
+.plan-third { color: var(--accent); }
+td.plan-third { font-weight: 700; }
+.plan-steps { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.plan-step {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 0.875rem;
+}
+.plan-step-name { color: var(--muted); }
+.plan-note { font-size: 0.75rem; color: var(--text-2); text-align: right; }
+.plan-goal { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.plan-goal .plan-step-name, .plan-goal .plan-note { color: inherit; }
+.plan-choice { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.plan-choice .view-option { min-width: 52px; padding: 0 8px; }
+
+.meet-empty { font-size: 0.9375rem; }
+
+/* Meet day: one attempt at a time, big enough to read at arm's length; good lift / no lift as two large buttons. */
+.day-live { display: flex; flex-direction: column; gap: 14px; }
+.day-strip { display: flex; gap: 6px; }
+.day-seg { flex: 1; height: 6px; border-radius: 3px; background: var(--divider); }
+.seg-first:not(:first-child) { margin-left: 8px; } /* a gap between lifts */
+.seg-good { background: var(--text); }
+.seg-miss { background: transparent; box-shadow: inset 0 0 0 1px var(--muted); }
+.seg-next { background: var(--accent); }
+.day-now { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; }
+.day-what { font-family: var(--display); font-size: 1.25rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); }
+.day-stepper { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; width: 100%; }
+.day-kg { font-family: var(--display); font-size: 6.5rem; font-weight: 700; line-height: 0.9; text-align: center; }
+.day-rack { font-size: 0.9375rem; }
+.day-plates { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
+.day-plates strong { font-size: 1.0625rem; font-weight: 600; }
+.day-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.day-good, .day-bad {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 60px;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: scale var(--duration-quick) var(--ease-smooth-out);
+}
+.day-good { border: 0; background: var(--text); color: var(--bg); }
+.day-bad { border: 1px solid var(--border); background: transparent; color: var(--text); }
+:is(.day-good, .day-bad):active { scale: var(--scale-press); }
+.day-good svg, .day-bad svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.day-after { text-align: center; }
+.day-live .link-button { align-self: center; }
+.day-setup summary { min-height: 44px; display: flex; align-items: center; color: var(--text-2); cursor: pointer; }
+.day-setup .fields { padding-top: 4px; }
+
+.day-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 0; }
+.day-top:has(> :not([hidden])) { min-height: 28px; }
+.day-wait { margin: 0 0 0 auto; }
+
+/* Warm-ups: each set a row you can tap off; the one due now is accent (your next action). */
+.warm-live { display: flex; flex-direction: column; gap: 12px; }
+.warm-live > .view-group { align-self: flex-start; }
+.warm-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.warm-set, .warm-opener {
+  display: grid;
+  grid-template-columns: 58px 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.0625rem;
+  text-align: left;
+  cursor: pointer;
+}
+.warm-time { font-size: 0.9375rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.warm-kg { font-weight: 600; }
+.warm-reps { color: var(--muted); }
+.warm-mark { justify-self: center; width: 10px; height: 10px; border: 2px solid var(--muted); border-radius: 50%; }
+.warm-due { background: var(--accent); color: var(--on-accent); }
+.warm-due .warm-time, .warm-due .warm-reps { color: inherit; }
+.warm-due .warm-mark { border-color: var(--on-accent); background: var(--on-accent); }
+.warm-done { color: var(--muted); }
+.warm-done .warm-kg { font-weight: 400; text-decoration: line-through; }
+.warm-done .warm-mark { width: 14px; height: 8px; border: solid currentColor; border-width: 0 0 2px 2px; border-radius: 0; rotate: -45deg; translate: 0 -2px; }
+.warm-opener { margin-top: 4px; border-top: 1px solid var(--divider); border-radius: 0; cursor: default; }
+.warm-opener .warm-time { color: var(--text); font-weight: 600; }
+.warm-opener .warm-kg { font-weight: 700; }
+.warm-opener .warm-mark { width: 10px; height: 10px; border: 0; border-radius: 0; background: var(--text); rotate: 45deg; }
+
+/* Meet attempts: lifts by attempt, then made, total and kg left on the platform. Misses are dashed and struck
+   through; PRs carry the chalk PR badge, as on Progress. */
+.result-grid { display: grid; grid-template-columns: 70px repeat(3, minmax(0, 1fr)); gap: 6px; }
+.result-row { display: contents; }
+.result-head { font-size: 0.75rem; color: var(--muted); text-align: center; }
+.result-lift { align-self: center; font-weight: 600; }
+.result-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.result-good { color: var(--text); }
+.result-good .result-kg { font-weight: 600; }
+.result-miss { border: 1px dashed var(--muted); background: transparent; }
+.result-miss .result-kg { text-decoration: line-through; }
+.result-cell .pr-badge { margin: 0; }
+.result-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.result-tile { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 10px; background: var(--surface-2); }
+.result-value { font-weight: 600; }
+
+/* Plate loader: the weight between − and +, one side of the bar drawn, and the plates listed. */
+.plate-stepper { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 8px; }
+.plate-stepper .step-btn { width: 48px; height: 48px; }
+.plate-total { font-family: var(--display); font-size: 2.75rem; font-weight: 700; line-height: 1; text-align: center; }
+.plate-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 140px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.plate-bar::before { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 4px); height: 8px; background: var(--border); }
+.plate-sleeve { position: relative; flex: none; width: 14px; height: 36px; border-radius: 3px; background: var(--muted); }
+.plate { position: relative; flex: none; border-radius: 4px; }
+.plate-collar { position: relative; flex: none; width: 12px; height: 28px; border-radius: 3px; background: var(--text-2); }
+.plate-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.plate-side { display: flex; flex-direction: column; }
+.plate-side strong { font-size: 1.0625rem; font-weight: 600; }
+
 /* Reduced motion: nothing moves or scales, and colours and fades still change, so every state change stays visible. */
 @media (prefers-reduced-motion: reduce) {
   .slide::before { transition-property: none; }
-  :is(.primary, .step-btn, .button, .chip-button):active:not(:disabled) { scale: none; }
+  :is(.primary, .step-btn, .button, .chip-button, .day-good, .day-bad):active:not(:disabled) { scale: none; }
   .event::details-content { transition: none; }
   .chart-pulse, .chart-arrive { display: none; }
   @keyframes rise-in { from { opacity: 0; } }

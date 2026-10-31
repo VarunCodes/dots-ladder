@@ -600,3 +600,33 @@ test("the saved note lists PRs, then the rung", () => {
   assert.equal(L.savedText({ prLifts: ["squat"], cleared: null }), "Saved · PR on squat");
   assert.equal(L.savedText({ prLifts: ["squat", "bench", "deadlift"], cleared: { percentile: 25 } }), "Saved · PR on squat, bench and deadlift · Cleared P25");
 });
+
+// --- Meet day: an event's day part, and rack settings ---------------------------------------
+
+const planned = { id: "m", name: "Open", month: "2026-11", date: "2026-11-14", bodyweight: 68, conservative: { squat: 110, bench: 120, deadlift: 160 }, optimistic: null };
+
+test("an event keeps its meet day, cleaned", () => {
+  const day = { flight: " Flight B ", attempts: { squat: [{ kg: 100, good: true }, { kg: 105, good: false }], bench: [] } };
+  assert.deepEqual(L.validEvent({ ...planned, day }).day, { flight: "Flight B", attempts: { squat: [{ kg: 100, good: true }, { kg: 105, good: false }] } });
+  assert.equal("day" in L.validEvent(planned), false, "no day part unless there is one");
+});
+
+test("invalid meet-day parts are dropped, not the event: attempts stop at the first bad one", () => {
+  const day = { flight: "x".repeat(L.MAX_LABEL + 1), attempts: { squat: [{ kg: 100, good: true }, { kg: -5, good: true }, { kg: 110, good: true }], deadlift: [1, 2, 3, 4] } };
+  assert.deepEqual(L.validEvent({ ...planned, day }).day, { attempts: { squat: [{ kg: 100, good: true }] } });
+  const four = Array.from({ length: 4 }, (_, i) => ({ kg: 100 + i, good: true }));
+  assert.equal(L.cleanDay({ attempts: { bench: four } }).attempts.bench.length, 3, "at most three");
+  assert.equal(L.cleanDay({ flight: "  " }), null);
+});
+
+test("a meet day keeps each lift's start time and the lifters before you, when valid", () => {
+  assert.deepEqual(L.cleanDay({ start: { squat: "11:30", bench: "25:00", deadlift: "" }, before: 6 }), { start: { squat: "11:30" }, before: 6 });
+  assert.equal(L.cleanDay({ before: -1 }), null);
+  assert.equal(L.cleanDay({ before: 2.5 }), null);
+});
+
+test("rack settings are kept only when set, trimmed and short", () => {
+  assert.equal("rack" in L.settingsOf({ formula: "dots" }), false);
+  assert.deepEqual(L.settingsOf({ rack: { squat: " 9 ", safeties: "", bench: "6 / 3", other: "x" } }).rack, { squat: "9", bench: "6 / 3" });
+  assert.equal("rack" in L.settingsOf({ rack: { squat: "far too long a value" } }), false);
+});
