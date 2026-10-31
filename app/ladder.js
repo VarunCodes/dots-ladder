@@ -89,7 +89,8 @@ export function nextRung(rungs, points) {
 // latest numbers, always worked out from your records (never stored twice), plus your settings. Only the
 // settings are saved (by store.js): { weightClass, formula, targetBw }.
 // weightClass null means "work it out from bodyweight"; formula is the score shown everywhere ("dots" or "gl");
-// targetBw is the weight-class lever's bodyweight on Progress, null for the default.
+// targetBw is the weight-class lever's class on Progress, saved as the top of that class (null for the default);
+// an older bodyweight in between picks the class it falls in.
 
 export const LIMITS = { bodyweight: [30, 250], lift: [1, 600] };
 
@@ -142,15 +143,62 @@ export function defaultTargetBw(sex, bodyweight) {
 }
 
 /**
- * The weight-class lever: the same total scored at the target bodyweight, the change from bodyweight alone,
- * and the highest rung that change would clear (null if none).
+ * The lever's class choices, lightest first: the next lighter class, your class ("now") and the next heavier one, each
+ * at the top of its class: [{ label: "66", kg: 66, now: false }, ...]. The open class has no top, so it's never a choice.
  */
-export function lever(profile, rungs) {
-  const targetBw = profile.targetBw ?? defaultTargetBw(profile.sex, profile.bodyweight);
+export function leverClasses(sex, bodyweight) {
+  const limits = CLASSES[sex];
+  const own = limits.findIndex((limit) => bodyweight <= limit);
+  const i = own === -1 ? limits.length : own; // the open class sits past the last limit
+  return [i - 1, i, i + 1]
+    .filter((j) => j >= 0 && j < limits.length)
+    .map((j) => ({ label: `${limits[j]}`, kg: limits[j], now: j === i }));
+}
+
+/** The lightest total that still scores at least `score` at the bodyweight, rounded up to the next 2.5 kg. */
+function breakEvenTotal(formula, scoreNow, bw, sex) {
+  // Both formulas are the total times a factor of bodyweight, so the break-even total is a straight ratio.
+  const factor = score(formula, { total: 1, bw, sex });
+  return Math.ceil(scoreNow / factor / 2.5 - 1e-9) * 2.5;
+}
+
+/** Your total scored at each whole kilo across the choices, with a little either side: [{ bw, score }, ...]. */
+function leverCurve(profile, classes) {
+  const total = sumLifts(profile);
+  const kgs = [profile.bodyweight, ...classes.map((c) => c.kg)];
+  const from = Math.max(LIMITS.bodyweight[0], Math.floor(Math.min(...kgs)) - 3);
+  const to = Math.min(LIMITS.bodyweight[1], Math.ceil(Math.max(...kgs)) + 3);
+  const points = [];
+  for (let bw = from; bw <= to; bw++) points.push({ bw, score: score(profile.formula, { total, bw, sex: profile.sex }) });
+  return points;
+}
+
+/**
+ * The weight-class lever, for the class chosen (or the default: the next lighter one): the same total scored at the
+ * top of that class and the change from bodyweight alone, the break-even total there (the lightest that scores the
+ * same as you do now) and its gap from your total, where that score sits among the class's rungs (`classRungs(label)`
+ * gives them for your experience group; "" without any), and your total's score across the choices for the curve.
+ */
+export function lever(profile, classRungs = () => []) {
+  const classes = leverClasses(profile.sex, profile.bodyweight);
+  const saved = profile.targetBw == null ? null : Number(weightClass(profile.sex, profile.targetBw));
+  const target = classes.find((c) => c.kg === saved) ?? classes.find((c) => c.kg === defaultTargetBw(profile.sex, profile.bodyweight));
+  const total = sumLifts(profile);
   const now = profileScore(profile);
-  const then = profileScore({ ...profile, bodyweight: targetBw });
-  const cleared = rungs.filter((r) => r.score > now && r.score <= then).at(-1) ?? null;
-  return { targetBw, now, then, delta: then - now, cleared };
+  const then = profileScore({ ...profile, bodyweight: target.kg });
+  const breakEven = breakEvenTotal(profile.formula, now, target.kg, profile.sex);
+  return {
+    classes,
+    target,
+    targetBw: target.kg,
+    now,
+    then,
+    delta: then - now,
+    breakEven,
+    room: breakEven - total,
+    position: rungPosition(classRungs(target.label) ?? [], then),
+    curve: leverCurve(profile, classes),
+  };
 }
 
 export const OPENER_PCTS = [88, 90, 91, 93]; // the attempt planner's opener choices (attempts.js)

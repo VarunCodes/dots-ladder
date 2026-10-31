@@ -164,10 +164,12 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
    - **Avg per month:** the change in score from first to latest test, divided by the months between them; "—" with under 4 weeks between them. A plain average of what happened, not a prediction.
    - **Rungs cleared:** how many rungs you've reached since your first test, with the highest and when ("P10 · 20 Aug"), or the next one ("Next: P25"). If your latest score has fallen back below it: "P50 · 3 Oct · since dropped".
    - The tiles always cover every day in range, whatever the chart plots.
-5. **"Weight-class lever" card** (outlined)
-   - "Same {total} kg total at {targetBw} kg = **{score} {DOTS|GL}**", with the number in accent.
-   - Caption: "+{delta} from bodyweight alone", plus ", enough to clear P{n}" when it would clear a rung of the Ladder's group.
-   - The target bodyweight is a field (saved as `profile.targetBw`; empty means the default). The default is the top of the next lighter class, i.e. cutting one class (66 kg at 70 kg), or the top of your class if it's the lightest.
+5. **"Weight-class lever" card** (outlined): what your total would score in another class, and what you could lose (or need to add) to stay level.
+   - Eyebrow "{total} kg total · now {bw} kg", title "Weight-class lever".
+   - **Class picker** (pressed buttons, like the chart's): the next lighter class, your class ("74 · now") and the next heavier one, each at the top of its class. The open class has no top, so it's never a choice; with only one choice the picker is hidden. The default is the next lighter class, or your own if it's the lightest. The choice is saved as `targetBw` (the class's top); an older bodyweight in between picks the class it falls in, and one that isn't a choice falls back to the default.
+   - Two `--surface` tiles: "Same {total} kg at {kg} kg" = **{score} {DOTS|GL}** in accent, with "+6.6 from bodyweight alone" (accent when up; "Your bodyweight now" when it's the same); and "Break-even total at {kg} kg" = the lightest total that scores what you score now, rounded up to the next 2.5 kg, with "7.5 kg of room to lose" or "+25 kg needed to stay level" ("Your total holds it" when equal). Both formulas are the total times a factor of bodyweight, so the break-even total is a straight ratio.
+   - "Against men 66 kg, first meet: between P25 and P50.": where that score sits among the chosen class's rungs, for the Ladder's experience tab. Cutting a class also changes who you're compared with. Hidden when that class has no rungs.
+   - **Curve**: "{DOTS|GL} for {total} kg at each bodyweight", your total scored at each kilo from 3 kg below the lightest choice (or you) to 3 kg above the heaviest. Dashed lines and dots at you (`--text`) and the chosen class (`--accent`), labelled "66 · 305.6" (above, right of the dot) and "you · 299.0" (centred below); kg labels at both ends and the chosen class. It shows the Exchange rate another way, which helps it stick. The SVG has `role="img"` and an aria-label with both ends and both dots.
 6. **"Your numbers" card** (`--surface`): how current each number behind your score is. Eyebrow "Behind your score · {latest record's date}".
    - A row each for Bodyweight, Squat, Bench and Deadlift: the name, the kg on the right, and under the name "Tested 30 Oct" ("Weighed" for bodyweight) when your latest record logged it, else "Carried from 17 Sep", then how long ago ("today", "yesterday", "5 days ago", "6 weeks ago").
    - A **PR** badge (as in 1RMs) when the record that set the lift was a PR; "best 115 kg" under the kg when the lift is below your best.
@@ -201,7 +203,7 @@ Each new field defaults when it's missing, so adding an optional field never nee
 - **`settings`, settings only.** Your numbers (sex, bodyweight, lifts) are never stored here: they're worked out from your entries.
   - `weightClass` is `null` when it's worked out from bodyweight.
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
-  - `targetBw` is the weight-class lever's bodyweight, or `null` for the default.
+  - `targetBw` is the weight-class lever's class, saved as its top in kg (`66`), or `null` for the default.
 - **`entries`,** every record, oldest first; same-day records keep their save order. **A record holds only what was logged** (any of bodyweight, squat, bench, deadlift): a full 1RM test, a single 1RM, or a bodyweight. Nothing worked out is stored (not "carried", not a type that the logged values already tell).
   - **Your numbers on a date** are the latest of each value up to that date, carried forward. The earliest record must hold all four, so every record has a full set to score; saving refuses a history that doesn't start that way.
   - Each record keeps its sex, so it's always scored in the category it was done in.
