@@ -1,6 +1,6 @@
 // "Progress" screen. A test here is a powerlifting 1RM test: your one-rep max on squat, bench and deadlift
 // on a given day, at a given bodyweight. The screen shows the chart of your scores at those tests, the
-// weight-class lever, the lift split and the editable list of tests. Its numbers come from derive.js, and
+// weight-class lever, the lift split, your numbers and the editable list of tests. Its numbers come from derive.js, and
 // changes go through the store; logic lives in ladder.js and chart.js. This file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
@@ -349,6 +349,35 @@ function setupChartTouch() {
   });
 }
 
+// --- Your numbers ---------------------------------------------------------------------------
+
+const VALUE_NAMES = { bodyweight: "Bodyweight", ...LIFT_NAMES };
+// "today", "yesterday", "5 days ago", "3 weeks ago".
+const ago = (days) => (days === 0 ? "today" : days === 1 ? "yesterday" : days < 14 ? `${days} days ago` : `${Math.floor(days / 7)} weeks ago`);
+
+/** Each value behind your score: tested in your latest record or carried from an earlier one, how long ago, and PRs. */
+function renderNumbers() {
+  const { rows, stale } = now().yourNumbers;
+  const latest = rows.find((row) => row.tested).date;
+  $("numbers-for").textContent = `Behind your score · ${shortDay(latest)}`;
+  $("numbers-list").replaceChildren(
+    ...rows.map((row) => {
+      const li = el("li");
+      const name = el("span", "numbers-name", VALUE_NAMES[row.name]);
+      if (row.pr) name.append(" ", el("span", "pr-badge", "PR"));
+      const verb = row.name === "bodyweight" ? "Weighed" : "Tested";
+      const when = row.tested ? `${verb} ${shortDay(row.date)}` : `Carried from ${shortDay(row.date)}`;
+      const isStale = stale.some((s) => s.lift === row.name);
+      const kg = el("span", "numbers-kg", `${row.kg} kg`);
+      if (row.best != null && row.kg < row.best) kg.append(el("span", "numbers-best", `best ${row.best} kg`));
+      li.append(name, kg, el("span", `numbers-when${isStale ? " stale" : ""}`, `${when} · ${ago(row.days)}`));
+      return li;
+    }),
+  );
+  // A fact, not training advice: which lifts are overdue a test.
+  $("numbers-note").textContent = stale.map((s) => `${LIFT_NAMES[s.lift]} last tested ${s.weeks} weeks ago.`).join(" ");
+}
+
 // --- Weight-class lever and lift split -------------------------------------------------
 
 function renderLever() {
@@ -607,5 +636,6 @@ export function refreshProgress() {
   renderChart();
   renderLever();
   renderSplit();
+  renderNumbers();
   refreshTestSummaries();
 }

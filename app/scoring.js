@@ -27,6 +27,7 @@ export const FORMULAS = {
     label: "DOTS",
     decimals: 1,
     rungDecimals: 0, // rungs.json rounds DOTS percentiles to whole points
+    lightest: (sex) => DOTS[sex].minBw, // below this, bodyweight is clamped
     // DOTS ignores equipment and event.
     factor({ sex, bw }) {
       const { a, b, c, d, e, minBw, maxBw } = DOTS[sex];
@@ -38,6 +39,7 @@ export const FORMULAS = {
     label: "GL",
     decimals: 2,
     rungDecimals: 1, // GL is about a fifth of the DOTS scale, so its percentiles keep one decimal place
+    lightest: (sex) => GL[sex].minBw,
     factor({ sex, bw, equipment, event }) {
       const [A, B, C] = GL[sex][equipment][event];
       return 100 / (A - B * Math.exp(-C * Math.max(bw, GL[sex].minBw)));
@@ -67,6 +69,19 @@ export function kgToNextRung(formula, { total, bw, sex, equipment, event }, rung
 /** The same total scored at another bodyweight, e.g. the class you're cutting to. */
 export function scoreAtBodyweight(formula, total, targetBw, sex) {
   return score(formula, { total, bw: targetBw, sex });
+}
+
+/**
+ * What a kilo of bodyweight is worth at your total and bodyweight: { perKgBw (points for 1 kg lighter), perBarStep
+ * (points for 2.5 kg more on the total), kgOnBarPerKgBw (the kg on the total that 1 kg lighter is worth) }. Losing a
+ * kilo is null when it doesn't raise the score: under the formula's lightest bodyweight, or past DOTS's heaviest.
+ */
+export function exchangeRate(formula, { total, bw, sex }) {
+  const now = score(formula, { total, bw, sex });
+  const perBarStep = score(formula, { total: total + 2.5, bw, sex }) - now;
+  const gain = score(formula, { total, bw: bw - 1, sex }) - now;
+  if (bw - 1 < FORMULAS[formula].lightest(sex) || !(gain > 1e-9)) return { perKgBw: null, perBarStep, kgOnBarPerKgBw: null };
+  return { perKgBw: gain, perBarStep, kgOnBarPerKgBw: totalForScore(formula, { points: now + gain, bw, sex }) - total };
 }
 
 /** A score at the formula's display precision: DOTS "277.9", GL "55.92". */

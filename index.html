@@ -92,6 +92,20 @@
           <p><span id="next-label" class="muted small"></span><span id="next-value" class="next-value"></span></p>
         </section>
 
+        <section class="card exchange" aria-labelledby="exchange-heading">
+          <div class="card-head">
+            <p id="exchange-for" class="eyebrow"></p>
+            <h2 id="exchange-heading">Exchange rate</h2>
+          </div>
+          <div id="exchange-swap" class="exchange-swap">
+            <p class="swap-tile"><span class="tile-label">Bodyweight</span><span class="swap-kg">−1 kg</span></p>
+            <span class="swap-eq" aria-hidden="true">≈</span><span class="visually-hidden">is worth about</span>
+            <p class="swap-tile"><span class="tile-label">On the bar</span><span id="exchange-bar" class="swap-kg swap-gain"></span></p>
+          </div>
+          <ul id="exchange-rows" class="exchange-rows"></ul>
+          <p id="exchange-note" class="muted small"></p>
+        </section>
+
         <div class="rungs-head">
           <h2 id="rungs-heading">The rungs</h2>
           <ul class="chips" aria-label="Who you're compared with">
@@ -230,6 +244,15 @@
         <h2 id="split-heading">Lift split</h2>
         <p id="split-for" class="muted small"></p>
         <ul id="lift-split" class="split-list"></ul>
+      </section>
+
+      <section class="card numbers" aria-labelledby="numbers-heading">
+        <div class="card-head">
+          <p id="numbers-for" class="eyebrow"></p>
+          <h2 id="numbers-heading">Your numbers</h2>
+        </div>
+        <ul id="numbers-list" class="numbers-list"></ul>
+        <p id="numbers-note" class="small numbers-note"></p>
       </section>
 
       <section class="panel events" aria-labelledby="tests-heading">

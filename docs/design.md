@@ -82,15 +82,21 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
      - Real `<button>`s with `aria-pressed`, in a group labelled "Score shown".
      - It's out of the layout flow, so it doesn't push the score down: the eyebrow and hero keep their spacing. Below 360px wide it would overlap the score, so there it stays in the row.
      - Selected: `--accent` fill, `--on-accent` text. Unselected: `--surface-2` fill, `--muted` text. Each at least 44px tall.
-     - The choice is global and saved (`profile.formula`, section 6). Changing it updates everything at once: the hero score and its label ("your DOTS" / "your GL"), the next-rung card, the rung list, the Log result card (which has its own toggle), and event scores (and the Progress screen once it's built).
+     - The choice is global and saved (`profile.formula`, section 6). Changing it updates everything at once: the hero score and its label ("your DOTS" / "your GL"), the next-rung card, the exchange rate, the rung list, the Log result card (which has its own toggle), and event scores (and the Progress screen once it's built).
    - Under the caption, a pill showing "Meet in N days" ("Meet in 1 day", "Meet today"; `--accent` background, `--on-accent` text) for the soonest event with an exact date, today or later. Hidden without one. (The mockup had it top right; the score toggle sits there now.)
    - Hero: your latest score (84px) followed by "your DOTS" or "your GL" in `--muted`.
    - Caption: `{total} kg total · {bw} kg bodyweight · {position among the rungs}`.
 2. **Next-rung card** (`--surface`, 16px padding)
    - Up-arrow icon in `--accent`, then "Next rung" in `--muted`, then **"+{Δscore} {DOTS|GL} ≈ +{kg} kg on your total"**.
    - If you're above every rung: "Top rung reached".
-3. **"THE RUNGS"** heading, with chips for who you're compared with: UK · Raw · Full power · {sex} {class} (the class chip opens Log test at the class picker), and tabs for meet experience: first meet, second meet, 3+ meets.
-4. **Rung list**:
+3. **"Exchange rate" card** (`--surface`): what a kilo of bodyweight is worth on the bar, at your total and bodyweight.
+   - Eyebrow "At {bw} kg · {DOTS|GL}", title "Exchange rate".
+   - Two `--surface-2` tiles: "Bodyweight −1 kg" ≈ "On the bar +4.2 kg" (the kg on the bar in `--accent`: it's your lever). The figures shrink with the screen rather than wrap.
+   - Rows: "−1 kg bodyweight · +3.2 DOTS", "+2.5 kg on any lift · +1.9 DOTS", and "Same swap in GL · 1 kg ≈ 3.1 kg" for the other formula.
+   - Caption: "At your size, a kilo off is worth more in DOTS than in GL." when the two formulas differ by 0.5 kg or more on the bar, then "Rates change as your total and bodyweight change."
+   - At the formula's limits (DOTS's 40 kg floor and 210 kg ceiling for men, GL's 40 / 35 kg floor), a lighter bodyweight scores nothing extra: the tiles and the bodyweight row go, and the caption says "At 40 kg, DOTS doesn't score a lighter bodyweight any higher, so only the bar counts." The other formula's row shows only when it has a rate.
+4. **"THE RUNGS"** heading, with chips for who you're compared with: UK · Raw · Full power · {sex} {class} (the class chip opens Log test at the class picker), and tabs for meet experience: first meet, second meet, 3+ meets.
+5. **Rung list**:
    - Rungs are per formula. DOTS percentiles don't map onto GL percentiles, so `rungs.json` holds a separate set for each, from the same lifters.
    - Rung row (`--surface-2`): P-label | percentile name (e.g. "Upper quartile") with the rung's score underneath | the gap from your score (`+13.5` / `−4.4`) in `--muted`.
    - The **next** rung up is dashed in `--accent`, with its gap in `--accent`, weight 600.
@@ -162,10 +168,15 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
 6. **"LIFT SPLIT"**: "Against UK meet lifters: men 83 kg, first meet.", then three horizontal bars (Squat, Bench, Deadlift). Under each bar, where that lift sits among its own rungs ("Between P50 and P75", "Above P90"), so the lift holding your total back stands out.
    - Track `--divider`, fill `--text-2`, height 10px, radius 5px.
    - Width is relative to your best lift; the kg value sits on the right.
-7. **"1RMs"**: every record, newest first: the date with a **PR** badge (chalk outline) when it beat your previous best on a lift, what it logged ("Squat 1RM · 150 kg", "1RM test · 370 kg @ 70 kg", "Bodyweight · 69.5 kg"; "· Women's" for the other category), and your score at it on the right.
+7. **"Your numbers" card** (`--surface`): how current each number behind your score is. Eyebrow "Behind your score · {latest record's date}".
+   - A row each for Bodyweight, Squat, Bench and Deadlift: the name, the kg on the right, and under the name "Tested 30 Oct" ("Weighed" for bodyweight) when your latest record logged it, else "Carried from 17 Sep", then how long ago ("today", "yesterday", "5 days ago", "6 weeks ago").
+   - A **PR** badge (as in 1RMs) when the record that set the lift was a PR; "best 115 kg" under the kg when the lift is below your best.
+   - **Last tested:** a lift last tested 6 weeks ago or more gets its "how long ago" in `--text-2`, and a note under the rows, oldest first: "Squat last tested 6 weeks ago." A fact, not training advice. Bodyweight has none: Log test already nudges a bodyweight older than a week.
+   - No estimated values: bodyweight is what was logged, never an average.
+8. **"1RMs"**: every record, newest first: the date with a **PR** badge (chalk outline) when it beat your previous best on a lift, what it logged ("Squat 1RM · 150 kg", "1RM test · 370 kg @ 70 kg", "Bodyweight · 69.5 kg"; "· Women's" for the other category), and your score at it on the right.
    - Open one to fix its date, sex or the values it logged; the rest are noted as "carried from earlier records". Valid changes save straight away; closing it with invalid values undoes them.
    - "Delete squat 1RM" (or "Delete 1RM test", …) asks first. Your only record can't be deleted ("Clear my numbers" on Log test starts over), nor the first while the next one doesn't hold all four values.
-8. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date).
+9. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date).
 
 **Nice to have, later:** a gym test or meet type for each entry (meets as diamonds on the chart, with the class competed in), and a trend line with a projection ("P25 around Mar 2027").
 
@@ -199,7 +210,7 @@ Each new field defaults when it's missing, so adding an optional field never nee
 
 **Version 1** kept four keys (`dots-ladder:profile`, `:tests`, `:events`, `:progress-view`). They're migrated once, when version 2 doesn't exist yet, with nothing lost: an older profile that still held numbers becomes the first record (dated that day) when there were none, records without a sex take the profile's, and the old "Total" chart tab opens as Lifts → Total. The old keys are left in place for now (an older cached copy of the app still finds its data, and going back a version loses nothing); "Clear my numbers" removes the old profile and records too.
 
-**Derived values.** `app/derive.js` works out everything from the store once per change (your profile, carried values, one point per day, scores, rungs, PRs, the lever, events' scores) using the pure functions in `ladder.js`, `scoring.js` and `chart.js`. Screens and cards only read these; none keeps its own copy of the entries or works out a score itself. Every change goes through `store.update()`, and one subscriber refreshes the screen that's showing.
+**Derived values.** `app/derive.js` works out everything from the store once per change (your profile, carried values, one point per day, scores, rungs, PRs, the lever, the exchange rate, your numbers, events' scores) using the pure functions in `ladder.js`, `scoring.js` and `chart.js`. Screens and cards only read these; none keeps its own copy of the entries or works out a score itself. Every change goes through `store.update()`, and one subscriber refreshes the screen that's showing.
 
 - Calculate scores whenever they're displayed. Never store them.
 - The store wraps every storage read and write in try/catch. If storage is empty, corrupt or unavailable, the app starts with an empty state (and changes last until the page closes). A screen with no tests shows an empty state that links to `#/log`.
@@ -244,6 +255,10 @@ Men's classic C is **0.00921**. Some copies of the IPF PDF misprint it as 0.0921
 
 **Same total at the target bodyweight** = `scoreAtBodyweight(formula, total, targetBw, sex)`.
 
+**Exchange rate** = `exchangeRate(formula, { total, bw, sex })` → `{ perKgBw, perBarStep, kgOnBarPerKgBw }`: the points for 1 kg lighter, the points for 2.5 kg more on the total, and the kg on the total that 1 kg lighter is worth (the total that scores the lighter score at today's bodyweight, less today's total). `perKgBw` and `kgOnBarPerKgBw` are `null` when 1 kg lighter doesn't raise the score: under the formula's lightest bodyweight, or past DOTS's heaviest.
+
+**Your numbers** = `yourNumbers(tests, today)` in `ladder.js` → `{ rows, stale }`: each value's kg, when it was last logged and how many days ago, whether your latest record logged it, and for lifts your best and whether the record that set it was a PR; `stale` lists the lifts last tested `STALE_WEEKS` (6) or more weeks ago. `null` with no records.
+
 ### Required test cases
 
 | Input | Expected |
@@ -262,6 +277,9 @@ Men's classic C is **0.00921**. Some copies of the IPF PDF misprint it as 0.0921
 | GL: bodyweight below the minimum | clamped, no NaN or Infinity |
 | kgToNextRung, both formulas | always a multiple of 2.5 |
 | You above every rung | "Top rung reached", no next-rung number |
+| Exchange rate, DOTS, men, 390 kg @ 68 | −1 kg = +3.22; +2.5 kg = +1.92; 1 kg ≈ 4.20 kg on the bar |
+| Exchange rate, GL, men, 390 kg @ 68 | −1 kg = +0.47; +2.5 kg = +0.38; 1 kg ≈ 3.06 kg on the bar |
+| Exchange rate at the formula's floor or DOTS's ceiling | no bodyweight swap (`null`), the bar's rate still given |
 
 (The mockup showed "+6.5 kg". The 2.5 kg rounding rule makes that **+7.5 kg**. Follow the spec, not the mockup.)
 

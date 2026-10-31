@@ -275,6 +275,23 @@ a:hover { color: var(--accent-hover); }
 .next-card p { display: flex; flex-direction: column; gap: 2px; }
 .next-value { font-size: 1.0625rem; font-weight: 600; }
 
+/* Exchange rate: what a kilo of bodyweight is worth on the bar. The kg on the bar is the accent: it's your lever. */
+.card-head { display: flex; flex-direction: column; gap: 2px; }
+.card-head .eyebrow { font-size: 0.75rem; }
+.card-head h2 { font-size: 1.5rem; font-weight: 700; }
+.exchange { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.exchange-swap { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); align-items: center; gap: 6px; }
+.swap-tile { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: var(--surface-2); text-align: center; }
+.swap-kg { font-family: var(--display); font-size: clamp(1.5rem, 8vw, 2rem); font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.swap-gain { color: var(--accent); }
+.swap-eq { text-align: center; font-family: var(--display); font-size: 1.5rem; color: var(--muted); }
+.exchange-rows, .numbers-list { margin: 0; padding: 0; list-style: none; }
+.exchange-rows li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--divider); font-size: 0.9375rem; }
+.exchange-rows li:last-child { border-bottom: 0; }
+.exchange-rows span:first-child { color: var(--text-2); }
+.exchange-rows span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#exchange-note:empty { display: none; }
+
 .rungs-head { display: flex; flex-direction: column; gap: 10px; padding: 22px 0 8px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
@@ -751,6 +768,18 @@ a:hover { color: var(--accent-hover); }
 .split-track { height: 10px; border-radius: 5px; background: var(--divider); overflow: hidden; }
 .split-fill { display: block; height: 100%; border-radius: 5px; background: var(--text-2); }
 .split-kg { font-family: var(--display); font-size: 1.125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Your numbers: each value behind your score, tested in your latest record or carried from an earlier one. */
+.numbers { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.numbers-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--divider); }
+.numbers-list li:last-child { border-bottom: 0; }
+.numbers-name { font-weight: 600; }
+.numbers-kg { grid-row: span 2; font-family: var(--display); font-size: 1.375rem; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.numbers-when { font-size: 0.8125rem; color: var(--muted); }
+.numbers-when.stale { color: var(--text-2); }
+.numbers-best { display: block; font-family: var(--body); font-size: 0.75rem; font-weight: 400; color: var(--muted); }
+.numbers-note { color: var(--text-2); }
+.numbers-note:empty { display: none; }
 
 .test-head { display: flex; flex-direction: column; gap: 2px; }
 /* A record that beat your previous best on a lift. Chalk, like the chosen tabs: the accent stays for your next action. */

@@ -8,6 +8,7 @@
 // corrupting the cache; the Map and Set ones (prs, prDays) can't be frozen, so treat them as read-only too.
 import * as A from "./attempts.js";
 import * as L from "./ladder.js";
+import { FORMULA_IDS, exchangeRate } from "./scoring.js";
 import { inRange, liftDays, onePerDay } from "./chart.js";
 
 const cache = new WeakMap();
@@ -59,11 +60,21 @@ function daysWithPrs(entries, prs, lift) {
 
 // --- The builders ---------------------------------------------------------------------------
 
-/** Your profile (latest numbers from your records, plus settings) and your records in date order. */
-function baseValues({ settings, entries }) {
+/** Your profile (latest numbers from your records, plus settings), your records in date order, how current each number is, and the exchange rate. */
+function baseValues({ settings, entries, session }) {
+  const profile = memoizeOnce(() => L.currentProfile(settings, entries));
   return {
-    profile: memoizeOnce(() => L.currentProfile(settings, entries)),
+    profile,
     tests: memoizeOnce(() => L.sortTests(entries)),
+    yourNumbers: memoizeOnce(() => L.yourNumbers(entries, session.today)),
+    // In the chosen formula, plus the other formula's kg on the bar for a kilo of bodyweight.
+    exchange: memoizeOnce(() => {
+      const p = profile();
+      if (!p) return null;
+      const at = { total: L.sumLifts(p), bw: p.bodyweight, sex: p.sex };
+      const other = FORMULA_IDS.find((id) => id !== p.formula);
+      return { ...exchangeRate(p.formula, at), other, otherKgOnBar: exchangeRate(other, at).kgOnBarPerKgBw };
+    }),
   };
 }
 
@@ -249,6 +260,18 @@ function make(state) {
     },
     /** One lift's rungs in kg for your group ([] if none). */
     liftRungs: rungs.liftRungs,
+    /**
+     * What a kilo of bodyweight is worth at your numbers: { perKgBw, perBarStep, kgOnBarPerKgBw } in the chosen
+     * formula (perKgBw and kgOnBarPerKgBw null at the formula's limits), with the other formula's id and its
+     * kgOnBarPerKgBw as { other, otherKgOnBar }; null without numbers.
+     */
+    get exchange() {
+      return base.exchange();
+    },
+    /** How current each number behind your score is ({ rows, stale }, see ladder.js yourNumbers); null without records. */
+    get yourNumbers() {
+      return base.yourNumbers();
+    },
     /** The weight-class lever for your target bodyweight. */
     get lever() {
       return rungs.lever();
