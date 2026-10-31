@@ -127,6 +127,30 @@ function renderExchange(d) {
     : `${Math.abs(gap) >= 0.5 ? `At your size, a kilo off is worth more in ${more} than in ${less}. ` : ""}Rates change as your total and bodyweight change.`;
 }
 
+const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
+
+/** Your three lifts as bars against your best, each with where it sits among its own rungs for the group shown. */
+function renderSplit(d, group) {
+  const { profile } = d;
+  const best = Math.max(...L.LIFTS.map((lift) => profile[lift]));
+  $("split-for").textContent = `Against UK meet lifters: ${group}.`;
+  $("lift-split").replaceChildren(
+    ...L.LIFTS.map((lift) => {
+      const li = el("li", "split-row");
+      const mark = icon(`icon-${lift}`);
+      mark.setAttribute("class", "split-icon");
+      const track = el("span", "split-track");
+      const fill = el("span", "split-fill");
+      fill.style.width = `${(profile[lift] / best) * 100}%`;
+      track.append(fill);
+      li.append(mark, el("span", "split-name", LIFT_NAMES[lift]), track, el("span", "split-kg", `${profile[lift]} kg`));
+      const where = L.rungPosition(d.liftRungs(lift), profile[lift]);
+      if (where) li.append(el("span", "split-pos muted small", where[0].toUpperCase() + where.slice(1)));
+      return li;
+    }),
+  );
+}
+
 function renderRow(row, profile) {
   const { formula } = profile;
   const unit = S.FORMULAS[formula].label;
@@ -196,6 +220,7 @@ function render() {
   renderMeetPill(d);
   renderNext(profile, points, group, missing);
   renderExchange(d);
+  renderSplit(d, `${sexWord.toLowerCase()} ${wclass} kg, ${experience}`);
   $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
 }
 

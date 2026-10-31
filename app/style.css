@@ -279,7 +279,7 @@ a:hover { color: var(--accent-hover); }
 .card-head { display: flex; flex-direction: column; gap: 2px; }
 .card-head .eyebrow { font-size: 0.75rem; }
 .card-head h2 { font-size: 1.5rem; font-weight: 700; }
-.exchange { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.exchange { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
 .exchange-swap { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); align-items: center; gap: 6px; }
 .swap-tile { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: var(--surface-2); text-align: center; }
 .swap-kg { font-family: var(--display); font-size: clamp(1.5rem, 8vw, 2rem); font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
