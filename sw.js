@@ -17,6 +17,7 @@ const PRECACHE = [
   "app/chart.js",
   "app/attempts.js",
   "app/meet.js",
+  "app/popup.js",
   "app/progress.js",
   "app/scoring.js",
   "app/style.css",

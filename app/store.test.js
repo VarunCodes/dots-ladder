@@ -209,3 +209,10 @@ test("only the scoring module holds formula coefficients", () => {
     assert.doesNotMatch(source(file), /0\.0000010930?|1199\.72839/, `${file} holds formula coefficients`);
   }
 });
+
+test("pop-ups are the app's own, never the browser's", () => {
+  // confirm(), alert() and prompt() look nothing like the app; popup.js has the toast and the dialog instead.
+  for (const file of appFiles) {
+    assert.doesNotMatch(source(file), /\b(?:window\.)?(?:confirm|alert|prompt)\(/, `${file} opens a browser pop-up`);
+  }
+});

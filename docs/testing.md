@@ -77,7 +77,7 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
 What can't run in Node (the browser installing the app and swapping in the service worker) is checked by hand: install from Chrome on Android, then reopen in aeroplane mode. To debug the phone, connect it over USB and open `chrome://inspect` on the computer.
 
-The DOM code in `app/app.js`, `app/log.js`, `app/progress.js` and `app/events.js` isn't unit tested; it only renders what `derive.js` works out, and changes things through the store. So far it has been checked by hand and with headless Chrome runs outside the repo, so nothing in CI exercises the page in a real browser yet.
+The DOM code in `app/app.js`, `app/log.js`, `app/progress.js`, `app/events.js`, `app/meet.js` and `app/popup.js` isn't unit tested; it only renders what `derive.js` works out, and changes things through the store. So far it has been checked by hand and with headless Chrome runs outside the repo, so nothing in CI exercises the page in a real browser yet.
 
 ## CI: GitHub Actions
 
