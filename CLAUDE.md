@@ -1,6 +1,6 @@
-# DOTS Ladder
-Read docs/conversation-summary.md and docs/design.md first.
-- Public repo: never commit private/, personal data, paths or the OPL zip/CSV.
-- Rungs: aggregates only (n≥20; p10/p90 at n≥50); no per-lifter data; no estimates except GYM_GOER_ESTIMATE; exclude under-18s and doping outcomes. Credit OpenPowerlifting on public pages.
-- Plain JS, no build/CDN. State only via store.update(); values only from derive.js.
-- Work via issues; PRs say "Closes #N", need all 3 CI checks. Never push dots-ladder-old. UK English.
+Read docs/conversation-summary.md, docs/design.md first.
+- Public: no private/, personal data, paths, OPL zip/CSV.
+- Rungs: aggregates (n≥20; p10/p90 n≥50); no lifter rows, under-18s, doping; 1 estimate: GYM_GOER_ESTIMATE. Credit OPL.
+- Plain JS, no build/CDN; state via store.update(), values via derive.js.
+- PRs: "Closes #N", 3 CI checks; never push dots-ladder-old. UK English.
+- Rules only here, ≤400 chars.
