@@ -319,6 +319,33 @@ export function prs(tests) {
   return result;
 }
 
+export const STALE_WEEKS = 6; // a lift last tested this long ago gets a "last tested" note
+
+/**
+ * How current each number behind your score is, as of today: one row per value (bodyweight, then the lifts)
+ * { name, kg, date (when it was last logged), days (since then), tested (logged in your latest record, rather than
+ * carried from an earlier one) }, and for lifts { best (your best ever), pr (the record that set it was a PR, as in
+ * prs(): it beat every earlier value, so a first value or an equalled best isn't one) }. `stale` lists the lifts
+ * last tested STALE_WEEKS or more ago, oldest first, with their weeks. Null with no records.
+ */
+export function yourNumbers(tests, today) {
+  const latest = carried(tests).at(-1);
+  if (!latest) return null;
+  const prRecords = prs(tests);
+  const setBy = (lift, date) => sortTests(tests).findLast((t) => lift in t && t.date === date);
+  const best = Object.fromEntries(LIFTS.map((lift) => [lift, Math.max(...tests.filter((t) => lift in t).map((t) => t[lift]))]));
+  const rows = VALUES.map((name) => {
+    const date = latest.from[name];
+    const row = { name, kg: latest.values[name], date, days: daysBetween(date, today), tested: date === latest.record.date };
+    return LIFTS.includes(name) ? { ...row, best: best[name], pr: Boolean(prRecords.get(setBy(name, date).id)?.includes(name)) } : row;
+  });
+  const stale = rows
+    .filter((row) => row.name !== "bodyweight" && row.days >= STALE_WEEKS * 7)
+    .sort((x, y) => y.days - x.days)
+    .map((row) => ({ lift: row.name, weeks: Math.floor(row.days / 7) }));
+  return { rows, stale };
+}
+
 export const BODYWEIGHT_SHIFT_KG = 5; // beyond this, a lift carried from another bodyweight is flagged
 
 /**

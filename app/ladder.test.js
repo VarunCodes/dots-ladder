@@ -630,3 +630,37 @@ test("rack settings are kept only when set, trimmed and short", () => {
   assert.deepEqual(L.settingsOf({ rack: { squat: " 9 ", safeties: "", bench: "6 / 3", other: "x" } }).rack, { squat: "9", bench: "6 / 3" });
   assert.equal("rack" in L.settingsOf({ rack: { squat: "far too long a value" } }), false);
 });
+
+// --- Your numbers: how current each number behind your score is ---
+
+test("your numbers: tested or carried, how long ago, PRs and the last-tested note", () => {
+  const tests = [
+    { id: "a", date: "2026-08-01", sex: "M", bodyweight: 69, squat: 115, bench: 110, deadlift: 150 },
+    { id: "b", date: "2026-09-17", sex: "M", squat: 110 },
+    { id: "c", date: "2026-10-15", sex: "M", deadlift: 160 },
+    { id: "d", date: "2026-10-30", sex: "M", bodyweight: 68, bench: 120 },
+  ];
+  const { rows, stale } = L.yourNumbers(tests, "2026-10-31");
+  const by = Object.fromEntries(rows.map((row) => [row.name, row]));
+  assert.deepEqual(rows.map((row) => row.name), ["bodyweight", "squat", "bench", "deadlift"]);
+  assert.deepEqual(by.bodyweight, { name: "bodyweight", kg: 68, date: "2026-10-30", days: 1, tested: true });
+  assert.deepEqual(by.bench, { name: "bench", kg: 120, date: "2026-10-30", days: 1, tested: true, best: 120, pr: true });
+  assert.deepEqual(by.squat, { name: "squat", kg: 110, date: "2026-09-17", days: 44, tested: false, best: 115, pr: false }, "below an earlier best");
+  assert.deepEqual(by.deadlift, { name: "deadlift", kg: 160, date: "2026-10-15", days: 16, tested: false, best: 160, pr: true });
+  assert.equal(L.yourNumbers([tests[0]], "2026-08-01").rows.some((row) => row.pr), false, "a first value isn't a PR");
+  assert.deepEqual(stale, [{ lift: "squat", weeks: 6 }]);
+});
+
+test("your numbers: the note starts at six weeks, oldest lift first", () => {
+  const tests = [
+    { id: "a", date: "2026-08-01", sex: "M", bodyweight: 69, squat: 115, bench: 110, deadlift: 150 },
+    { id: "b", date: "2026-08-10", sex: "M", deadlift: 155 },
+  ];
+  assert.deepEqual(L.yourNumbers(tests, "2026-09-11").stale, [], "41 days since the deadlift, 6 weeks less a day since squat");
+  assert.deepEqual(L.yourNumbers(tests, "2026-09-12").stale, [{ lift: "squat", weeks: 6 }, { lift: "bench", weeks: 6 }]);
+  assert.deepEqual(L.yourNumbers(tests, "2026-09-21").stale.map((s) => s.lift), ["squat", "bench", "deadlift"]);
+});
+
+test("your numbers: null with no records", () => {
+  assert.equal(L.yourNumbers([], "2026-10-31"), null);
+});

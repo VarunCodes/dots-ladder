@@ -150,3 +150,26 @@ test("display precision: DOTS to 1 decimal place, GL to 2; rungs DOTS whole, GL 
   assert.deepEqual(S.FORMULA_IDS, ["dots", "gl"]);
   assert.equal(S.DEFAULT_FORMULA, "dots");
 });
+
+// --- Exchange rate: what a kilo of bodyweight is worth on the bar ---
+
+test("exchange rate at 390 kg and 68 kg, men", () => {
+  const dotsRate = S.exchangeRate("dots", { total: 390, bw: 68, sex: "M" });
+  near(dotsRate.perKgBw, 3.22, 0.005);
+  near(dotsRate.perBarStep, 1.92, 0.005);
+  near(dotsRate.kgOnBarPerKgBw, 4.2, 0.005);
+  const glRate = S.exchangeRate("gl", { total: 390, bw: 68, sex: "M" });
+  near(glRate.perKgBw, 0.47, 0.005);
+  near(glRate.perBarStep, 0.38, 0.005);
+  near(glRate.kgOnBarPerKgBw, 3.06, 0.005);
+});
+
+test("exchange rate has no bodyweight swap at the formula's limits", () => {
+  for (const [formula, bw, sex] of [["dots", 40.5, "M"], ["dots", 40, "F"], ["gl", 40.5, "M"], ["gl", 35.5, "F"], ["dots", 230, "M"]]) {
+    const rate = S.exchangeRate(formula, { total: 300, bw, sex });
+    assert.equal(rate.perKgBw, null, `${formula} ${sex} ${bw}`);
+    assert.equal(rate.kgOnBarPerKgBw, null);
+    assert.ok(rate.perBarStep > 0);
+  }
+  assert.ok(S.exchangeRate("gl", { total: 300, bw: 36, sex: "F" }).perKgBw > 0);
+});

@@ -1,6 +1,6 @@
 // "Progress" screen. A test here is a powerlifting 1RM test: your one-rep max on squat, bench and deadlift
 // on a given day, at a given bodyweight. The screen shows the chart of your scores at those tests, the
-// weight-class lever, the lift split and the editable list of tests. Its numbers come from derive.js, and
+// weight-class lever, your numbers and the editable list of tests. Its numbers come from derive.js, and
 // changes go through the store; logic lives in ladder.js and chart.js. This file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
@@ -349,7 +349,36 @@ function setupChartTouch() {
   });
 }
 
-// --- Weight-class lever and lift split -------------------------------------------------
+// --- Your numbers ---------------------------------------------------------------------------
+
+const VALUE_NAMES = { bodyweight: "Bodyweight", ...LIFT_NAMES };
+// "today", "yesterday", "5 days ago", "3 weeks ago".
+const ago = (days) => (days === 0 ? "today" : days === 1 ? "yesterday" : days < 14 ? `${days} days ago` : `${Math.floor(days / 7)} weeks ago`);
+
+/** Each value behind your score: tested in your latest record or carried from an earlier one, how long ago, and PRs. */
+function renderNumbers() {
+  const { rows, stale } = now().yourNumbers;
+  const latest = rows.find((row) => row.tested).date;
+  $("numbers-for").textContent = `Behind your score · ${shortDay(latest)}`;
+  $("numbers-list").replaceChildren(
+    ...rows.map((row) => {
+      const li = el("li");
+      const name = el("span", "numbers-name", VALUE_NAMES[row.name]);
+      if (row.pr) name.append(" ", el("span", "pr-badge", "PR"));
+      const verb = row.name === "bodyweight" ? "Weighed" : "Tested";
+      const when = row.tested ? `${verb} ${shortDay(row.date)}` : `Carried from ${shortDay(row.date)}`;
+      const isStale = stale.some((s) => s.lift === row.name);
+      const kg = el("span", "numbers-kg", `${row.kg} kg`);
+      if (row.best != null && row.kg < row.best) kg.append(el("span", "numbers-best", `best ${row.best} kg`));
+      li.append(name, kg, el("span", `numbers-when${isStale ? " stale" : ""}`, `${when} · ${ago(row.days)}`));
+      return li;
+    }),
+  );
+  // A fact, not training advice: which lifts are overdue a test.
+  $("numbers-note").textContent = stale.map((s) => `${LIFT_NAMES[s.lift]} last tested ${s.weeks} weeks ago.`).join(" ");
+}
+
+// --- Weight-class lever -------------------------------------------------------------
 
 function renderLever() {
   const { profile, lever: result } = now();
@@ -365,28 +394,6 @@ function renderLever() {
 }
 
 /** Each lift's bar, its kg, and where it sits among that lift's rungs ("Between P50 and P75"), when the group has them. */
-function renderSplit() {
-  const { profile } = now();
-  const best = Math.max(...L.LIFTS.map((lift) => profile[lift]));
-  $("split-for").textContent = `Against UK meet lifters: ${groupName()}.`;
-  $("lift-split").replaceChildren(
-    ...L.LIFTS.map((lift) => {
-      const li = el("li", "split-row");
-      const icon = document.createElementNS(SVG_NS, "svg");
-      icon.setAttribute("class", "split-icon");
-      icon.setAttribute("aria-hidden", "true");
-      icon.append(svg("use", { href: `#icon-${lift}` }));
-      const track = el("span", "split-track");
-      const fill = el("span", "split-fill");
-      fill.style.width = `${(profile[lift] / best) * 100}%`;
-      track.append(fill);
-      li.append(icon, el("span", "split-name", LIFT_NAMES[lift]), track, el("span", "split-kg", `${profile[lift]} kg`));
-      const where = L.rungPosition(now().liftRungs(lift), profile[lift]);
-      if (where) li.append(el("span", "split-pos muted small", capital(where)));
-      return li;
-    }),
-  );
-}
 
 function setupLever() {
   $("target-bw").addEventListener("input", () => {
@@ -606,6 +613,6 @@ export function refreshProgress() {
   renderFormula();
   renderChart();
   renderLever();
-  renderSplit();
+  renderNumbers();
   refreshTestSummaries();
 }

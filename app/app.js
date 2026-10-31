@@ -96,6 +96,61 @@ function renderNext(profile, points, group, missing) {
         : "Top rung reached";
 }
 
+/** What a kilo of bodyweight is worth on the bar at your total and bodyweight, in the chosen formula and the other. */
+function renderExchange(d) {
+  const { profile, exchange: rate } = d;
+  const { formula } = profile;
+  const unit = S.FORMULAS[formula].label;
+  const kg = (n) => `${n.toFixed(1)} kg`;
+  $("exchange-for").textContent = `At ${profile.bodyweight} kg · ${unit}`;
+  // At the formula's limits a lighter bodyweight scores nothing extra, so only the bar's row is left.
+  const swaps = rate.kgOnBarPerKgBw != null;
+  $("exchange-swap").hidden = !swaps;
+  if (swaps) $("exchange-bar").textContent = `+${kg(rate.kgOnBarPerKgBw)}`;
+  const rows = [
+    ...(swaps ? [["−1 kg bodyweight", `+${S.formatScore(formula, rate.perKgBw)} ${unit}`]] : []),
+    ["+2.5 kg on any lift", `+${S.formatScore(formula, rate.perBarStep)} ${unit}`],
+    ...(rate.otherKgOnBar != null ? [[`Same swap in ${S.FORMULAS[rate.other].label}`, `1 kg ≈ ${kg(rate.otherKgOnBar)}`]] : []),
+  ];
+  $("exchange-rows").replaceChildren(
+    ...rows.map(([what, worth]) => {
+      const li = el("li");
+      li.append(el("span", "", what), el("span", "", worth));
+      return li;
+    }),
+  );
+  // Name the formula that rewards a cut more, when the two differ by half a kilo or more on the bar.
+  const gap = swaps && rate.otherKgOnBar != null ? rate.kgOnBarPerKgBw - rate.otherKgOnBar : 0;
+  const [more, less] = gap > 0 ? [unit, S.FORMULAS[rate.other].label] : [S.FORMULAS[rate.other].label, unit];
+  $("exchange-note").textContent = !swaps
+    ? `At ${profile.bodyweight} kg, ${unit} doesn't score a lighter bodyweight any higher, so only the bar counts.`
+    : `${Math.abs(gap) >= 0.5 ? `At your size, a kilo off is worth more in ${more} than in ${less}. ` : ""}Rates change as your total and bodyweight change.`;
+}
+
+const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
+
+/** Your three lifts as bars against your best, each with where it sits among its own rungs for the group shown. */
+function renderSplit(d, group) {
+  const { profile } = d;
+  const best = Math.max(...L.LIFTS.map((lift) => profile[lift]));
+  $("split-for").textContent = `Against UK meet lifters: ${group}.`;
+  $("lift-split").replaceChildren(
+    ...L.LIFTS.map((lift) => {
+      const li = el("li", "split-row");
+      const mark = icon(`icon-${lift}`);
+      mark.setAttribute("class", "split-icon");
+      const track = el("span", "split-track");
+      const fill = el("span", "split-fill");
+      fill.style.width = `${(profile[lift] / best) * 100}%`;
+      track.append(fill);
+      li.append(mark, el("span", "split-name", LIFT_NAMES[lift]), track, el("span", "split-kg", `${profile[lift]} kg`));
+      const where = L.rungPosition(d.liftRungs(lift), profile[lift]);
+      if (where) li.append(el("span", "split-pos muted small", where[0].toUpperCase() + where.slice(1)));
+      return li;
+    }),
+  );
+}
+
 function renderRow(row, profile) {
   const { formula } = profile;
   const unit = S.FORMULAS[formula].label;
@@ -164,6 +219,8 @@ function render() {
   renderHero(profile, points, group?.rungs ?? []);
   renderMeetPill(d);
   renderNext(profile, points, group, missing);
+  renderExchange(d);
+  renderSplit(d, `${sexWord.toLowerCase()} ${wclass} kg, ${experience}`);
   $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
 }
 
