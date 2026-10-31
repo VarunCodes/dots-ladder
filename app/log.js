@@ -8,6 +8,7 @@ import * as store from "./store.js";
 import { derived } from "./derive.js";
 import { $, formulaChoice } from "./dom.js";
 import { fmtDay } from "./events.js";
+import { ask } from "./popup.js";
 
 export const FIELD_TEXT = {
   date: "Pick the day of the test (not a future one).",
@@ -16,6 +17,7 @@ export const FIELD_TEXT = {
   ...Object.fromEntries(L.LIFTS.map((lift) => [lift, `${lift[0].toUpperCase()}${lift.slice(1)} must be ${L.LIMITS.lift.join("–")} kg.`])),
 };
 
+const SEX_NAMES = { M: "men", F: "women" };
 const LIMITS_FOR = { bodyweight: L.LIMITS.bodyweight, squat: L.LIMITS.lift, bench: L.LIMITS.lift, deadlift: L.LIMITS.lift };
 const STALE_BODYWEIGHT_DAYS = 7; // older than this, the bodyweight hint asks for a fresh weigh-in
 
@@ -194,10 +196,8 @@ export function setupLog(context) {
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
-  form().addEventListener("input", (event) => {
-    // With no records the first-visit form is showing, and this form has nothing to start from.
-    if (!now().tests.length) return;
-    const { name } = event.target;
+  // What a change to a field brings with it, then the live result.
+  const fieldChanged = (name) => {
     if (L.VALUES.includes(name)) changed.add(name);
     // A new date brings that day's numbers into the fields you haven't changed.
     if (name === "date" && L.isDay(f.date.value)) fillUnchanged(base(f.date.value));
@@ -206,6 +206,23 @@ export function setupLog(context) {
     // Only the dropdown is refilled: rewriting an input while it's being typed in would eat a trailing "." or "0".
     if (name === "sex" || name === "bodyweight" || name === "date") fillClassSelect(read());
     renderResult();
+  };
+
+  form().addEventListener("input", async (event) => {
+    // With no records the first-visit form is showing, and this form has nothing to start from.
+    if (!now().tests.length) return;
+    const { name } = event.target;
+    // Logging in the other sex category is asked first; the choice stays as it was until you say yes.
+    const yours = now().profile.sex;
+    if (name === "sex" && f.sex.value !== yours) {
+      const to = f.sex.value;
+      f.sex.value = yours;
+      const other = SEX_NAMES[to];
+      const text = `This record will be scored against ${other} lifters, and the weight class goes back to Auto. Earlier records keep their own category.`;
+      if (!(await ask({ title: `Switch to ${other}?`, text, action: `Switch to ${other}` }))) return;
+      f.sex.value = to;
+    }
+    fieldChanged(name);
   });
 
   // Saving adds a record of only what changed (all four before your first record); the profile keeps the class
@@ -228,8 +245,9 @@ export function setupLog(context) {
   });
 
   // Clearing goes back to the first-visit form; there are no default numbers to fall back to.
-  $("clear-numbers").addEventListener("click", () => {
-    if (!window.confirm("Clear your numbers and 1RM history from this phone? You'll be asked for them again.")) return;
+  $("clear-numbers").addEventListener("click", async () => {
+    const text = "Your numbers and 1RM history go from this phone. You'll be asked for them again.";
+    if (!(await ask({ title: "Clear your numbers?", text, action: "Clear" }))) return;
     // The store forgets your records and settings; its subscriber goes back to the first-visit form.
     store.clearNumbers();
   });

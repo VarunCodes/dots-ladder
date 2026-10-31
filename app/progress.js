@@ -9,6 +9,7 @@ import { derived } from "./derive.js";
 import { CHART, TIP_GAP, TIP_LIFT, chartModel, nearestPoint, progressStats, tipSide } from "./chart.js";
 import { $, choiceGroup, el, formulaChoice, setNumber } from "./dom.js";
 import { fmtDay } from "./events.js";
+import { ask } from "./popup.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
@@ -529,11 +530,13 @@ function onTestInput(item, form) {
   note.textContent = "Saved on this device only.";
 }
 
-function deleteTest(id) {
+async function deleteTest(id) {
   const { tests } = now();
   if (L.deleteProblem(tests, id)) return;
   const record = tests.find((t) => t.id === id);
-  if (!window.confirm(`Delete the ${lowerName(record)} from ${fmtDay(record.date)}?`)) return;
+  const text = `Your ${lowerName(record)} from ${fmtDay(record.date)} goes from this phone.`;
+  if (!(await ask({ title: "Delete this record?", text, action: "Delete" }))) return;
+  if (!now().tests.some((t) => t.id === id)) return; // already gone (deleted twice)
   persistTests(tests.filter((t) => t.id !== id));
   renderTests(); // the store's refresh leaves the list alone, so the deleted row goes here
 }

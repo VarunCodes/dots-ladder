@@ -28,7 +28,7 @@ A personal powerlifting app: track DOTS (or IPF GL) across 1RMs and climb a ladd
 - Spec, data model and formulas: `docs/design.md`. Pipeline: `pipeline/build_rungs.py`.
 
 ## Backlog
-Open GitHub issues. Not yet raised: weekly rungs rebuild, meet type, projection, analytics (rank over time, relative strength), sex-change check at Save, wrapping event labels.
+Open GitHub issues. Not yet raised: weekly rungs rebuild, meet type, projection, analytics (rank over time, relative strength), wrapping event labels.
 
 ## Conventions
 UK English, kg, DOTS and IPF GL (not Wilks). "DOTS Ladder" stays the app name; copy about a score uses the selected formula's label.

@@ -9,6 +9,7 @@ import { $, choiceGroup, el, formulaChoice, replay, setNumber } from "./dom.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 import { FIELD_TEXT, openLog, refreshLog, setupLog } from "./log.js";
 import { openMeet, refreshMeet, setupMeet } from "./meet.js";
+import { toast } from "./popup.js";
 import { openProgress, refreshProgress, setupProgress } from "./progress.js";
 
 const fmtDate = (iso) =>
@@ -167,7 +168,6 @@ function render() {
 }
 
 let shownScreen = null;
-let savedNote = ""; // what the last save achieved, shown on the Ladder until anything else changes
 
 /**
  * Shows one screen; switching to another fades it in (not on first load). With nothing saved, only the Ladder's
@@ -231,7 +231,6 @@ try {
     $("standing").hidden = !numbers;
     $("tabbar").hidden = !numbers;
     const screen = numbers ? L.routeFrom(location.hash) : "ladder";
-    if (screen !== "ladder") $("saved-note").hidden = true;
     showScreen(screen);
     if (!numbers) return;
     if (screen === "log") openLog({ focusClass: location.hash.endsWith("?class") });
@@ -243,7 +242,6 @@ try {
   // After every change: gaining or losing your numbers re-routes (into or out of the first-visit form); otherwise
   // the Ladder redraws (the events panel is on it) and the open screen refreshes in place, keeping what's typed.
   store.subscribe(() => {
-    $("saved-note").hidden = true; // any later change makes the note out of date
     if (hasNumbers() === $("onboarding").hidden) {
       render();
       const screen = L.routeFrom(location.hash);
@@ -262,15 +260,13 @@ try {
   });
 
   setupOnboarding();
-  // After a save: the Ladder, with a note of what it achieved (a PR, a rung cleared) and the score fading in.
+  // After a save: the Ladder, a toast of what it achieved (a PR, a rung cleared) and the score fading in.
   setupLog({
     onSaved: (before, id) => {
       const d = derived(store.getState());
-      savedNote = L.savedText(L.saveOutcome({ before, after: d, rungs: d.group?.rungs ?? [], prLifts: d.prs.get(id) ?? [] }));
+      const outcome = L.savedText(L.saveOutcome({ before, after: d, rungs: d.group?.rungs ?? [], prLifts: d.prs.get(id) ?? [] }));
       location.hash = "#/ladder";
-      $("saved-text").textContent = savedNote;
-      $("saved-note").hidden = false;
-      replay($("saved-note"), "enter");
+      toast(outcome);
       if (before.score !== d.score) replay($("now-score"), "swap");
     },
   });

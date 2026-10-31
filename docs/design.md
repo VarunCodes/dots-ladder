@@ -283,7 +283,10 @@ Restrained and quick: motion confirms a change, it never decorates. Plain CSS, u
 - **Screens** fade in and rise 8px when you switch to them, not on first load.
 - **Headline numbers** (the Ladder score, the chart's latest) fade the new value in when it changes. The Log result doesn't, as it changes with every keystroke.
 - **Events and records** open and close smoothly to their height (Chromium; other browsers snap).
-- **After a save**, the Ladder says what it achieved under the caption: "Saved", "Saved · PR on squat", "Saved · Cleared P25" (a rung counts only within the same group). Its accent check draws itself in (500ms), the score fades to its new value, and the note goes on the next change or when you leave the Ladder.
+- **Pop-ups** come only from `app/popup.js`, never the browser's own `confirm()` or `alert()` (a test enforces this). There are two kinds:
+  - **Toast:** a surface card that drops in at the top of the screen (fast), stays 4 seconds, then fades up and out (quick). Tapping it closes it early.
+  - **Dialog** (`ask`): a centred surface card over a dimmed page that rises in (fast) and fades out (quick). It has an uppercase title, a line saying what will happen, and two equal 52px buttons: Cancel, which has focus, and the action as the accent primary, named for what it does ("Delete", "Switch to women"). Escape or a tap outside cancels. It asks before deleting an event or a record, before clearing your numbers, and on Log test before switching to the other sex category (not on the first-visit form).
+- **After a save**, the Ladder shows a toast of what it achieved: "Saved", "Saved · PR on squat", "Saved · Cleared P25" (a rung counts only within the same group). Its accent check draws itself in (500ms) and the score fades to its new value.
 - **The chart line** carries a soft chalk glint that runs along the line every few seconds to the ringed entry (your latest, or the one you've selected) and, arriving, wraps its ring both ways (over and under) before fading. The first entry has no line before it, so it gets the wrap alone. Off with reduced motion.
 - **Tab bar icons** are outlines; the open tab's filled version cross-fades in (scale, blur and opacity; not on first load).
 

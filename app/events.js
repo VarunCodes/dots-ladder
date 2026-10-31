@@ -5,6 +5,7 @@ import * as store from "./store.js";
 import { derived } from "./derive.js";
 import * as S from "./scoring.js";
 import { $, el } from "./dom.js";
+import { ask } from "./popup.js";
 
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
 const capital = (word) => word[0].toUpperCase() + word.slice(1);
@@ -200,9 +201,10 @@ function addEvent() {
   $("event-list").querySelector(`[data-id="${event.id}"] input[name="name"]`)?.focus();
 }
 
-function deleteEvent(id) {
+async function deleteEvent(id) {
   const event = now().events.find((e) => e.id === id);
-  if (!window.confirm(`Delete "${eventLabel(event)}"?`)) return;
+  const text = `"${eventLabel(event)}" and anything logged for it go from this phone.`;
+  if (!(await ask({ title: "Delete this event?", text, action: "Delete" }))) return;
   persist(now().events.filter((e) => e.id !== id));
   renderList();
   refreshEvents(now());

@@ -85,7 +85,6 @@
           <p class="hero-score"><span id="now-score">–</span> <span id="now-unit" class="hero-unit">your DOTS</span></p>
           <p id="now-caption" class="muted">Loading…</p>
           <p id="meet-pill" class="pill" hidden></p>
-          <p id="saved-note" class="saved-note" role="status" hidden><svg class="saved-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" pathLength="1"/></svg><span id="saved-text"></span></p>
         </header>
 
         <section class="card next-card" aria-label="Next rung">
@@ -260,6 +259,8 @@
 
     <p id="error" class="error" hidden></p>
   </main>
+  <!-- Toasts (popup.js) drop in here, above every screen; dialogs are added to the body as they open. -->
+  <div id="toasts" class="toast-region" role="status"></div>
 
   <footer class="muted small">
     <p>Anonymous percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters shown. Data: <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>.</p>
