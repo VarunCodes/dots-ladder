@@ -237,13 +237,20 @@
       </section>
 
       <section class="lever" aria-labelledby="lever-heading">
-        <h2 id="lever-heading">Weight-class lever</h2>
-        <p id="lever-text"></p>
-        <p id="lever-caption" class="muted small"></p>
-        <label class="lever-field">Target bodyweight (kg)
-          <input id="target-bw" type="number" inputmode="decimal" step="any" min="30" max="250">
-        </label>
-        <p id="lever-note" class="small error-text" role="status"></p>
+        <div class="card-head">
+          <p id="lever-eyebrow" class="eyebrow"></p>
+          <h2 id="lever-heading">Weight-class lever</h2>
+        </div>
+        <div id="lever-classes" class="view-group lever-classes" role="group" aria-label="Target class"></div>
+        <div class="lever-tiles">
+          <div class="lever-tile"><p id="lever-same-label" class="tile-label"></p><p id="lever-same" class="lever-value lever-score"></p><p id="lever-same-sub" class="tile-sub"></p></div>
+          <div class="lever-tile"><p id="lever-even-label" class="tile-label"></p><p id="lever-even" class="lever-value"></p><p id="lever-even-sub" class="tile-sub"></p></div>
+        </div>
+        <p id="lever-position" class="small"></p>
+        <figure class="lever-curve">
+          <figcaption id="lever-curve-label" class="muted small"></figcaption>
+          <svg id="lever-chart" role="img"></svg>
+        </figure>
       </section>
 
       <section class="card numbers" aria-labelledby="numbers-heading">
