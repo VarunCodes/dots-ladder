@@ -1,13 +1,15 @@
 // "Log test" screen: log a new 1RM, a full 1RM test, or a bodyweight. Every field starts from your numbers as of
 // the chosen date; only what you change is saved, and the button says what that is ("Save squat 1RM"). Unchanged
 // fields stay usable but muted, with when they were last logged. A live result compares the draft with your
-// numbers before it. Logic lives in ladder.js; this file only renders.
+// numbers before it. Under the form, the 1RMs list (history.js) fixes earlier records. Logic lives in ladder.js;
+// this file only renders.
 import * as L from "./ladder.js";
 import * as S from "./scoring.js";
 import * as store from "./store.js";
 import { derived } from "./derive.js";
 import { $, formulaChoice } from "./dom.js";
 import { fmtDay } from "./events.js";
+import { openHistory, refreshHistory, setupHistory } from "./history.js";
 import { ask } from "./popup.js";
 
 export const FIELD_TEXT = {
@@ -162,9 +164,17 @@ function renderResult() {
   ].filter(Boolean).join(" ");
 }
 
-/** After a change elsewhere (e.g. DOTS / GL): redraws the result for the draft as it stands, keeping what's typed. */
+/**
+ * After a change elsewhere (DOTS / GL, or a record fixed in the 1RMs list): the fields you haven't changed take
+ * your numbers as of the date again, and the result is redrawn for the draft, keeping what's typed.
+ */
 export function refreshLog() {
-  if (now().tests.length) renderResult();
+  if (!now().tests.length) return;
+  const { date } = form().elements;
+  if (L.isDay(date.value)) fillUnchanged(base(date.value));
+  fillClassSelect(read());
+  renderResult();
+  refreshHistory();
 }
 
 /** Fills the form with your latest numbers, dated today, nothing changed; called each time the screen opens, so a draft is dropped. */
@@ -179,11 +189,13 @@ export function openLog({ focusClass = false } = {}) {
   fillUnchanged(base(today));
   fillClassSelect(profile);
   renderResult();
+  openHistory();
   if (focusClass) f.weightClass.focus();
 }
 
 export function setupLog(context) {
   ctx = context;
+  setupHistory();
   const f = form().elements;
   for (const name of L.VALUES) hints[name] = f[name].closest(".stepper").querySelector(".stepper-hint").textContent;
 

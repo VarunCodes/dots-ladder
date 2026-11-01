@@ -1,7 +1,7 @@
 # DOTS Ladder: design and build spec
 
 The "chalk & iron" design: dark gym-floor background, chalk-white text, one chalk-yellow accent.
-Three screens behind a bottom tab bar: **Ladder**, **Log test**, **Progress**.
+Four screens behind a bottom tab bar: **Ladder**, **Log test**, **Progress**, **Meet**.
 
 This is the spec the app is built from, kept up to date as it's built. The original mockups stay private, because they hold personal details; the example values below are made up.
 
@@ -83,7 +83,7 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
      - It's out of the layout flow, so it doesn't push the score down: the eyebrow and hero keep their spacing. Below 360px wide it would overlap the score, so there it stays in the row.
      - Selected: `--accent` fill, `--on-accent` text. Unselected: `--surface-2` fill, `--muted` text. Each at least 44px tall.
      - The choice is global and saved (`profile.formula`, section 6). Changing it updates everything at once: the hero score and its label ("your DOTS" / "your GL"), the next-rung card, the exchange rate, the rung list, the Log result card (which has its own toggle), and event scores (and the Progress screen once it's built).
-   - Under the caption, a pill showing "Meet in N days" ("Meet in 1 day", "Meet today"; `--accent` background, `--on-accent` text) for the soonest event with an exact date, today or later. Hidden without one. (The mockup had it top right; the score toggle sits there now.)
+   - Under the caption, a pill showing "Meet in N days" ("Meet in 1 day", "Meet today"; `--accent` background, `--on-accent` text) for your next event (see Meet) when it has an exact date. Hidden without one, or when the next event has only a month. (The mockup had it top right; the score toggle sits there now.)
    - Hero: your latest score (84px) followed by "your DOTS" or "your GL" in `--muted`.
    - Caption: `{total} kg total · {bw} kg bodyweight · {position among the rungs}`.
 2. **Next-rung card** (`--surface`, 16px padding)
@@ -130,6 +130,12 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
    - A rung line: "Climbs N rung(s). Next rung needs X more {DOTS|GL}." or "Clears every rung."
 5. **Save** button: full width, 52px tall, `--accent` fill, `--on-accent` text, 17px / 600. It names what will be saved: "Save squat 1RM", "Save squat & bench", "Save test" (all three lifts), "Save bodyweight" (bodyweight goes along with any lift), or a disabled "No changes yet". It adds a record of just those values and returns you to `#/ladder`.
 
+6. **"1RMs"**, under Save: every record, newest first (the latest 5, then a "Show all N" button): the date with a **PR** badge (chalk outline) when it beat your previous best on a lift, what it logged ("Squat 1RM · 150 kg", "1RM test · 370 kg @ 70 kg", "Bodyweight · 69.5 kg"; "· Women's" for the other category), and your score at it on the right.
+   - Open one to fix its date, sex or the values it logged; the rest are noted as "carried from earlier records". Valid changes save straight away; closing it with invalid values undoes them.
+   - "Delete squat 1RM" (or "Delete 1RM test", …) asks first. Your only record can't be deleted ("Clear my numbers" on Log test starts over), nor the first while the next one doesn't hold all four values.
+   - Fixing a record refreshes the form above: fields you haven't changed take your numbers as of the date again.
+7. **Clear my numbers from this phone**, last, under the list.
+
 ### 5.3 Progress (`#/progress`)
 
 1. Header: eyebrow "PROGRESS", title "THE CLIMB", and the same DOTS / GL toggle as the Ladder's, top right and out of the layout flow (so the header keeps its spacing; under 360px it sits in the row). Switching it redraws Progress and is saved for every screen.
@@ -175,12 +181,14 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
    - A **PR** badge (as in 1RMs) when the record that set the lift was a PR; "best 115 kg" under the kg when the lift is below your best.
    - **Last tested:** a lift last tested 6 weeks ago or more gets its "how long ago" in `--text-2`, and a note under the rows, oldest first: "Squat last tested 6 weeks ago." A fact, not training advice. Bodyweight has none: Log test already nudges a bodyweight older than a week.
    - No estimated values: bodyweight is what was logged, never an average.
-7. **"1RMs"**: every record, newest first: the date with a **PR** badge (chalk outline) when it beat your previous best on a lift, what it logged ("Squat 1RM · 150 kg", "1RM test · 370 kg @ 70 kg", "Bodyweight · 69.5 kg"; "· Women's" for the other category), and your score at it on the right.
-   - Open one to fix its date, sex or the values it logged; the rest are noted as "carried from earlier records". Valid changes save straight away; closing it with invalid values undoes them.
-   - "Delete squat 1RM" (or "Delete 1RM test", …) asks first. Your only record can't be deleted ("Clear my numbers" on Log test starts over), nor the first while the next one doesn't hold all four values.
-8. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date).
-
 **Nice to have, later:** a gym test or meet type for each entry (meets as diamonds on the chart, with the class competed in), and a trend line with a projection ("P25 around Mar 2027").
+
+### 5.4 Meet (`#/meet`)
+
+1. Header: eyebrow "MEET", title "MEET DAY".
+2. **Until there's a meet** (no upcoming event and no meet result): one card, "Add a meet to unlock", saying a month is enough and listing what opens up (attempt planner, meet day, warm-up timeline, meet attempts, plate loader), with an "Add a meet" button. No empty cards, and no data credit in the footer (nothing from the rungs shows until the cards do). Past events, if any, stay editable under it.
+3. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date), with Add event.
+4. **The cards** (meet.js, in its order) for your next event: the soonest by exact date, or by month when it has none (a month-only event counts for its whole month, after any dated one in it). The warm-up "now" mark needs the exact day. A month-only meet takes today as its day with its first recorded attempt, so its result compares with your records from before it.
 
 ## 6. Data model (one store)
 

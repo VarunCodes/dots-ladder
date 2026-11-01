@@ -53,11 +53,11 @@ function markers(d) {
   return list;
 }
 
-/** "Meet in N days" for the soonest event with an exact date, today or later; hidden without one. */
+/** "Meet in N days" for your next event when it has an exact date; hidden without one. */
 function renderMeetPill(d) {
   const next = d.nextMeet;
-  $("meet-pill").hidden = !next;
-  if (!next) return;
+  $("meet-pill").hidden = next?.days == null;
+  if (next?.days == null) return;
   const { days, event } = next;
   $("meet-pill").textContent = days === 0 ? "Meet today" : `Meet in ${days} day${days === 1 ? "" : "s"}`;
   $("meet-pill").title = eventLabel(event);
@@ -233,6 +233,7 @@ let shownScreen = null;
 function showScreen(screen) {
   if (shownScreen) $("tabbar").classList.add("animate"); // the tab icons cross-fade, but not on first load
   for (const name of L.ROUTES) $(`screen-${name}`).hidden = name !== screen;
+  document.querySelector("body > footer").hidden = false; // Meet hides it while locked
   if (shownScreen && shownScreen !== screen) replay($(`screen-${screen}`), "enter");
   shownScreen = screen;
   for (const tab of $("tabbar").querySelectorAll("a")) {
