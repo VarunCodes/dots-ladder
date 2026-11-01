@@ -740,3 +740,54 @@ test("a month-only meet takes today as its day with its first attempt, only with
   assert.deepEqual(L.meetDate({ ...undated, date: "2026-11-21" }, "2026-11-14"), {}, "a set date is kept");
   assert.deepEqual(L.validEvent({ ...undated, ...L.meetDate(undated, "2026-11-14") }).date, "2026-11-14");
 });
+
+const calcRungs = [{ percentile: 10, score: 287.5 }, { percentile: 25, score: 312 }, { percentile: 50, score: 338.5 }, { percentile: 75, score: 360 }];
+
+test("the calculator's quick targets are the next 3 rungs above your score", () => {
+  assert.deepEqual(L.quickTargets(calcRungs, 280).map((r) => r.percentile), [10, 25, 50]);
+  assert.deepEqual(L.quickTargets(calcRungs, 300).map((r) => r.percentile), [25, 50, 75]);
+  assert.deepEqual(L.quickTargets(calcRungs, 312).map((r) => r.percentile), [50, 75], "a rung you're on isn't ahead");
+  assert.deepEqual(L.quickTargets(calcRungs, 400), [], "above the top rung");
+  assert.deepEqual(L.quickTargets([], 300), []);
+});
+
+test("the lighter class is the next class top below a bodyweight", () => {
+  assert.equal(L.lighterClassTop("M", 68), 66);
+  assert.equal(L.lighterClassTop("M", 74), 66, "the top of a class is in it");
+  assert.equal(L.lighterClassTop("M", 59), null);
+  assert.equal(L.lighterClassTop("M", 130), 120);
+  assert.equal(L.lighterClassTop("F", 60), 57);
+});
+
+test("the calculator turns a target score and bodyweight into the total needed, rounded up to 2.5 kg", () => {
+  // me68 scores 299.0 DOTS on 390 kg; the lever's break-even sums check the same maths.
+  const same = L.totalNeeded(me68, calcRungs, { target: L.profileScore(me68), bw: 66 });
+  assert.equal(same.needed, 382.5, "the lever's break-even total at 66 kg");
+  const p25 = L.totalNeeded(me68, calcRungs, { target: 312, bw: 68 });
+  assert.equal(p25.needed, 407.5);
+  assert.equal(p25.gap, 17.5);
+  assert.deepEqual([p25.climbs, p25.reaches.percentile, p25.clearsAll], [1, 25, false]);
+  assert.deepEqual(p25.lighter, { kg: 66, needed: 400 });
+  const gl = L.totalNeeded({ ...me68, formula: "gl" }, [], { target: L.profileScore({ ...me68, formula: "gl" }), bw: 74 });
+  assert.equal(gl.needed, 410, "the lever's GL break-even at 74 kg");
+  assert.equal(gl.climbs, 0);
+  assert.equal(gl.reaches, null);
+  assert.equal(gl.clearsAll, false, "no rungs, nothing cleared");
+});
+
+test("the calculator says how far a target climbs, including past every rung or below your score", () => {
+  const all = L.totalNeeded(me68, calcRungs, { target: 365, bw: 68 });
+  assert.deepEqual([all.climbs, all.reaches.percentile, all.clearsAll], [3, 75, true]);
+  const below = L.totalNeeded(me68, calcRungs, { target: 280, bw: 68 });
+  assert.equal(below.climbs, -1, "drops below P10");
+  assert.ok(below.gap < 0);
+  assert.equal(L.totalNeeded(me68, calcRungs, { target: 312, bw: 55 }).lighter, null, "nothing lighter than 59 kg");
+});
+
+test("the calculator says which values it can't use", () => {
+  assert.deepEqual(L.totalNeeded(me68, calcRungs, { target: NaN, bw: 68 }).problems, ["target"]);
+  assert.deepEqual(L.totalNeeded(me68, calcRungs, { target: 0, bw: 68 }).problems, ["target"]);
+  assert.deepEqual(L.totalNeeded(me68, calcRungs, { target: 312, bw: 20 }).problems, ["bw"]);
+  assert.deepEqual(L.totalNeeded(me68, calcRungs, { target: 2000, bw: NaN }).problems, ["target", "bw"]);
+  assert.equal(L.totalNeeded(me68, calcRungs, { target: 2000, bw: NaN }).needed, undefined);
+});

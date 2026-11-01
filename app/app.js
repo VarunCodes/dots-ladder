@@ -6,6 +6,7 @@ import * as S from "./scoring.js";
 import * as store from "./store.js";
 import { derived } from "./derive.js";
 import { $, choiceGroup, el, formulaChoice, replay, setNumber } from "./dom.js";
+import { renderCalculator, setupCalculator } from "./calculator.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 import { FIELD_TEXT, openLog, refreshLog, setupLog } from "./log.js";
 import { openMeet, refreshMeet, setupMeet } from "./meet.js";
@@ -219,6 +220,7 @@ function render() {
   renderHero(profile, points, group?.rungs ?? []);
   renderMeetPill(d);
   renderNext(profile, points, group, missing);
+  renderCalculator(d);
   renderExchange(d);
   renderSplit(d, `${sexWord.toLowerCase()} ${wclass} kg, ${experience}`);
   $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
@@ -329,6 +331,7 @@ try {
     },
   });
   setupEvents();
+  setupCalculator();
   setupProgress();
   setupMeet();
   window.addEventListener("hashchange", route);

@@ -98,13 +98,20 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - Events are dashed rows with a flag, labelled "{name}, {14 Nov 2026 or Nov 2026}". An event with both scenarios shows two rows, named "(conservative)" and "(optimistic)", or "(cons.)" and "(opt.)" under 400px wide; screen readers always get the full word. No icons, by decision.
    - The gym-goer estimate is muted italic with "≈"; it's a DOTS estimate, so it shows in DOTS only.
    - Use a semantic `<ol>`, ordered from the highest rung down.
-5. **"Exchange rate" card** (`--surface`): what a kilo of bodyweight is worth on the bar, at your total and bodyweight.
+5. **"What total do I need?" card** (`--surface`): the total that reaches a score, so you can try out combinations of bar and bodyweight.
+   - Eyebrow "Calculator", title "What total do I need?".
+   - **Quick targets:** the next 3 rungs above your score in the group shown ("P25 · 312.0"), bordered buttons; the one matching the target is pressed (chalk fill). Hidden above the top rung.
+   - Two fields: **Target {DOTS|GL}** (starts at the next rung, else your score) and **At bodyweight (kg)** (starts at yours). What you type is kept for this visit only, and only in the formula it was typed in; nothing is saved.
+   - **Accent tile:** "You need 407.5 kg", the lightest total that scores the target at that bodyweight, rounded up to the next 2.5 kg, with "+17.5 kg" on the right ("Your total holds it" when your total already does).
+   - Under it, where the target lands: "Clears 2 rungs (up to P50).", "Clears 3 rungs: every rung in this group.", "No new rung. The next is P25 · 312.0." or "Below your score now: drops 1 rung."
+   - Caption: "Rounded up to 2.5 kg. At 66 kg you'd need 400 kg instead.", the same target at the top of the next lighter class (none below the lightest). A value out of range says so instead.
+6. **"Exchange rate" card** (`--surface`): what a kilo of bodyweight is worth on the bar, at your total and bodyweight.
    - Eyebrow "At {bw} kg · {DOTS|GL}", title "Exchange rate".
    - Two `--surface-2` tiles: "Bodyweight −1 kg" ≈ "On the bar +4.2 kg" (the kg on the bar in `--accent`: it's your lever). The figures shrink with the screen rather than wrap.
    - Rows: "−1 kg bodyweight · +3.2 DOTS", "+2.5 kg on any lift · +1.9 DOTS", and "Same swap in GL · 1 kg ≈ 3.1 kg" for the other formula.
    - Caption: "At your size, a kilo off is worth more in DOTS than in GL." when the two formulas differ by 0.5 kg or more on the bar, then "Rates change as your total and bodyweight change."
    - At the formula's limits (DOTS's 40 kg floor and 210 kg ceiling for men, GL's 40 / 35 kg floor), a lighter bodyweight scores nothing extra: the tiles and the bodyweight row go, and the caption says "At 40 kg, DOTS doesn't score a lighter bodyweight any higher, so only the bar counts." The other formula's row shows only when it has a rate.
-6. **"LIFT SPLIT"**: "Against UK meet lifters: men 83 kg, first meet." (the group the rungs show, so it follows the experience tabs), then three horizontal bars (Squat, Bench, Deadlift). Under each bar, where that lift sits among its own rungs ("Between P50 and P75", "Above P90"), so the lift holding your total back stands out.
+7. **"LIFT SPLIT"**: "Against UK meet lifters: men 83 kg, first meet." (the group the rungs show, so it follows the experience tabs), then three horizontal bars (Squat, Bench, Deadlift). Under each bar, where that lift sits among its own rungs ("Between P50 and P75", "Above P90"), so the lift holding your total back stands out.
    - Track `--divider`, fill `--text-2`, height 10px, radius 5px.
    - Width is relative to your best lift; the kg value sits on the right.
 
