@@ -454,8 +454,6 @@ function drawLeverCurve(result, profile, fmt, label) {
   );
 }
 
-/** Each lift's bar, its kg, and where it sits among that lift's rungs ("Between P50 and P75"), when the group has them. */
-
 // --- 1RMs: newest first, each editable ------------------------------------------------------
 // Each row is one saved record: a 1RM test (all three lifts), a single 1RM ("Squat 1RM"), or a bodyweight.
 // Opening it shows only the values it logged (the rest were carried from earlier records); valid changes
