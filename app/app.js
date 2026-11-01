@@ -53,11 +53,11 @@ function markers(d) {
   return list;
 }
 
-/** "Meet in N days" for the soonest event with an exact date, today or later; hidden without one. */
+/** "Meet in N days" for your next event when it has an exact date; hidden without one. */
 function renderMeetPill(d) {
   const next = d.nextMeet;
-  $("meet-pill").hidden = !next;
-  if (!next) return;
+  $("meet-pill").hidden = next?.days == null;
+  if (next?.days == null) return;
   const { days, event } = next;
   $("meet-pill").textContent = days === 0 ? "Meet today" : `Meet in ${days} day${days === 1 ? "" : "s"}`;
   $("meet-pill").title = eventLabel(event);

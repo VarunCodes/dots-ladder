@@ -6,7 +6,7 @@ import * as S from "./scoring.js";
 import * as store from "./store.js";
 import { derived } from "./derive.js";
 import { $, choiceGroup, el } from "./dom.js";
-import { eventLabel } from "./events.js";
+import { addEvent, eventLabel } from "./events.js";
 import { ATTEMPT_NAMES, BAR_KG, BAR_LIMITS, clockTime, COLLAR_KG, OPENER_PCTS, STEP_KG } from "./attempts.js";
 
 const now = () => derived(store.getState());
@@ -87,14 +87,17 @@ function saveDay(eventId, change) {
   store.update((s) => ({ events: s.events.map((e) => (e.id === eventId ? { ...e, day: change(e.day ?? {}) } : e)) }));
 }
 
-/** Records the next attempt as good or not, and forgets the weight chosen for it. */
+/**
+ * Records the next attempt as good or not, and forgets the weight chosen for it. A meet planned by month alone
+ * takes today as its day (you're at it), so its result is compared with your records from before that day.
+ */
 function record(day, good) {
   const { event, next } = day;
   store.update((s) => ({
     events: s.events.map((e) => {
       if (e.id !== event.id) return e;
       const attempts = { ...e.day?.attempts, [next.lift]: [...(e.day?.attempts?.[next.lift] ?? []), { kg: next.kg, good }] };
-      return { ...e, day: { ...e.day, attempts } };
+      return { ...e, ...L.meetDate(e, s.session.today), day: { ...e.day, attempts } };
     }),
     session: { ...s.session, attemptKg: null },
   }));
@@ -110,7 +113,7 @@ const meetDayCard = {
   id: "meet-day",
   title: "Meet day",
   setup(body) {
-    const empty = el("p", "muted meet-empty", "Add a meet with an exact date (Progress → Upcoming) to run your attempts from here.");
+    const empty = el("p", "muted meet-empty", "Add your next meet above to run your attempts from here.");
     const live = el("div", "day-live");
     const top = el("div", "day-top");
     const flight = el("span", "eyebrow");
@@ -226,7 +229,7 @@ const warmupsCard = {
   id: "warmups",
   title: "Warm-up timeline",
   setup(body) {
-    const empty = el("p", "muted meet-empty", "Add a meet with an exact date to plan your warm-ups.");
+    const empty = el("p", "muted meet-empty", "Add your next meet above to plan your warm-ups.");
     const live = el("div", "warm-live");
     const lifts = el("div", "view-group");
     lifts.setAttribute("role", "group");
@@ -458,10 +461,11 @@ const built = new Map(); // card id → { eyebrow, parts }
 /** The eyebrow over every card: your next meet ("Spring Open, 14 Nov"), or that there isn't one. */
 function meetEyebrow(d) {
   const meet = d.nextMeet?.event;
-  return meet ? eventLabel(meet) : "No meet with a date yet";
+  return meet ? eventLabel(meet) : "No upcoming meet";
 }
 
 export function setupMeet() {
+  $("unlock-add").addEventListener("click", addEvent);
   for (const card of CARDS) {
     const section = el("section", "card meet-card");
     section.id = `card-${card.id}`;
@@ -478,10 +482,19 @@ export function setupMeet() {
   }
 }
 
-/** Redraws every card from the current derived values. */
+/**
+ * Redraws every card from the current derived values. Until there's a meet to get ready for (or a result from
+ * one), only the unlock card shows, with what adding one gives you, rather than a page of empty cards.
+ */
 export function refreshMeet() {
   const d = now();
   if (!d.profile) return;
+  const locked = L.meetLocked(d.nextMeet, d.meetResult);
+  $("meet-unlock").hidden = !locked;
+  $("meet-cards").hidden = locked;
+  $("events-panel").hidden = locked && !d.events.length; // past events stay editable
+  $("add-event").hidden = locked; // the unlock card's button adds one
+  if (locked) return;
   for (const card of CARDS) {
     const { eyebrow, parts } = built.get(card.id);
     eyebrow.textContent = card.eyebrow ? card.eyebrow(d) : meetEyebrow(d);

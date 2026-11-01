@@ -573,10 +573,31 @@ export function ladderEvents(events, thisMonth) {
     .slice(0, MAX_LADDER_EVENTS);
 }
 
-/** The soonest event with an exact date today or later, with the days to go, or null. */
+/**
+ * Your next event, today or later, or null: the soonest by its exact date, or by its month when it has none (a
+ * month-only event counts for the whole month, after any dated one in it). The days to go only with a date.
+ */
 export function nextMeet(events, today) {
-  const event = events.filter((e) => e.date && e.date >= today).sort((x, y) => x.date.localeCompare(y.date))[0];
-  return event ? { event, days: daysBetween(today, event.date) } : null;
+  const when = (e) => e.date ?? `${e.month}-99`;
+  const event = events
+    .filter((e) => (e.date ? e.date >= today : e.month >= today.slice(0, 7)))
+    .sort((x, y) => when(x).localeCompare(when(y)))[0];
+  return event ? { event, days: event.date ? daysBetween(today, event.date) : null } : null;
+}
+
+/** Meet's cards wait for an upcoming event, or a meet with a result to show; until then only the unlock card shows. */
+export const meetLocked = (nextMeet, meetResult) => !nextMeet && !meetResult;
+
+/** The exact date to save with a meet's first attempt: today, for one planned by month alone, if today is in that month. */
+export function meetDate(event, today) {
+  return !event.date && today.startsWith(`${event.month}-`) ? { date: today } : {};
+}
+
+/** The records the 1RMs list shows, newest first: the latest RECENT_RECORDS, or all of them. */
+export const RECENT_RECORDS = 5;
+export function shownRecords(tests, all) {
+  const newest = [...tests].reverse();
+  return all ? newest : newest.slice(0, RECENT_RECORDS);
 }
 
 /** Whole days from one "YYYY-MM-DD" to another (calendar days, so clock changes don't matter). */

@@ -188,8 +188,16 @@
         <p id="log-note" role="status"></p>
         <button id="save-test" type="submit" class="primary">Save test</button>
         <p class="muted small save-hint">Saved on this phone only.</p>
-        <button id="clear-numbers" type="button" class="link-button">Clear my numbers from this phone</button>
       </form>
+
+      <section class="panel events" aria-labelledby="tests-heading">
+        <h2 id="tests-heading">1RMs</h2>
+        <p class="muted small intro">Everything you've logged, newest first: 1RM tests, single 1RMs and bodyweights. Open one to fix it.</p>
+        <div id="test-list"></div>
+        <button id="tests-all" class="button add" type="button" hidden>Show all</button>
+        <p id="tests-note" class="muted small" role="status"></p>
+      </section>
+      <button id="clear-numbers" type="button" class="link-button">Clear my numbers from this phone</button>
     </section>
 
     <section id="screen-progress" class="screen" aria-labelledby="progress-title" hidden>
@@ -262,20 +270,7 @@
         <p id="numbers-note" class="small numbers-note"></p>
       </section>
 
-      <section class="panel events" aria-labelledby="tests-heading">
-        <h2 id="tests-heading">1RMs</h2>
-        <p class="muted small intro">Everything you've logged, newest first: 1RM tests, single 1RMs and bodyweights. Open one to fix it.</p>
-        <div id="test-list"></div>
-        <p id="tests-note" class="muted small" role="status"></p>
-      </section>
 
-      <section id="events-panel" class="panel events" aria-labelledby="events-heading">
-        <h2 id="events-heading">Upcoming</h2>
-        <p class="muted small intro">Upcoming meets or test days, each with a conservative and an optimistic total. Leave a scenario empty to skip it. The next 3 show on the ladder.</p>
-        <div id="event-list"></div>
-        <p id="events-note" class="muted small" role="status"></p>
-        <button id="add-event" class="button add" type="button">Add event</button>
-      </section>
     </section>
 
     <section id="screen-meet" class="screen" aria-labelledby="meet-title" hidden>
@@ -283,6 +278,28 @@
         <p class="eyebrow">Meet</p>
         <h1 id="meet-title">Meet day</h1>
       </header>
+      <section id="meet-unlock" class="card meet-card meet-unlock" aria-labelledby="unlock-heading" hidden>
+        <header class="meet-card-head">
+          <p class="eyebrow">Get ready for a meet</p>
+          <h2 id="unlock-heading">Add a meet to unlock</h2>
+        </header>
+        <p class="muted">Add a meet or a 1RM test day. The month is enough; add the exact day once you know it.</p>
+        <ul class="unlock-list">
+          <li><strong>Attempt planner</strong> <span class="muted">openers, seconds and thirds from your 1RMs</span></li>
+          <li><strong>Meet day</strong> <span class="muted">record each attempt, with the next weight and its plates</span></li>
+          <li><strong>Warm-up timeline</strong> <span class="muted">what to lift, and when, to be ready for your opener</span></li>
+          <li><strong>Meet attempts</strong> <span class="muted">your result and PRs, scored</span></li>
+          <li><strong>Plate loader</strong> <span class="muted">the plates for any weight</span></li>
+        </ul>
+        <button id="unlock-add" class="primary" type="button">Add a meet</button>
+      </section>
+      <section id="events-panel" class="panel events" aria-labelledby="events-heading">
+        <h2 id="events-heading">Upcoming</h2>
+        <p class="muted small intro">Upcoming meets or test days, each with a conservative and an optimistic total. Leave a scenario empty to skip it. The next 3 show on the ladder.</p>
+        <div id="event-list"></div>
+        <p id="events-note" class="muted small" role="status"></p>
+        <button id="add-event" class="button add" type="button">Add event</button>
+      </section>
       <!-- The cards come from the list in meet.js, in its order. -->
       <div id="meet-cards" class="meet-cards"></div>
     </section>

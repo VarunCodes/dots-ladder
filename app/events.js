@@ -46,11 +46,8 @@ function persist(events) {
 /** Rebuilds the list, soonest first. Only on add, delete and reset, so no field is rewritten while being typed in. */
 function renderList(openId) {
   const events = [...now().events].sort((x, y) => x.month.localeCompare(y.month));
-  $("event-list").replaceChildren(
-    ...(events.length
-      ? events.map((event) => eventItem(event, event.id === openId))
-      : [el("p", "muted small", "Planning a meet or a 1RM test? Add it to see where your targets land on the ladder.")]),
-  );
+  // With none, the Meet screen's unlock card says what adding one gives you.
+  $("event-list").replaceChildren(...events.map((event) => eventItem(event, event.id === openId)));
 }
 
 /** Puts the existing rows in date order. Moving them keeps whatever is typed in other open events. */
@@ -184,7 +181,8 @@ function onInput(item, form, input) {
   form.querySelector(".event-note").textContent = "Saved on this device only.";
 }
 
-function addEvent() {
+/** Adds an event for next month at your numbers, opened with its name focused. */
+export function addEvent() {
   const { profile, thisMonth } = now();
   const event = {
     id: L.newId("event"),

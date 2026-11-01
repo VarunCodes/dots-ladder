@@ -533,9 +533,9 @@ a:hover { color: var(--accent-hover); }
 #save-test { flex: none; margin-top: 8px; }
 #save-test:disabled { background: var(--surface); color: var(--muted); }
 .save-hint { text-align: center; }
-#clear-numbers { align-self: center; }
+#clear-numbers { display: block; margin: 24px auto 0; }
 
-/* --- Your events (on Progress until its own design lands) --------------------------- */
+/* --- Panels: the 1RMs list (Log test) and Upcoming (Meet) ------------------------------ */
 
 .panel { position: relative; margin-top: 24px; }
 .intro { margin: 6px 0 8px; }
@@ -816,6 +816,12 @@ a:hover { color: var(--accent-hover); }
 /* --- Meet: a list of cards ---------------------------------------------------------- */
 
 .meet-cards { display: flex; flex-direction: column; gap: 16px; }
+/* Upcoming leads the Meet screen; the cards follow it. */
+#screen-meet .panel { margin: 0 0 24px; }
+.meet-unlock { margin-bottom: 24px; }
+.unlock-list { list-style: none; display: flex; flex-direction: column; gap: 8px; padding: 0; margin: 0; }
+.unlock-list li { display: flex; flex-direction: column; gap: 2px; padding-left: 12px; border-left: 2px solid var(--accent); }
+.unlock-list .muted { font-size: 0.875rem; }
 .meet-card { display: flex; flex-direction: column; gap: 12px; }
 .meet-card-head { display: flex; flex-direction: column; gap: 2px; }
 .meet-card-head .eyebrow { font-size: 0.75rem; }

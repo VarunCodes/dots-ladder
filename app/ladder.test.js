@@ -421,13 +421,30 @@ test("an event's exact date is optional, must be a real day, and must fall in it
   assert.deepEqual(L.validEvent(older), may);
 });
 
-test("the meet pill counts down to the soonest dated event, today included", () => {
+test("the next meet is the soonest dated event, today included, with the days to go", () => {
   const at = (id, date) => ({ ...may, id, month: date.slice(0, 7), date });
-  const events = [at("later", "2027-05-01"), at("past", "2026-10-01"), { ...may, id: "undated", month: "2026-11" }, at("soon", "2026-11-14")];
+  const events = [at("later", "2027-05-01"), at("past", "2026-10-01"), { ...may, id: "undated", month: "2026-12" }, at("soon", "2026-11-14")];
   assert.deepEqual(L.nextMeet(events, "2026-10-29"), { event: events[3], days: 16 });
   assert.equal(L.nextMeet(events, "2026-11-14").days, 0);
   assert.equal(L.nextMeet(events, "2027-05-02"), null);
   assert.equal(L.nextMeet([], "2026-10-29"), null);
+});
+
+test("a month-only event is the next meet for its whole month, after a dated one in it, with no days to go", () => {
+  const undated = { ...may, id: "undated", month: "2026-11" };
+  const dated = { ...may, id: "dated", month: "2026-11", date: "2026-11-28" };
+  assert.deepEqual(L.nextMeet([undated], "2026-11-30"), { event: undated, days: null }, "still this month");
+  assert.equal(L.nextMeet([undated], "2026-12-01"), null, "its month is over");
+  assert.equal(L.nextMeet([undated, dated], "2026-11-02").event.id, "dated");
+  assert.equal(L.nextMeet([undated, dated], "2026-11-29").event.id, "undated", "the dated one has passed");
+});
+
+test("the 1RMs list shows the newest 5 records, or all of them", () => {
+  const tests = ["a", "b", "c", "d", "e", "f", "g"].map((id) => ({ id }));
+  assert.deepEqual(L.shownRecords(tests, false).map((t) => t.id), ["g", "f", "e", "d", "c"]);
+  assert.deepEqual(L.shownRecords(tests, true).map((t) => t.id), ["g", "f", "e", "d", "c", "b", "a"]);
+  assert.deepEqual(L.shownRecords(tests.slice(0, 2), false).map((t) => t.id), ["b", "a"]);
+  assert.equal(tests[0].id, "a", "the records aren't reordered");
 });
 
 test("days between dates count calendar days, across month ends and clock changes", () => {
@@ -708,4 +725,18 @@ test("your numbers: the note starts at six weeks, oldest lift first", () => {
 
 test("your numbers: null with no records", () => {
   assert.equal(L.yourNumbers([], "2026-10-31"), null);
+});
+
+test("Meet unlocks with an upcoming event or a meet result", () => {
+  assert.equal(L.meetLocked(null, null), true);
+  assert.equal(L.meetLocked({ event: may, days: null }, null), false, "a month is enough");
+  assert.equal(L.meetLocked(null, { event: may }), false, "a past meet's result still shows");
+});
+
+test("a month-only meet takes today as its day with its first attempt, only within its month", () => {
+  const undated = { ...may, month: "2026-11", date: null };
+  assert.deepEqual(L.meetDate(undated, "2026-11-14"), { date: "2026-11-14" });
+  assert.deepEqual(L.meetDate(undated, "2026-10-31"), {}, "before its month, the date would fall outside it");
+  assert.deepEqual(L.meetDate({ ...undated, date: "2026-11-21" }, "2026-11-14"), {}, "a set date is kept");
+  assert.deepEqual(L.validEvent({ ...undated, ...L.meetDate(undated, "2026-11-14") }).date, "2026-11-14");
 });

@@ -10,6 +10,7 @@ const PRECACHE = [
   "app/app.js",
   "app/dom.js",
   "app/events.js",
+  "app/history.js",
   "app/log.js",
   "app/ladder.js",
   "app/store.js",
