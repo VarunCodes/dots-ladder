@@ -494,6 +494,8 @@ export function refreshMeet() {
   $("meet-cards").hidden = locked;
   $("events-panel").hidden = locked && !d.events.length; // past events stay editable
   $("add-event").hidden = locked; // the unlock card's button adds one
+  // The data credit is for rungs and percentiles, which the locked screen doesn't show (the cards do: "short of P10").
+  document.querySelector("body > footer").hidden = locked;
   if (locked) return;
   for (const card of CARDS) {
     const { eyebrow, parts } = built.get(card.id);

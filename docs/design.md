@@ -186,7 +186,7 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
 ### 5.4 Meet (`#/meet`)
 
 1. Header: eyebrow "MEET", title "MEET DAY".
-2. **Until there's a meet** (no upcoming event and no meet result): one card, "Add a meet to unlock", saying a month is enough and listing what opens up (attempt planner, meet day, warm-up timeline, meet attempts, plate loader), with an "Add a meet" button. No empty cards. Past events, if any, stay editable under it.
+2. **Until there's a meet** (no upcoming event and no meet result): one card, "Add a meet to unlock", saying a month is enough and listing what opens up (attempt planner, meet day, warm-up timeline, meet attempts, plate loader), with an "Add a meet" button. No empty cards, and no data credit in the footer (nothing from the rungs shows until the cards do). Past events, if any, stay editable under it.
 3. **"UPCOMING"**: the events editor (meets or test days with conservative and optimistic targets, and an optional exact date), with Add event.
 4. **The cards** (meet.js, in its order) for your next event: the soonest by exact date, or by month when it has none (a month-only event counts for its whole month, after any dated one in it). The warm-up "now" mark needs the exact day. A month-only meet takes today as its day with its first recorded attempt, so its result compares with your records from before it.
 

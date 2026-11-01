@@ -555,6 +555,7 @@ a:hover { color: var(--accent-hover); }
   font: inherit;
   font-size: 1rem; /* 16px+ stops mobile browsers zooming in on focus */
 }
+.fields input:focus-visible, .fields select:focus-visible { outline-offset: -1px; } /* inside the field: an open event clips anything outside it */
 .fields input::placeholder { color: var(--muted); opacity: 0.7; }
 .fields input:invalid { border-color: var(--error); background: color-mix(in srgb, var(--error) 12%, var(--surface)); }
 #class-note { margin: 0; }

@@ -233,6 +233,7 @@ let shownScreen = null;
 function showScreen(screen) {
   if (shownScreen) $("tabbar").classList.add("animate"); // the tab icons cross-fade, but not on first load
   for (const name of L.ROUTES) $(`screen-${name}`).hidden = name !== screen;
+  document.querySelector("body > footer").hidden = false; // Meet hides it while locked
   if (shownScreen && shownScreen !== screen) replay($(`screen-${screen}`), "enter");
   shownScreen = screen;
   for (const tab of $("tabbar").querySelectorAll("a")) {
