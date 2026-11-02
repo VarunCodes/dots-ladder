@@ -146,10 +146,23 @@
           <p id="exchange-note" class="muted small"></p>
         </section>
 
-        <section class="split" aria-labelledby="split-heading">
-          <h2 id="split-heading">Lift split</h2>
-          <p id="split-for" class="muted small"></p>
-          <ul id="lift-split" class="split-list"></ul>
+        <section class="card balance" aria-labelledby="balance-heading">
+          <div class="card-head">
+            <p class="eyebrow">Share of your total</p>
+            <h2 id="balance-heading">Lift balance</h2>
+          </div>
+          <div class="balance-bars">
+            <p class="balance-who">You</p>
+            <div id="balance-you" class="balance-bar" role="img"></div>
+            <p id="balance-typical-label" class="balance-who muted">Typical</p>
+            <div id="balance-typical" class="balance-bar typical" role="img"></div>
+          </div>
+          <p id="balance-for" class="muted small"></p>
+          <ul id="balance-rows" class="balance-rows"></ul>
+          <div id="balance-callout" class="balance-callout">
+            <svg class="balance-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+            <div id="balance-lines" class="balance-lines"></div>
+          </div>
         </section>
       </div>
     </section>

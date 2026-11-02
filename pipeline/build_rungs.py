@@ -7,8 +7,8 @@ What it does
   2. Works out how many meets each lifter had competed in before each result.
   3. Keeps UK, raw, full-power (squat/bench/deadlift) results from adult lifters.
   4. Groups lifters by sex, weight class and experience, and works out DOTS and IPF GL percentiles,
-     and percentiles of each lift (squat, bench, deadlift in kg), all from each lifter's same result,
-     so every set describes the same people.
+     percentiles of each lift (squat, bench, deadlift in kg), and the median share of each lift in a total,
+     all from each lifter's same result, so every set describes the same people.
   5. Writes rungs.json: a small file of group statistics with no names in it.
 
 Only rungs.json belongs in your repo. Never commit the downloaded zip/CSV.
@@ -255,6 +255,11 @@ def build(path, since="2024-01-01", min_group=20, min_group_extremes=50, tested_
             lifts[lift] = {"lifters": len(values), **{f"p{p}": round_to_plate(percentile(values, p)) for p in lift_shown}}
         if lifts:
             rung["lifts"] = lifts
+        # The typical split: each lift's share of the lifter's own total, median per lift, from lifters with all three.
+        full = [s["lifts"] for s in lifters if len(s["lifts"]) == len(LIFTS)]
+        if len(full) >= min_group:
+            shares = {lift: sorted(100 * l[lift] / sum(l.values()) for l in full) for lift in LIFTS}
+            rung["split"] = {"lifters": len(full), **{lift: round(percentile(v, 50), 1) for lift, v in shares.items()}}
         rungs.append(rung)
 
     return {

@@ -85,11 +85,19 @@ function rungValues({ session }, base) {
     const p = base.profile();
     return p && L.rungsFor(rungsData, p.formula, p.sex, L.effectiveClass(p), experience);
   });
+  const liftRungs = memoizeByKey((lift) => {
+    const p = base.profile();
+    return (p && L.liftRungsFor(rungsData, lift, p.sex, L.effectiveClass(p), experience)?.rungs) ?? [];
+  });
   return {
     group,
-    liftRungs: memoizeByKey((lift) => {
+    liftRungs,
+    // Your split against the group's typical one, each lift among its own rungs, and what stands out.
+    liftBalance: memoizeOnce(() => {
       const p = base.profile();
-      return (p && L.liftRungsFor(rungsData, lift, p.sex, L.effectiveClass(p), experience)?.rungs) ?? [];
+      if (!p) return null;
+      const typical = L.typicalSplit(rungsData, p.sex, L.effectiveClass(p), experience);
+      return L.liftBalance(p, liftRungs, typical, group()?.rungs ?? []);
     }),
     lever: memoizeOnce(() => {
       const p = base.profile();
@@ -275,6 +283,13 @@ function make(state) {
     },
     /** One lift's rungs in kg for your group ([] if none). */
     liftRungs: rungs.liftRungs,
+    /**
+     * Lift balance: { shares, typical (the group's split scaled to 100, or null), rows, lines } (see ladder.js
+     * liftBalance); null without numbers.
+     */
+    get liftBalance() {
+      return rungs.liftBalance();
+    },
     /**
      * What a kilo of bodyweight is worth at your numbers: { perKgBw, perBarStep, kgOnBarPerKgBw } in the chosen
      * formula (perKgBw and kgOnBarPerKgBw null at the formula's limits), with the other formula's id and its
