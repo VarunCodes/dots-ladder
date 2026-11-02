@@ -184,6 +184,20 @@ test("event scores are looked up by id, and an unknown id gives none", () => {
   assert.deepEqual(d.eventScores("nope"), []);
 });
 
+test("the calculator starts at the first quick target, and only a typed target moves it", () => {
+  store.start({ today, thisMonth: "2026-10", experience: "first meet", rungs: rungsData }, fakeStorage());
+  store.update(() => ({ entries: [first, squatPr], settings: { formula: "dots" } }));
+  const at = () => derived(store.getState()).calculator;
+  const withCalc = (calc) => store.update((s) => ({ session: { ...s.session, calc } }));
+  assert.equal(at().target, at().targets[0].score, "the lowest rung above you");
+  withCalc({ formula: "dots", bw: 66 });
+  assert.deepEqual([at().target, at().bw], [at().targets[0].score, 66], "a typed bodyweight doesn't pin the target");
+  withCalc({ formula: "dots", bw: 66, target: 400, experience: "first meet" });
+  assert.equal(at().target, 400);
+  store.update((s) => ({ session: { ...s.session, experience: "second meet" } }));
+  assert.deepEqual([at().target, at().bw], [at().targets[0].score, 66], "a new tab starts at its own first rung");
+});
+
 test("no records: no profile, and nothing that needs one", () => {
   store.start({ today, rungs: rungsData }, fakeStorage());
   const d = derived(store.getState());

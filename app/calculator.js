@@ -10,12 +10,16 @@ import { $, el } from "./dom.js";
 const now = () => derived(store.getState());
 const plural = (n) => `${n} rung${n === 1 ? "" : "s"}`;
 
-/** Keeps a typed target or bodyweight for this visit, with the formula it was typed in. */
+/**
+ * Keeps only what you typed or tapped for this visit, with the formula it was typed in (and, for a target, the
+ * experience tab), so typing a bodyweight doesn't pin the default target and a new tab starts at its next rung.
+ */
 function keep(change) {
   store.update((s) => {
-    const { calculator: c, profile } = derived(s);
-    const calc = { formula: profile.formula, target: c.target, bw: c.bw, ...change };
-    return { session: { ...s.session, calc } };
+    const { formula } = derived(s).profile;
+    const prev = s.session.calc?.formula === formula ? s.session.calc : {};
+    const tab = "target" in change ? { experience: s.session.experience } : {};
+    return { session: { ...s.session, calc: { ...prev, formula, ...change, ...tab } } };
   });
 }
 
