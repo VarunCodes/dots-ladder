@@ -201,6 +201,46 @@ export function lever(profile, classRungs = () => []) {
   };
 }
 
+// --- "What total do I need?": a target score and bodyweight back to a total ----------------
+
+export const CALC_TARGETS = 3; // quick targets: the next few rungs above your score
+export const CALC_SCORE_LIMITS = [1, 1000]; // a typed target outside these isn't a score
+
+/** The calculator's quick targets: the next CALC_TARGETS rungs above your score, lowest first. */
+export function quickTargets(rungs, points) {
+  return rungs.filter((r) => r.score > points).slice(0, CALC_TARGETS);
+}
+
+/** The top of the next lighter class below a bodyweight (66 at 68 kg, and at 74), or null below the lightest. */
+export function lighterClassTop(sex, bodyweight) {
+  return CLASSES[sex].filter((limit) => limit < bodyweight).at(-1) ?? null;
+}
+
+/**
+ * What total scores `target` at bodyweight `bw` (rounded up to the next 2.5 kg) and its gap from your total, how
+ * many rungs that target climbs from your score now (`climbs`, negative below it) and the highest rung it reaches,
+ * and the same target at the next lighter class's top. With a value that isn't usable: { problems: ["target", "bw"] }.
+ */
+export function totalNeeded(profile, rungs, { target, bw }) {
+  const [low, high] = CALC_SCORE_LIMITS;
+  const problems = [
+    ...(Number.isFinite(target) && target >= low && target <= high ? [] : ["target"]),
+    ...(Number.isFinite(bw) && bw >= LIMITS.bodyweight[0] && bw <= LIMITS.bodyweight[1] ? [] : ["bw"]),
+  ];
+  if (problems.length) return { problems };
+  const needed = breakEvenTotal(profile.formula, target, bw, profile.sex);
+  const lighter = lighterClassTop(profile.sex, bw);
+  return {
+    problems,
+    needed,
+    gap: Math.round((needed - sumLifts(profile)) * 10) / 10,
+    climbs: rungsClimbed(rungs, profileScore(profile), target),
+    reaches: rungs.filter((r) => r.score <= target).at(-1) ?? null,
+    clearsAll: rungs.length > 0 && target >= rungs.at(-1).score,
+    lighter: lighter && { kg: lighter, needed: breakEvenTotal(profile.formula, target, lighter, profile.sex) },
+  };
+}
+
 export const OPENER_PCTS = [88, 90, 91, 93]; // the attempt planner's opener choices (attempts.js)
 
 export const RACK_KEYS = ["squat", "safeties", "bench"]; // squat rack height, squat safeties, bench rack height

@@ -107,6 +107,31 @@
         </div>
         <ol id="ladder" class="rung-list" aria-labelledby="rungs-heading"></ol>
 
+        <section class="card calc" aria-labelledby="calc-heading">
+          <div class="card-head">
+            <p class="eyebrow">Calculator</p>
+            <h2 id="calc-heading">What total do I need?</h2>
+          </div>
+          <div id="calc-quick" class="calc-quick">
+            <p id="calc-quick-label" class="muted small">Quick targets</p>
+            <div id="calc-targets" class="calc-targets" role="group" aria-labelledby="calc-quick-label"></div>
+          </div>
+          <div class="fields calc-fields">
+            <label><span id="calc-target-label">Target DOTS</span>
+              <input id="calc-target" name="target" type="number" inputmode="decimal" step="any" min="1" max="1000">
+            </label>
+            <label>At bodyweight (kg)
+              <input id="calc-bw" name="bw" type="number" inputmode="decimal" step="any" min="30" max="250">
+            </label>
+          </div>
+          <div class="calc-result" aria-live="polite">
+            <p class="calc-need"><span class="calc-need-label">You need</span> <span id="calc-total" class="calc-total"></span></p>
+            <p id="calc-gap" class="calc-gap"></p>
+          </div>
+          <p id="calc-lands" class="small"></p>
+          <p id="calc-note" class="muted small"></p>
+        </section>
+
         <section class="card exchange" aria-labelledby="exchange-heading">
           <div class="card-head">
             <p id="exchange-for" class="eyebrow"></p>

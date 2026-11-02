@@ -96,6 +96,20 @@ function rungValues({ session }, base) {
       // Where the lever's score would sit: the target class's rungs, for the same experience group as the Ladder.
       return p && L.lever(p, (wclass) => L.rungsFor(rungsData, p.formula, p.sex, wclass, experience)?.rungs);
     }),
+    // "What total do I need?": what you've typed (kept for this visit, and only in the formula it was typed in; a
+    // target only in its experience tab), else the first quick target (the next rung) at your bodyweight.
+    calculator: memoizeOnce(() => {
+      const p = base.profile();
+      if (!p) return null;
+      const rungs = group()?.rungs ?? [];
+      const now = L.profileScore(p);
+      const typed = session.calc?.formula === p.formula ? session.calc : null;
+      const targets = L.quickTargets(rungs, now);
+      const typedTarget = typed && "target" in typed && typed.experience === experience ? typed.target : undefined;
+      const target = typedTarget ?? targets[0]?.score ?? now;
+      const bw = typed?.bw ?? p.bodyweight;
+      return { targets, target, bw, ...L.totalNeeded(p, rungs, { target, bw }) };
+    }),
   };
 }
 
@@ -272,6 +286,13 @@ function make(state) {
     /** How current each number behind your score is ({ rows, stale }, see ladder.js yourNumbers); null without records. */
     get yourNumbers() {
       return base.yourNumbers();
+    },
+    /**
+     * "What total do I need?": { targets (the next rungs above you), target, bw, problems, and with none: needed,
+     * gap, climbs, reaches, clearsAll, lighter } (see ladder.js totalNeeded); null without numbers.
+     */
+    get calculator() {
+      return rungs.calculator();
     },
     /** The weight-class lever for your target class. */
     get lever() {

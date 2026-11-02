@@ -8,6 +8,7 @@ const PRECACHE = [
   "index.html",
   "manifest.webmanifest",
   "app/app.js",
+  "app/calculator.js",
   "app/dom.js",
   "app/events.js",
   "app/history.js",
