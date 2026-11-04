@@ -41,16 +41,26 @@ The rungs are measured, not guessed. They come from OpenPowerlifting results for
 - Rungs are aggregates only: n ≥ 20 lifters (P10/P90 need n ≥ 50). No individual lifters' rows, no under-18s, no doping-flagged results.
 - Exactly one labelled estimate is allowed: the gym-goer marker (DOTS only). There are no other estimates or hypothetical numbers.
 - Plain HTML, CSS and JS with no build step and no CDN, hosted on GitHub Pages. The repository is public, so no personal data goes in.
-- Terminology: "rung" (a percentile benchmark), "P10" to "P90", "score" (DOTS or GL), "typical" (the median of the lifter's group), "experience" (meet count group).
+- Terms used in code and docs: "rung" (a percentile benchmark), "P10" to "P90", "score" (DOTS or GL), "typical" (the median of the lifter's group), "experience" (meet count group). On screen they're not fixed: use whatever words a lifter understands.
 
 ## Brand Commitments
 
 - Name: DOTS Ladder.
 - UK English.
 - Facts from the rungs only, never training advice or programming tips.
-- Plain language: explain jargon (DOTS, GL, P10, rung) where it first appears. Don't assume powerlifting knowledge.
+- **Understandable first.** Everything on screen should be easy to take in for anyone: a newcomer, a gym-goer, a lifter or an experienced powerlifter. Even "P25" can lose a powerlifter, so prefer plain words ("better than a quarter of first-time lifters") or explain the term where it appears. This matters most where a screen holds many cards and tools: when understanding and brevity pull apart, understanding wins.
 - Encouraging, not judging: a low rung is "your biggest opportunity", never "weak" or "behind".
 - Credit OpenPowerlifting wherever rung data is shown.
+
+### Every line earns its place
+
+Each line states a fact from the lifter's numbers or the rungs, or what to do next in the app. If removing it loses nothing, remove it.
+
+- **Specific over general:** "+12.5 kg to the next benchmark", not "a little more work on deadlift".
+- **No hype or filler:** no "unlock", "supercharge", "journey", "level up", "crush it"; no "Great job!" or "Let's dive in"; no exclamation marks.
+- **No empty praise:** state the fact ("Better than a quarter of first-time lifters now") and let it speak.
+- **No padding:** say a thing once; no groups of three for rhythm; no "simply", "just" or "easily".
+- **No decoration:** no emoji or icons that don't carry meaning.
 
 ## Evidence on Hand
 
@@ -62,7 +72,7 @@ The rungs are measured, not guessed. They come from OpenPowerlifting results for
 ## Product Principles
 
 1. **Real data, honestly labelled.** Every number traces back to OpenPowerlifting or to the lifter's own entries; the one estimate says it's an estimate.
-2. **Explain before you rank.** Someone who has never competed should understand what a rung is and who it represents before seeing where they sit.
+2. **Explain before you rank.** Someone who has never competed should understand what a benchmark means and who it represents before seeing where they sit. Plain words beat precise jargon.
 3. **Point to the next step, factually.** Show what the next rung takes and what it would do for the score; leave how to train for it to the lifter.
 4. **Private by default.** The lifter's numbers never leave their device.
 5. **Reward coming back.** Every visit after a test should show movement: a cleared rung, a PR, a shrinking gap.
