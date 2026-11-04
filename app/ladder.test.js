@@ -947,6 +947,12 @@ test("first visit: where you stand among first-meet powerlifters in your class, 
   assert.equal(L.dotKeyWords("M", "120+", 0), "Each dot stands for 1 in 100 male powerlifters at 120+ kg. The outlined ones are your first target.", "below every rung: the first target");
 });
 
+test("first visit: below every rung, the gym-goer estimate is a labelled reference point, apart from the ladder", () => {
+  assert.equal(L.gymGoerWords("M", 236), "For scale, not part of this ladder: you're above a regular gym-goer, who scores about 200 DOTS (estimate).");
+  assert.equal(L.gymGoerWords("F", 150), "For scale, not part of this ladder: a regular gym-goer scores about 160 DOTS (estimate).");
+  assert.equal(L.gymGoerWords("M", 200), L.gymGoerWords("M", 236), "reaching it counts as above");
+});
+
 test("first visit: each other bar says how far its total is from yours", () => {
   assert.equal(L.totalGapWords(327, 367.5), "40.5 kg less");
   assert.equal(L.totalGapWords(400, 367.5), "32.5 kg more");

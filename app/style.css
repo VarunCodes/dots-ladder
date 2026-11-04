@@ -487,6 +487,9 @@ a:hover { color: var(--accent-hover); }
 .standing-dots.fill :is(span.on, span.target) { animation: dot-in var(--duration-quick) var(--ease-smooth-out) backwards; animation-delay: calc(var(--i) * 4ms); }
 @keyframes dot-in { from { opacity: 0; scale: 0.4; } }
 #standing-key { margin: 0; line-height: 1.45; }
+/* The gym-goer estimate sits apart from the dots, dashed and italic like its row on the Ladder: not a rung. */
+.standing-scale { margin: 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 12px; font-style: italic; color: var(--muted); line-height: 1.45; }
+.standing-scale[hidden] { display: none; }
 
 .segmented { display: flex; gap: 6px; margin: 14px 0 0; padding: 0; border: 0; }
 .segmented label {

@@ -108,11 +108,15 @@ function renderStanding(profile) {
   $("standing-who").textContent = `${L.firstGroupWords(profile.sex, L.weightClass(profile.sex, profile.bodyweight))} Real results from OpenPowerlifting.`;
   const dots = $("standing-dots");
   dots.hidden = $("standing-key").hidden = !standing;
+  $("standing-scale").hidden = true;
   if (!standing) {
     $("onboard-h4").textContent = "Not enough powerlifters in this group to compare yet";
     $("standing-more").textContent = "Your ladder still shows your score and how it changes.";
     return;
   }
+  // Below every rung, the labelled gym-goer estimate gives a familiar reference point, apart from the dots.
+  $("standing-scale").hidden = Boolean(standing.passed);
+  $("standing-scale").textContent = L.gymGoerWords(profile.sex, S.score("dots", { total: L.sumLifts(profile), bw: profile.bodyweight, sex: profile.sex }));
   const words = L.standingWords(standing);
   $("onboard-h4").textContent = words.title;
   $("standing-more").textContent = words.more ?? "";

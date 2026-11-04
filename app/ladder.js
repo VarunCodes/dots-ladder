@@ -894,6 +894,18 @@ export function dotKeyWords(sex, wclass, passed) {
   return `Each dot stands for 1 in 100 ${who}. ${passed ? "You are stronger than the ones in yellow." : "The outlined ones are your first target."}`;
 }
 
+/**
+ * Step 4's reference point below every rung, kept apart from the ladder: the app's one estimate (a regular
+ * gym-goer's DOTS), always labelled. "For scale, not part of this ladder: you're above a regular gym-goer, who
+ * scores about 200 DOTS (estimate)." Written out here, as the estimate is defined below.
+ */
+export function gymGoerWords(sex, points) {
+  const estimate = GYM_GOER_ESTIMATE[sex];
+  return points >= estimate
+    ? `For scale, not part of this ladder: you're above a regular gym-goer, who scores about ${estimate} DOTS (estimate).`
+    : `For scale, not part of this ladder: a regular gym-goer scores about ${estimate} DOTS (estimate).`;
+}
+
 /** Who step 4 compares you with: "UK powerlifters at their first meet, men at 74 kg." */
 export function firstGroupWords(sex, wclass) {
   return `UK powerlifters at their first meet, ${sex === "M" ? "men" : "women"} at ${wclass} kg.`;
