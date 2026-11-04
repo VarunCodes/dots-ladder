@@ -818,6 +818,42 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
 // Always DOTS, against first-meet powerlifters in the class your bodyweight falls in: the closest group to someone
 // who hasn't competed yet.
 
+export const FIRST_VISIT_STEPS = 4;
+// The fields each step asks for: its Next waits for them, and only their problems are shown.
+const FIRST_STEP_FIELDS = { 1: ["sex", "bodyweight"], 2: LIFTS, 3: [], 4: [] };
+
+/**
+ * Whether a field's problem is worth showing yet: once it's finished with (left after changing), or once two digits
+ * are typed. "2" is still being typed, so a single digit is never flagged; "20" is.
+ */
+export function readyToFlag(text, finished) {
+  return Boolean(finished) || `${text ?? ""}`.replace(/\D/g, "").length >= 2;
+}
+
+/**
+ * One first-visit step's state from what's typed: `raw` holds the values (numbers, NaN when blank), `texts` what's
+ * in each box, `finished` the names of fields left after changing. Returns { count, back, privateNote, next, canGoOn,
+ * flagged }: Back from step 2, the privacy note on steps 1-2, "Show my ladder" on the last step, Next only when the
+ * step's fields are valid, and the step's fields to flag (red border and message).
+ */
+export function firstStepState(step, raw, texts = {}, finished = []) {
+  const fields = FIRST_STEP_FIELDS[step];
+  const done = new Set(finished);
+  return {
+    count: `Step ${step} of ${FIRST_VISIT_STEPS}`,
+    back: step > 1,
+    privateNote: step <= 2,
+    next: step === FIRST_VISIT_STEPS ? "Show my ladder" : "Next",
+    canGoOn: !invalidFields(raw).some((name) => fields.includes(name)),
+    flagged: enteredProblems(raw).filter((name) => fields.includes(name) && name !== "sex" && readyToFlag(texts[name], done.has(name))),
+  };
+}
+
+/** Step 2's running total: the lifts typed so far (blank or not-yet-valid boxes add nothing). */
+export function typedTotal(raw) {
+  return LIFTS.map((lift) => raw[lift]).filter((v) => Number.isFinite(v) && v > 0).reduce((sum, v) => sum + v, 0);
+}
+
 /**
  * The totals that score the same DOTS as yours 10 kg lighter, at your bodyweight and 10 kg heavier, lightest first:
  * [{ bw, total, you }]. Yours is your own total; the others are rounded to whole kg. A bodyweight outside the

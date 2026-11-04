@@ -8,9 +8,6 @@ import * as store from "./store.js";
 import { $, el, replay } from "./dom.js";
 import { FIELD_TEXT } from "./log.js";
 
-const STEPS = 4;
-// The fields each step asks for: its Next waits for them, and only their problems are shown.
-const STEP_FIELDS = { 1: ["sex", "bodyweight"], 2: L.LIFTS, 3: [], 4: [] };
 const kg = (value) => `${Number(value.toFixed(1))}`;
 
 let step = 1;
@@ -31,23 +28,21 @@ function read() {
   };
 }
 
-/**
- * A field's problem shows once it's worth flagging: two digits typed (one digit is still being typed), or the
- * field finished with. Until then, no red border and no message.
- */
-const readyToFlag = (name) => finished.has(name) || form().elements[name].value.replace(/\D/g, "").length >= 2;
+const NUMBER_FIELDS = ["bodyweight", ...L.LIFTS];
 
-/** This step's fields that are entered but out of range (flagged once ready), and whether all of them are valid. */
+/** The current step's state (ladder.js firstStepState) from what's typed. */
+function state() {
+  const texts = Object.fromEntries(NUMBER_FIELDS.map((name) => [name, form().elements[name].value]));
+  return L.firstStepState(step, read(), texts, finished);
+}
+
+/** Flags this step's problems (red border and message), sets Next, and updates step 2's running total. */
 function check() {
-  const raw = read();
-  const fields = STEP_FIELDS[step];
-  const problems = L.enteredProblems(raw).filter((name) => fields.includes(name) && name !== "sex" && readyToFlag(name));
-  for (const name of [...L.LIFTS, "bodyweight"]) form().elements[name].closest(".onboard-unit").classList.toggle("flagged", problems.includes(name));
-  $("onboard-note").textContent = problems.map((name) => FIELD_TEXT[name]).join(" ");
-  submit().disabled = L.invalidFields(raw).some((name) => fields.includes(name));
-  // The total adds up what's typed so far.
-  const total = L.LIFTS.map((lift) => raw[lift]).filter((v) => Number.isFinite(v) && v > 0).reduce((sum, v) => sum + v, 0);
-  $("onboard-total").textContent = `${kg(total)} kg`;
+  const { flagged, canGoOn } = state();
+  for (const name of NUMBER_FIELDS) form().elements[name].closest(".onboard-unit").classList.toggle("flagged", flagged.includes(name));
+  $("onboard-note").textContent = flagged.map((name) => FIELD_TEXT[name]).join(" ");
+  submit().disabled = !canGoOn;
+  $("onboard-total").textContent = `${kg(L.typedTotal(read()))} kg`;
 }
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -142,11 +137,12 @@ function renderStanding(profile) {
 function show(next, animate = true) {
   step = next;
   for (const panel of form().querySelectorAll(".onboard-step")) panel.hidden = Number(panel.dataset.step) !== step;
-  $("onboard-count").textContent = `Step ${step} of ${STEPS}`;
+  const { count, back, privateNote, next: label } = state();
+  $("onboard-count").textContent = count;
   form().querySelectorAll(".onboard-bar span").forEach((bar, i) => bar.classList.toggle("done", i < step));
-  form().querySelector(".onboard-back").hidden = step === 1;
-  form().querySelector(".onboard-private").hidden = step > 2;
-  submit().textContent = step === STEPS ? "Show my ladder" : "Next";
+  form().querySelector(".onboard-back").hidden = !back;
+  form().querySelector(".onboard-private").hidden = !privateNote;
+  submit().textContent = label;
   const profile = L.validProfile(read());
   if (step === 3 && profile) renderScore(profile);
   if (step === 4 && profile) renderStanding(profile);
@@ -178,7 +174,7 @@ export function setupOnboarding(data) {
   form().addEventListener("submit", (event) => {
     event.preventDefault();
     if (submit().disabled) return;
-    if (step < STEPS) return show(step + 1);
+    if (step < L.FIRST_VISIT_STEPS) return show(step + 1);
     const profile = L.validProfile(read());
     if (!profile) return;
     store.update((s) => ({ entries: [L.testFrom(profile, s.session.today, L.newId("test"))] }));

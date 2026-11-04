@@ -958,3 +958,40 @@ test("first visit: each other bar says how far its total is from yours", () => {
   assert.equal(L.totalGapWords(400, 367.5), "32.5 kg more");
   assert.equal(L.totalGapWords(367.5, 367.5), "the same");
 });
+
+test("first visit: each step asks for its own fields, and Next waits for them", () => {
+  const blank = { sex: "M", bodyweight: NaN, squat: NaN, bench: NaN, deadlift: NaN };
+  assert.equal(L.firstStepState(1, blank).canGoOn, false, "no bodyweight yet");
+  assert.equal(L.firstStepState(1, { ...blank, bodyweight: 70 }).canGoOn, true, "lifts belong to step 2");
+  assert.equal(L.firstStepState(2, { ...blank, bodyweight: 70, squat: 110, bench: 97.5 }).canGoOn, false, "one lift missing");
+  assert.equal(L.firstStepState(2, { ...firstVisitor }).canGoOn, true);
+  assert.equal(L.firstStepState(1, { ...blank, bodyweight: 20 }, { bodyweight: "20" }).canGoOn, false, "out of range");
+  assert.equal(L.firstStepState(3, blank).canGoOn, true, "steps 3 and 4 ask for nothing");
+});
+
+test("first visit: a value is flagged at two digits or once it's left, never at one digit", () => {
+  const raw = (bodyweight) => ({ sex: "M", bodyweight, squat: NaN, bench: NaN, deadlift: NaN });
+  assert.deepEqual(L.firstStepState(1, raw(2), { bodyweight: "2" }).flagged, [], "one digit: still typing");
+  assert.deepEqual(L.firstStepState(1, raw(2), { bodyweight: "2" }, ["bodyweight"]).flagged, ["bodyweight"], "one digit, left: flagged");
+  assert.deepEqual(L.firstStepState(1, raw(20), { bodyweight: "20" }).flagged, ["bodyweight"], "two digits, out of range");
+  assert.deepEqual(L.firstStepState(1, raw(70.5), { bodyweight: "70.5" }).flagged, [], "valid: nothing to flag");
+  assert.deepEqual(L.firstStepState(1, raw(NaN), { bodyweight: "" }, ["bodyweight"]).flagged, [], "blank is missing, not wrong");
+  const lifts = { ...firstVisitor, squat: 900 };
+  assert.deepEqual(L.firstStepState(1, lifts, { squat: "900" }).flagged, [], "step 1 doesn't flag step 2's fields");
+  assert.deepEqual(L.firstStepState(2, lifts, { squat: "900" }).flagged, ["squat"]);
+  assert.deepEqual(["2", "20", "2.5", "", undefined].map((t) => L.readyToFlag(t, false)), [false, true, true, false, false]);
+});
+
+test("first visit: the step count, Back, the privacy note and the last button", () => {
+  const at = (step) => L.firstStepState(step, firstVisitor);
+  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).count), ["Step 1 of 4", "Step 2 of 4", "Step 3 of 4", "Step 4 of 4"]);
+  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).back), [false, true, true, true], "no Back on step 1");
+  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).privateNote), [true, true, false, false], "the note sits with the inputs");
+  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).next), ["Next", "Next", "Next", "Show my ladder"]);
+});
+
+test("first visit: step 2's total adds up only the lifts typed so far", () => {
+  assert.equal(L.typedTotal({ squat: 110, bench: NaN, deadlift: 160 }), 270);
+  assert.equal(L.typedTotal({ squat: NaN, bench: NaN, deadlift: NaN }), 0);
+  assert.equal(L.typedTotal({ squat: -5, bench: 97.5, deadlift: 160 }), 257.5, "a negative isn't added");
+});
