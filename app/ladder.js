@@ -878,6 +878,18 @@ export function standingWords({ passed, next }) {
   return { title: next ? `You are stronger than at least ${passed} in 100` : `You are stronger than ${passed} in 100`, more: null };
 }
 
+/** How another total compares with yours, for step 3's bars: "40.5 kg less", "32.5 kg more", "the same". */
+export function totalGapWords(other, yours) {
+  const gap = Math.round((other - yours) * 10) / 10;
+  return gap === 0 ? "the same" : `${Number(Math.abs(gap).toFixed(1))} kg ${gap < 0 ? "less" : "more"}`;
+}
+
+/** Step 4's key to the dots: "Each dot stands for 1 in 100 female powerlifters at 76 kg. You are stronger than the ones in yellow." */
+export function dotKeyWords(sex, wclass, passed) {
+  const who = `${sex === "M" ? "male" : "female"} powerlifters at ${wclass} kg`;
+  return `Each dot stands for 1 in 100 ${who}.${passed ? " You are stronger than the ones in yellow." : ""}`;
+}
+
 /** Who step 4 compares you with: "UK powerlifters at their first meet, men at 74 kg." */
 export function firstGroupWords(sex, wclass) {
   return `UK powerlifters at their first meet, ${sex === "M" ? "men" : "women"} at ${wclass} kg.`;

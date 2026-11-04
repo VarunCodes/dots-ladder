@@ -86,13 +86,10 @@ function renderScore(profile) {
       bar.style.height = `${(120 * b.total) / top}px`;
       bar.style.setProperty("--order", b.you ? others.length : others.indexOf(b));
       // A lifter in each bar, drawn bigger the heavier they are: the bars differ because the people do.
+      // The others say how far their total is from yours.
+      if (!b.you) bar.append(el("span", "reveal-gap", L.totalGapWords(b.total, total)));
       bar.append(lifterFigure(Math.min(1.3, Math.max(0.7, b.bw / profile.bodyweight))));
-      const step = b.bw - profile.bodyweight;
-      col.append(
-        el("span", "reveal-kg", `${kg(b.total)} kg`),
-        bar,
-        el("span", "reveal-who", b.you ? `You · ${kg(b.bw)} kg` : `${kg(b.bw)} kg · ${step < 0 ? "−" : "+"}${kg(Math.abs(step))}`),
-      );
+      col.append(el("span", "reveal-kg", `${kg(b.total)} kg`), bar, el("span", "reveal-who", b.you ? `You · ${kg(b.bw)} kg` : `${kg(b.bw)} kg`));
       return col;
     }),
   );
@@ -119,7 +116,7 @@ function renderStanding(profile) {
   const words = L.standingWords(standing);
   $("onboard-h4").textContent = words.title;
   $("standing-more").textContent = words.more ?? "";
-  $("standing-key").textContent = `Each dot stands for 1 in 100 of these powerlifters.${standing.passed ? " You are stronger than the ones in yellow." : ""}`;
+  $("standing-key").textContent = L.dotKeyWords(profile.sex, standing.wclass, standing.passed);
   dots.setAttribute("aria-label", `100 dots, ${standing.passed} filled in: you are stronger than ${standing.passed} of every 100 of these powerlifters.`);
   dots.replaceChildren(
     ...Array.from({ length: 100 }, (_, i) => {

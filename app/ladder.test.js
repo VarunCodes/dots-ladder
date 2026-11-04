@@ -943,4 +943,12 @@ test("first visit: where you stand among first-meet powerlifters in your class, 
   assert.deepEqual(L.standingWords(top), { title: "You are stronger than 90 in 100", more: null });
   assert.equal(L.firstStanding(data, { ...firstVisitor, bodyweight: 90 }), null, "no rungs for the group");
   assert.equal(L.firstGroupWords("F", "63"), "UK powerlifters at their first meet, women at 63 kg.");
+  assert.equal(L.dotKeyWords("F", "76", 90), "Each dot stands for 1 in 100 female powerlifters at 76 kg. You are stronger than the ones in yellow.");
+  assert.equal(L.dotKeyWords("M", "120+", 0), "Each dot stands for 1 in 100 male powerlifters at 120+ kg.", "no yellow dots, so no second sentence");
+});
+
+test("first visit: each other bar says how far its total is from yours", () => {
+  assert.equal(L.totalGapWords(327, 367.5), "40.5 kg less");
+  assert.equal(L.totalGapWords(400, 367.5), "32.5 kg more");
+  assert.equal(L.totalGapWords(367.5, 367.5), "the same");
 });
