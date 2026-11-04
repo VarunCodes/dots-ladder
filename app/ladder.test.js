@@ -906,3 +906,92 @@ test("lift balance skips lifts above their top rung or without rungs, and says n
   assert.equal(one.selected, "squat", "the only lift with rungs");
   assert.deepEqual(one.rows.map((r) => r.band), ["Below P10", "", ""]);
 });
+
+// --- First visit -------------------------------------------------------------------
+
+const firstVisitor = { sex: "M", bodyweight: 70, squat: 110, bench: 97.5, deadlift: 160 };
+
+test("first visit: the totals that score the same DOTS 10 kg either side, yours exact and the others to whole kg", () => {
+  assert.deepEqual(L.sameScoreTotals(firstVisitor), [
+    { bw: 60, total: 327, you: false },
+    { bw: 70, total: 367.5, you: true },
+    { bw: 80, total: 400, you: false },
+  ]);
+  assert.deepEqual(L.sameScoreTotals({ ...firstVisitor, bodyweight: 35 }).map((t) => t.bw), [35, 45], "no bodyweight under the limit");
+  assert.deepEqual(L.sameScoreTotals({ ...firstVisitor, bodyweight: 245 }).map((t) => t.bw), [235, 245], "or over it");
+});
+
+test("first visit: the same-score card names both lifters, with 'a' or 'an' as the number is said", () => {
+  assert.equal(L.sameScoreWords(L.sameScoreTotals(firstVisitor)), "A 60 kg lifter with 327 kg scores the same as you. So does an 80 kg lifter with 400 kg.");
+  assert.match(L.sameScoreWords(L.sameScoreTotals({ ...firstVisitor, bodyweight: 245 })), /^A 235 kg lifter with \d+ kg scores the same as you\.$/, "one lifter when the other is out of range");
+  assert.deepEqual(["8", "80", "83.5", "11", "18.5", "110", "60"].map(L.articleFor), ["an", "an", "an", "an", "an", "a", "a"]);
+});
+
+test("first visit: where you stand among first-meet powerlifters in your class, in words", () => {
+  const data = { rungs: [{ sex: "M", weightClassKg: "74", experience: "first meet", lifters: 396, dots: { p10: 266, p25: 300, p50: 338, p75: 370, p90: 400 } }] };
+  const at = (total) => L.firstStanding(data, { ...firstVisitor, squat: total - 257.5 }); // bench + deadlift = 257.5
+  const mid = at(400); // ~300.4 DOTS
+  assert.equal(mid.wclass, "74");
+  assert.equal(mid.passed, 25);
+  assert.equal(mid.next.percentile, 50);
+  assert.deepEqual(L.standingWords(mid), { title: "You are stronger than at least 25 in 100", more: null });
+  const low = at(340);
+  assert.equal(low.passed, 0);
+  assert.deepEqual(L.standingWords(low), { title: "Your first target: stronger than 10 in 100", more: `+${low.next.kg} kg on your total gets you there.` });
+  assert.equal(low.next.kg % 2.5, 0, "kilos to go in 2.5 kg steps");
+  const top = at(560);
+  assert.deepEqual(L.standingWords(top), { title: "You are stronger than 90 in 100", more: null });
+  assert.equal(L.firstStanding(data, { ...firstVisitor, bodyweight: 90 }), null, "no rungs for the group");
+  assert.equal(L.firstGroupWords("F", "63"), "UK powerlifters at their first meet, women at 63 kg.");
+  assert.equal(L.dotKeyWords("F", "76", 90), "Each dot stands for 1 in 100 female powerlifters at 76 kg. You are stronger than the ones in yellow.");
+  assert.equal(L.dotKeyWords("M", "120+", 0), "Each dot stands for 1 in 100 male powerlifters at 120+ kg. The outlined ones are your first target.", "below every rung: the first target");
+});
+
+test("first visit: below every rung, the gym-goer estimate is a labelled reference point, apart from the ladder", () => {
+  assert.equal(L.gymGoerWords("M", 236), "For scale, not part of this ladder: you're above a regular gym-goer, who scores about 200 DOTS (estimate).");
+  assert.equal(L.gymGoerWords("F", 150), "For scale, not part of this ladder: a regular gym-goer scores about 160 DOTS (estimate).");
+  assert.equal(L.gymGoerWords("M", 200), L.gymGoerWords("M", 236), "reaching it counts as above");
+});
+
+test("first visit: each other bar says how far its total is from yours", () => {
+  assert.equal(L.totalGapWords(327, 367.5), "40.5 kg less");
+  assert.equal(L.totalGapWords(400, 367.5), "32.5 kg more");
+  assert.equal(L.totalGapWords(367.5, 367.5), "the same");
+});
+
+test("first visit: each step asks for its own fields, and Next waits for them", () => {
+  const blank = { sex: "M", bodyweight: NaN, squat: NaN, bench: NaN, deadlift: NaN };
+  assert.equal(L.firstStepState(1, blank).canGoOn, false, "no bodyweight yet");
+  assert.equal(L.firstStepState(1, { ...blank, bodyweight: 70 }).canGoOn, true, "lifts belong to step 2");
+  assert.equal(L.firstStepState(2, { ...blank, bodyweight: 70, squat: 110, bench: 97.5 }).canGoOn, false, "one lift missing");
+  assert.equal(L.firstStepState(2, { ...firstVisitor }).canGoOn, true);
+  assert.equal(L.firstStepState(1, { ...blank, bodyweight: 20 }, { bodyweight: "20" }).canGoOn, false, "out of range");
+  assert.equal(L.firstStepState(3, blank).canGoOn, true, "steps 3 and 4 ask for nothing");
+});
+
+test("first visit: a value is flagged at two digits or once it's left, never at one digit", () => {
+  const raw = (bodyweight) => ({ sex: "M", bodyweight, squat: NaN, bench: NaN, deadlift: NaN });
+  assert.deepEqual(L.firstStepState(1, raw(2), { bodyweight: "2" }).flagged, [], "one digit: still typing");
+  assert.deepEqual(L.firstStepState(1, raw(2), { bodyweight: "2" }, ["bodyweight"]).flagged, ["bodyweight"], "one digit, left: flagged");
+  assert.deepEqual(L.firstStepState(1, raw(20), { bodyweight: "20" }).flagged, ["bodyweight"], "two digits, out of range");
+  assert.deepEqual(L.firstStepState(1, raw(70.5), { bodyweight: "70.5" }).flagged, [], "valid: nothing to flag");
+  assert.deepEqual(L.firstStepState(1, raw(NaN), { bodyweight: "" }, ["bodyweight"]).flagged, [], "blank is missing, not wrong");
+  const lifts = { ...firstVisitor, squat: 900 };
+  assert.deepEqual(L.firstStepState(1, lifts, { squat: "900" }).flagged, [], "step 1 doesn't flag step 2's fields");
+  assert.deepEqual(L.firstStepState(2, lifts, { squat: "900" }).flagged, ["squat"]);
+  assert.deepEqual(["2", "20", "2.5", "", undefined].map((t) => L.readyToFlag(t, false)), [false, true, true, false, false]);
+});
+
+test("first visit: the step count, Back, the privacy note and the last button", () => {
+  const at = (step) => L.firstStepState(step, firstVisitor);
+  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).count), ["Step 1 of 4", "Step 2 of 4", "Step 3 of 4", "Step 4 of 4"]);
+  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).back), [false, true, true, true], "no Back on step 1");
+  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).privateNote), [true, true, false, false], "the note sits with the inputs");
+  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).next), ["Next", "Next", "Next", "Show my ladder"]);
+});
+
+test("first visit: step 2's total adds up only the lifts typed so far", () => {
+  assert.equal(L.typedTotal({ squat: 110, bench: NaN, deadlift: 160 }), 270);
+  assert.equal(L.typedTotal({ squat: NaN, bench: NaN, deadlift: NaN }), 0);
+  assert.equal(L.typedTotal({ squat: -5, bench: 97.5, deadlift: 160 }), 257.5, "a negative isn't added");
+});

@@ -402,9 +402,94 @@ a:hover { color: var(--accent-hover); }
 
 /* --- First visit ------------------------------------------------------------------ */
 
-.onboard { display: flex; flex-direction: column; gap: 6px; }
-.onboard h2 { font-size: 2.125rem; font-weight: 700; }
-.onboard .fields { margin-top: 10px; }
+/* Four steps, one idea each: the actions sit at the bottom of the screen, within thumb reach. */
+.onboard {
+  display: flex; flex-direction: column; gap: 20px;
+  min-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - 16px);
+}
+.onboard-progress { display: flex; flex-direction: column; gap: 10px; }
+.onboard-progress p { margin: 0; }
+.onboard-bar { display: flex; gap: 6px; }
+.onboard-bar span { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background-color var(--duration-quick) var(--ease-smooth-out); }
+.onboard-bar span.done { background: var(--accent); }
+.onboard-step { display: flex; flex-direction: column; gap: 18px; }
+.onboard-step[hidden] { display: none; }
+.onboard-step.enter { animation: rise-in var(--duration-fast) var(--ease-smooth-out); }
+.onboard-step h2 { margin: 0; font-size: 2.5rem; font-weight: 700; line-height: 1.02; letter-spacing: 0; }
+.onboard-step h2:focus { outline: none; }
+.onboard-lede { margin: 0; color: var(--text-2); line-height: 1.45; }
+.onboard-lede:empty { display: none; }
+.onboard-label { margin: 0; font-size: 0.8125rem; color: var(--muted); }
+.onboard .segmented { margin: 0; flex-wrap: wrap; }
+.onboard .segmented legend { width: 100%; margin-bottom: 8px; padding: 0; }
+.onboard .segmented label { min-height: 52px; }
+/* Each value sits in a row (label left, box right), with its unit inside the box. */
+.onboard-rows { display: flex; flex-direction: column; gap: 10px; }
+.onboard-rows label { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); color: var(--text); }
+.onboard-unit {
+  flex: 0 0 9rem; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 8px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--muted);
+  transition: border-color var(--duration-quick) var(--ease-smooth-out);
+}
+.onboard-unit:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.onboard-unit.flagged { border-color: var(--error); }
+.onboard-unit input {
+  flex: 1; min-width: 0; width: 100%; padding: 0; border: 0; background: transparent; color: var(--text);
+  font: 700 1.5rem var(--display); font-variant-numeric: tabular-nums; text-align: right;
+}
+.onboard-unit input:focus { outline: none; }
+.onboard-unit input::placeholder { color: var(--muted); opacity: 0.5; }
+.onboard-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; color: var(--text-2); }
+.onboard-total strong { font: 700 2.25rem var(--display); color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.onboard-private { margin: auto 0 0; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); color: var(--text-2); line-height: 1.45; }
+.onboard-private strong { color: var(--text); font-weight: 600; }
+.onboard-private[hidden] { display: none; }
+.onboard-private[hidden] + .onboard-actions { margin-top: auto; }
+.onboard-back { min-height: 52px; padding: 0 20px; }
+.onboard-back[hidden] { display: none; }
+
+/* Step 3: your score, then the totals that score the same at 10 kg either side. */
+.reveal-score { display: flex; flex-direction: column; gap: 2px; }
+.reveal-score h2.onboard-label { font: 400 0.8125rem var(--body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.reveal-number { display: flex; align-items: baseline; gap: 10px; margin: 0; }
+.reveal-number strong { font: 700 6rem/0.9 var(--display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.reveal-number span { font: 600 1.375rem var(--display); letter-spacing: 0.04em; color: var(--text); }
+.reveal-score .muted { margin: 0; }
+.reveal-chart { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 14px 14px 12px; border-radius: 14px; background: var(--surface); }
+.reveal-bars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; align-items: end; }
+.reveal-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 176px; }
+.reveal-kg { margin-bottom: 4px; font: 600 1.125rem var(--display); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.reveal-bar { width: 100%; border-radius: 10px; background: color-mix(in srgb, var(--muted) 30%, var(--surface)); transform-origin: bottom; }
+.reveal-bars.grow .reveal-bar { animation: bar-grow 340ms var(--ease-smooth-out) backwards; animation-delay: calc(var(--order) * 80ms); }
+@keyframes bar-grow { from { transform: scaleY(0); } }
+.reveal-col.you .reveal-kg { font-weight: 700; font-size: 1.25rem; color: var(--accent); }
+.reveal-col.you .reveal-bar { background: var(--accent); }
+.reveal-bar { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 8px; padding: 8px 4px 10px; box-sizing: border-box; overflow: hidden; }
+.reveal-gap { font-size: 0.75rem; line-height: 1.2; text-align: center; color: var(--text); }
+.reveal-figure { width: auto; fill: var(--text-2); opacity: 0.55; }
+.reveal-col.you .reveal-figure { fill: var(--on-accent); opacity: 0.75; }
+.reveal-who { padding: 6px 0 2px; font-size: 0.75rem; color: var(--muted); }
+.reveal-col.you .reveal-who { font-weight: 600; color: var(--text); }
+.reveal-card { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--accent); border-radius: 14px; }
+.reveal-card p { margin: 0; line-height: 1.45; }
+.reveal-card .onboard-label { font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; }
+#reveal-same { color: var(--text); }
+
+/* Step 4: who you're compared with, then 100 dots with the share you're stronger than filled in. */
+.standing-who { display: flex; flex-direction: column; gap: 6px; }
+.standing-who .onboard-label { letter-spacing: 0.14em; text-transform: uppercase; }
+#standing-who { margin: 0; color: var(--text-2); line-height: 1.4; }
+.standing-dots { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; }
+.standing-dots[hidden] { display: none; }
+.standing-dots span { aspect-ratio: 1; border-radius: 50%; background: var(--border); }
+.standing-dots span.on { background: var(--accent); }
+.standing-dots span.target { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
+.standing-dots.fill :is(span.on, span.target) { animation: dot-in var(--duration-quick) var(--ease-smooth-out) backwards; animation-delay: calc(var(--i) * 4ms); }
+@keyframes dot-in { from { opacity: 0; scale: 0.4; } }
+#standing-key { margin: 0; line-height: 1.45; }
+/* The gym-goer estimate sits apart from the dots, dashed and italic like its row on the Ladder: not a rung. */
+.standing-scale { margin: 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 12px; font-style: italic; color: var(--muted); line-height: 1.45; }
+.standing-scale[hidden] { display: none; }
 
 .segmented { display: flex; gap: 6px; margin: 14px 0 0; padding: 0; border: 0; }
 .segmented label {
@@ -424,10 +509,10 @@ a:hover { color: var(--accent-hover); }
 .segmented label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sex-icon { width: 18px; height: 18px; flex: none; }
 
-#onboard-note { margin-top: 8px; color: var(--error); }
+#onboard-note { margin: 0; color: var(--error); }
 #onboard-note:empty { display: none; }
 
-.onboard-actions { display: flex; gap: 8px; margin-top: 14px; }
+.onboard-actions { display: flex; gap: 8px; }
 .primary {
   flex: 1;
   min-height: 52px;
@@ -1073,6 +1158,8 @@ td.plan-third { font-weight: 700; }
   .event::details-content { transition: none; }
   .chart-pulse, .chart-arrive { display: none; }
   @keyframes rise-in { from { opacity: 0; } }
+  .reveal-bars.grow .reveal-bar, .standing-dots.fill :is(span.on, span.target) { animation: none; }
+  .onboard-bar span { transition: none; }
   @keyframes swap-in { from { opacity: 0; } }
   @keyframes draw-check { from { stroke-dashoffset: 0; } }
   @keyframes drop-in { from { opacity: 0; } }

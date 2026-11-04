@@ -74,6 +74,15 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 
 "Score" below means whichever formula is selected, DOTS or GL (see 5.1). Every screen shows the same one, and never mixes the two.
 
+### 5.0 First visit (nothing saved yet)
+
+Four steps that teach DOTS with the visitor's own numbers (design: the "DOTS Ladder: First Visit" canvas). Each step is one idea, under "Step N of 4" and a four-segment progress bar (`--accent` up to the current step). Back (from step 2) and Next sit at the bottom of the screen; Next waits for the step's values to be valid. Each value sits in a row like step 2's lifts, with "kg" inside its box. A value is flagged (red border and message) only once it has two digits or the field is left, so one digit typed is never an error. Nothing is saved until the last step, and what's typed is kept while moving between steps. Always DOTS, against **first-meet** powerlifters in the class the bodyweight falls in: the closest group to someone who hasn't competed yet.
+
+1. **"How strong are you for your size?"** "DOTS turns your total and bodyweight into one score." Sex (Men | Women) and a bodyweight row.
+2. **"Your best lifts"**: squat, bench and deadlift as "your heaviest single", with "Total, added up for you" totalling what's typed. Steps 1 and 2 end with "Saved on this phone only. Nothing you enter is sent to us or stored anywhere else."
+3. **"Your score"**: the DOTS as the hero (96px, `--accent`), "From 367.5 kg total at 70 kg bodyweight", one line on what DOTS is, then three bars: the totals that score the same at your bodyweight −10 kg, yours and +10 kg (others rounded to whole kg; a bodyweight outside 30–250 kg is left out). Only yours is `--accent`. The bars are rounded on all corners with no baseline, labelled "60 kg", "You · 70 kg", "80 kg". Each holds a simple figure drawn bigger the heavier the bodyweight, so the bars differ because the people do, and the others say how far their total is from yours ("40.5 kg less", "32.5 kg more"). A card: "A 60 kg lifter with 327 kg scores the same as you. So does an 80 kg lifter with 400 kg. That's why we compare you with powerlifters in your weight class."
+4. **"Compared with"** "UK powerlifters at their first meet, men at 74 kg. Real results from OpenPowerlifting." The headline is the highest rung reached, as "You are stronger than at least 25 in 100" (only five rungs are known), "You are stronger than 90 in 100" at the top, or, below every rung, a first target: "Your first target: stronger than 10 in 100" with "+15 kg on your total gets you there.", and those 10 dots outlined in `--accent` ("The outlined ones are your first target."). Below them, apart from the dots (dashed border, italic, `--muted`, like the estimate's row on the Ladder), the one labelled estimate as a reference point: "For scale, not part of this ladder: you're above a regular gym-goer, who scores about 200 DOTS (estimate)." or "…a regular gym-goer scores about 200 DOTS (estimate)." 100 dots, that many filled: "Each dot stands for 1 in 100 male powerlifters at 74 kg. You are stronger than the ones in yellow." (below every rung, the second sentence names the outlined target instead) "Show my ladder" saves the numbers as the first record, dated today. A group without rungs says "Not enough powerlifters in this group to compare yet".
+
 ### 5.1 Ladder (`#/ladder`)
 
 1. **Header**
@@ -328,6 +337,7 @@ Restrained and quick: motion confirms a change, it never decorates. Plain CSS, u
 - **Choices** (DOTS/GL, experience tabs, chart views) sit in one track, and the chosen fill slides to the option you pick; the 3M | All and lift rows slide their accent underline. Their buttons are built once and updated in place (`dom.js` `choiceGroup`), so the transitions play.
 - **Buttons that act** (Save, steppers, + Add, the class chip) shrink to 96% while pressed. Hover states only where there's a pointer.
 - **Screens** fade in and rise 8px when you switch to them, not on first load.
+- **First visit:** each step fades in and rises 8px (fast), and focus moves to its heading; the progress bar fills (quick). On step 3 the bars grow once from the baseline (about 500 ms in all), yours last; on step 4 the filled dots appear in a quick stagger (about 400 ms). No counting up, glow or looping, and none of it with reduced motion.
 - **Headline numbers** (the Ladder score, the chart's latest) fade the new value in when it changes. The Log result doesn't, as it changes with every keystroke.
 - **Events and records** open and close smoothly to their height (Chromium; other browsers snap).
 - **Pop-ups** come only from `app/popup.js`, never the browser's own `confirm()` or `alert()` (a test enforces this). There are two kinds:

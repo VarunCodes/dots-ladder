@@ -1,6 +1,6 @@
 // Pure logic for the DOTS ladder: no DOM, so it runs in the browser and under `node --test`.
 // Weight classes mirror pipeline/build_rungs.py; the scoring formulas live in scoring.js.
-import { DEFAULT_FORMULA, FORMULAS, FORMULA_IDS, formatScore, score } from "./scoring.js";
+import { DEFAULT_FORMULA, FORMULAS, FORMULA_IDS, formatScore, kgToNextRung, score, totalForScore } from "./scoring.js";
 
 const CLASSES = {
   M: [59, 66, 74, 83, 93, 105, 120],
@@ -812,6 +812,139 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
   const selected = opportunity[0] ?? nearest?.lift ?? ranked[0] ?? null;
   const rows = LIFTS.map((lift) => ({ lift, kg: profile[lift], band: band(lift), opportunity: opportunity.includes(lift), detail: detail(lift) }));
   return { shares, typical, rows, lines, selected };
+}
+
+// --- First visit: four steps that teach DOTS with your own numbers -----------------------
+// Always DOTS, against first-meet powerlifters in the class your bodyweight falls in: the closest group to someone
+// who hasn't competed yet.
+
+export const FIRST_VISIT_STEPS = 4;
+// The fields each step asks for: its Next waits for them, and only their problems are shown.
+const FIRST_STEP_FIELDS = { 1: ["sex", "bodyweight"], 2: LIFTS, 3: [], 4: [] };
+
+/**
+ * Whether a field's problem is worth showing yet: once it's finished with (left after changing), or once two digits
+ * are typed. "2" is still being typed, so a single digit is never flagged; "20" is.
+ */
+export function readyToFlag(text, finished) {
+  return Boolean(finished) || `${text ?? ""}`.replace(/\D/g, "").length >= 2;
+}
+
+/**
+ * One first-visit step's state from what's typed: `raw` holds the values (numbers, NaN when blank), `texts` what's
+ * in each box, `finished` the names of fields left after changing. Returns { count, back, privateNote, next, canGoOn,
+ * flagged }: Back from step 2, the privacy note on steps 1-2, "Show my ladder" on the last step, Next only when the
+ * step's fields are valid, and the step's fields to flag (red border and message).
+ */
+export function firstStepState(step, raw, texts = {}, finished = []) {
+  const fields = FIRST_STEP_FIELDS[step];
+  const done = new Set(finished);
+  return {
+    count: `Step ${step} of ${FIRST_VISIT_STEPS}`,
+    back: step > 1,
+    privateNote: step <= 2,
+    next: step === FIRST_VISIT_STEPS ? "Show my ladder" : "Next",
+    canGoOn: !invalidFields(raw).some((name) => fields.includes(name)),
+    flagged: enteredProblems(raw).filter((name) => fields.includes(name) && name !== "sex" && readyToFlag(texts[name], done.has(name))),
+  };
+}
+
+/** Step 2's running total: the lifts typed so far (blank or not-yet-valid boxes add nothing). */
+export function typedTotal(raw) {
+  return LIFTS.map((lift) => raw[lift]).filter((v) => Number.isFinite(v) && v > 0).reduce((sum, v) => sum + v, 0);
+}
+
+/**
+ * The totals that score the same DOTS as yours 10 kg lighter, at your bodyweight and 10 kg heavier, lightest first:
+ * [{ bw, total, you }]. Yours is your own total; the others are rounded to whole kg. A bodyweight outside the
+ * limits is left out.
+ */
+export function sameScoreTotals(profile) {
+  const { sex, bodyweight } = profile;
+  const points = score("dots", { total: sumLifts(profile), bw: bodyweight, sex });
+  return [-10, 0, 10]
+    .map((step) => ({ step, bw: Math.round((bodyweight + step) * 10) / 10 }))
+    .filter(({ bw }) => inRange(bw, LIMITS.bodyweight))
+    .map(({ step, bw }) => ({
+      bw,
+      total: step === 0 ? sumLifts(profile) : Math.round(totalForScore("dots", { points, bw, sex })),
+      you: step === 0,
+    }));
+}
+
+/** "a" or "an" before a number, as it's said: "an 80 kg lifter", "an 11 kg", "a 110 kg lifter". */
+export function articleFor(number) {
+  return /^(8|1[18](\.|$))/.test(`${number}`) ? "an" : "a";
+}
+
+/** Step 3's card: "A 60 kg lifter with 327 kg scores the same as you. So does an 80 kg lifter with 400 kg." */
+export function sameScoreWords(totals) {
+  const kg = (value) => `${Number(value.toFixed(1))}`;
+  const [first, second] = totals.filter((t) => !t.you).map((t) => `${articleFor(kg(t.bw))} ${kg(t.bw)} kg lifter with ${kg(t.total)} kg`);
+  if (!first) return "";
+  return [`${first[0].toUpperCase()}${first.slice(1)} scores the same as you.`, second && `So does ${second}.`].filter(Boolean).join(" ");
+}
+
+/**
+ * Where a first visit stands among first-meet powerlifters in its class: { wclass, passed (the highest rung's
+ * percentile your DOTS reaches, 0 below them all), next ({ percentile, kg on your total }, null above them all) };
+ * null when the group has no rungs.
+ */
+export function firstStanding(data, profile) {
+  const wclass = weightClass(profile.sex, profile.bodyweight);
+  const group = rungsFor(data, "dots", profile.sex, wclass, EXPERIENCE[0]);
+  if (!group?.rungs.length) return null;
+  const lifts = { total: sumLifts(profile), bw: profile.bodyweight, sex: profile.sex };
+  const points = score("dots", lifts);
+  const next = nextRung(group.rungs, points);
+  return {
+    wclass,
+    passed: group.rungs.findLast((r) => r.score <= points)?.percentile ?? 0,
+    next: next && { percentile: next.percentile, kg: kgToNextRung("dots", lifts, next.score) },
+  };
+}
+
+/**
+ * Step 4's headline. Only five rungs are known, so between two it's "at least" the one reached: "You are stronger
+ * than at least 25 in 100"; at the top, "You are stronger than 90 in 100"; below them all, "You are not yet
+ * stronger than 10 in 100"... reframed as a first target: "Your first target: stronger than 10 in 100", with the
+ * kilos to go.
+ */
+export function standingWords({ passed, next }) {
+  if (!passed) return { title: `Your first target: stronger than ${next.percentile} in 100`, more: `+${next.kg} kg on your total gets you there.` };
+  return { title: next ? `You are stronger than at least ${passed} in 100` : `You are stronger than ${passed} in 100`, more: null };
+}
+
+/** How another total compares with yours, for step 3's bars: "40.5 kg less", "32.5 kg more", "the same". */
+export function totalGapWords(other, yours) {
+  const gap = Math.round((other - yours) * 10) / 10;
+  return gap === 0 ? "the same" : `${Number(Math.abs(gap).toFixed(1))} kg ${gap < 0 ? "less" : "more"}`;
+}
+
+/**
+ * Step 4's key to the dots: "Each dot stands for 1 in 100 female powerlifters at 76 kg. You are stronger than the
+ * ones in yellow." Below every rung, the outlined dots are the first target instead.
+ */
+export function dotKeyWords(sex, wclass, passed) {
+  const who = `${sex === "M" ? "male" : "female"} powerlifters at ${wclass} kg`;
+  return `Each dot stands for 1 in 100 ${who}. ${passed ? "You are stronger than the ones in yellow." : "The outlined ones are your first target."}`;
+}
+
+/**
+ * Step 4's reference point below every rung, kept apart from the ladder: the app's one estimate (a regular
+ * gym-goer's DOTS), always labelled. "For scale, not part of this ladder: you're above a regular gym-goer, who
+ * scores about 200 DOTS (estimate)." Written out here, as the estimate is defined below.
+ */
+export function gymGoerWords(sex, points) {
+  const estimate = GYM_GOER_ESTIMATE[sex];
+  return points >= estimate
+    ? `For scale, not part of this ladder: you're above a regular gym-goer, who scores about ${estimate} DOTS (estimate).`
+    : `For scale, not part of this ladder: a regular gym-goer scores about ${estimate} DOTS (estimate).`;
+}
+
+/** Who step 4 compares you with: "UK powerlifters at their first meet, men at 74 kg." */
+export function firstGroupWords(sex, wclass) {
+  return `UK powerlifters at their first meet, ${sex === "M" ? "men" : "women"} at ${wclass} kg.`;
 }
 
 // --- Reference marker: an estimate, not data ---------------------------------------

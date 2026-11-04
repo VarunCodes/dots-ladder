@@ -17,3 +17,6 @@ __pycache__/
 
 # Planning summary: has personal details (name, lifts, meet plan). Local only.
 docs/conversation-summary.md
+
+# Impeccable design-review snapshots: local only (they record machine paths)
+.impeccable/

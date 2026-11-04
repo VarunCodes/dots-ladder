@@ -8,7 +8,8 @@ import { derived } from "./derive.js";
 import { $, choiceGroup, el, formulaChoice, replay, setNumber } from "./dom.js";
 import { renderCalculator, setupCalculator } from "./calculator.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
-import { FIELD_TEXT, openLog, refreshLog, setupLog } from "./log.js";
+import { openLog, refreshLog, setupLog } from "./log.js";
+import { resetOnboarding, setupOnboarding } from "./onboarding.js";
 import { openMeet, refreshMeet, setupMeet } from "./meet.js";
 import { toast } from "./popup.js";
 import { openProgress, refreshProgress, setupProgress } from "./progress.js";
@@ -296,32 +297,6 @@ function showScreen(screen) {
   window.scrollTo(0, 0);
 }
 
-/** The first-visit form: the button stays disabled until all five values are valid, and only entered values are flagged. */
-function setupOnboarding() {
-  const form = $("onboarding");
-  const button = form.querySelector('button[type="submit"]');
-  const read = () => ({
-    sex: form.elements.sex.value,
-    bodyweight: form.elements.bodyweight.valueAsNumber,
-    ...Object.fromEntries(L.LIFTS.map((lift) => [lift, form.elements[lift].valueAsNumber])),
-    weightClass: null,
-  });
-
-  form.addEventListener("input", () => {
-    const raw = read();
-    $("onboard-note").textContent = L.enteredProblems(raw).map((name) => FIELD_TEXT[name]).join(" ");
-    button.disabled = !L.validProfile(raw);
-  });
-
-  // The first numbers are the first record in the history, dated today; the store's subscriber leaves this form.
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const profile = L.validProfile(read());
-    if (!profile) return;
-    store.update((s) => ({ entries: [L.testFrom(profile, s.session.today, L.newId("test"))] }));
-  });
-}
-
 try {
   const rungsData = await loadJson("data/rungs.json");
   // New visitors start blank: no records means the first-visit form, and events and records start empty. A
@@ -335,7 +310,7 @@ try {
   if (rungsData.snapshot) $("snapshot").textContent = `, snapshot ${fmtDate(rungsData.snapshot)}`;
   const hasNumbers = () => Boolean(derived(store.getState()).profile);
 
-  // Routing: "#/ladder" (default), "#/log", "#/progress" and "#/meet". Without saved numbers, everything is the first-visit form.
+  // Routing: "#/ladder" (default), "#/log", "#/progress" and "#/meet". Without saved numbers, everything is the first visit.
   const route = () => {
     const numbers = hasNumbers();
     $("onboarding").hidden = numbers;
@@ -361,16 +336,12 @@ try {
       if (screen === "meet") refreshMeet();
       return;
     }
-    if (!hasNumbers()) {
-      $("onboarding").reset();
-      $("onboarding").querySelector('button[type="submit"]').disabled = true;
-      $("onboard-note").textContent = "";
-    }
+    if (!hasNumbers()) resetOnboarding();
     if (location.hash !== "#/ladder") location.hash = "#/ladder";
     else route();
   });
 
-  setupOnboarding();
+  setupOnboarding(rungsData);
   // After a save: the Ladder, a toast of what it achieved (a PR, a rung cleared) and the score fading in.
   setupLog({
     onSaved: (before, id) => {
