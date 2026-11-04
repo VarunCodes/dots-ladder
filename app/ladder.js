@@ -1,6 +1,6 @@
 // Pure logic for the DOTS ladder: no DOM, so it runs in the browser and under `node --test`.
 // Weight classes mirror pipeline/build_rungs.py; the scoring formulas live in scoring.js.
-import { DEFAULT_FORMULA, FORMULAS, FORMULA_IDS, formatScore, score } from "./scoring.js";
+import { DEFAULT_FORMULA, FORMULAS, FORMULA_IDS, formatScore, kgToNextRung, score, totalForScore } from "./scoring.js";
 
 const CLASSES = {
   M: [59, 66, 74, 83, 93, 105, 120],
@@ -812,6 +812,75 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
   const selected = opportunity[0] ?? nearest?.lift ?? ranked[0] ?? null;
   const rows = LIFTS.map((lift) => ({ lift, kg: profile[lift], band: band(lift), opportunity: opportunity.includes(lift), detail: detail(lift) }));
   return { shares, typical, rows, lines, selected };
+}
+
+// --- First visit: four steps that teach DOTS with your own numbers -----------------------
+// Always DOTS, against first-meet powerlifters in the class your bodyweight falls in: the closest group to someone
+// who hasn't competed yet.
+
+/**
+ * The totals that score the same DOTS as yours 10 kg lighter, at your bodyweight and 10 kg heavier, lightest first:
+ * [{ bw, total, you }]. Yours is your own total; the others are rounded to whole kg. A bodyweight outside the
+ * limits is left out.
+ */
+export function sameScoreTotals(profile) {
+  const { sex, bodyweight } = profile;
+  const points = score("dots", { total: sumLifts(profile), bw: bodyweight, sex });
+  return [-10, 0, 10]
+    .map((step) => ({ step, bw: Math.round((bodyweight + step) * 10) / 10 }))
+    .filter(({ bw }) => inRange(bw, LIMITS.bodyweight))
+    .map(({ step, bw }) => ({
+      bw,
+      total: step === 0 ? sumLifts(profile) : Math.round(totalForScore("dots", { points, bw, sex })),
+      you: step === 0,
+    }));
+}
+
+/** "a" or "an" before a number, as it's said: "an 80 kg lifter", "an 11 kg", "a 110 kg lifter". */
+export function articleFor(number) {
+  return /^(8|1[18](\.|$))/.test(`${number}`) ? "an" : "a";
+}
+
+/** Step 3's card: "A 60 kg lifter with 327 kg scores the same as you. So does an 80 kg lifter with 400 kg." */
+export function sameScoreWords(totals) {
+  const kg = (value) => `${Number(value.toFixed(1))}`;
+  const [first, second] = totals.filter((t) => !t.you).map((t) => `${articleFor(kg(t.bw))} ${kg(t.bw)} kg lifter with ${kg(t.total)} kg`);
+  if (!first) return "";
+  return [`${first[0].toUpperCase()}${first.slice(1)} scores the same as you.`, second && `So does ${second}.`].filter(Boolean).join(" ");
+}
+
+/**
+ * Where a first visit stands among first-meet powerlifters in its class: { wclass, passed (the highest rung's
+ * percentile your DOTS reaches, 0 below them all), next ({ percentile, kg on your total }, null above them all) };
+ * null when the group has no rungs.
+ */
+export function firstStanding(data, profile) {
+  const wclass = weightClass(profile.sex, profile.bodyweight);
+  const group = rungsFor(data, "dots", profile.sex, wclass, EXPERIENCE[0]);
+  if (!group?.rungs.length) return null;
+  const lifts = { total: sumLifts(profile), bw: profile.bodyweight, sex: profile.sex };
+  const points = score("dots", lifts);
+  const next = nextRung(group.rungs, points);
+  return {
+    wclass,
+    passed: group.rungs.findLast((r) => r.score <= points)?.percentile ?? 0,
+    next: next && { percentile: next.percentile, kg: kgToNextRung("dots", lifts, next.score) },
+  };
+}
+
+/**
+ * Step 4's headline. Only five rungs are known, so between two it's "at least" the one reached: "Stronger than at
+ * least 25 in 100"; at the top, "Stronger than 90 in 100"; below them all, "Not yet stronger than 10 in 100" with
+ * the kilos to go.
+ */
+export function standingWords({ passed, next }) {
+  if (!passed) return { title: `Not yet stronger than ${next.percentile} in 100`, more: `+${next.kg} kg on your total gets you there.` };
+  return { title: next ? `Stronger than at least ${passed} in 100` : `Stronger than ${passed} in 100`, more: null };
+}
+
+/** Who step 4 compares you with: "UK powerlifters at their first meet, men at 74 kg." */
+export function firstGroupWords(sex, wclass) {
+  return `UK powerlifters at their first meet, ${sex === "M" ? "men" : "women"} at ${wclass} kg.`;
 }
 
 // --- Reference marker: an estimate, not data ---------------------------------------

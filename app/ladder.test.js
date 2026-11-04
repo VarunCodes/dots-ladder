@@ -906,3 +906,41 @@ test("lift balance skips lifts above their top rung or without rungs, and says n
   assert.equal(one.selected, "squat", "the only lift with rungs");
   assert.deepEqual(one.rows.map((r) => r.band), ["Below P10", "", ""]);
 });
+
+// --- First visit -------------------------------------------------------------------
+
+const firstVisitor = { sex: "M", bodyweight: 70, squat: 110, bench: 97.5, deadlift: 160 };
+
+test("first visit: the totals that score the same DOTS 10 kg either side, yours exact and the others to whole kg", () => {
+  assert.deepEqual(L.sameScoreTotals(firstVisitor), [
+    { bw: 60, total: 327, you: false },
+    { bw: 70, total: 367.5, you: true },
+    { bw: 80, total: 400, you: false },
+  ]);
+  assert.deepEqual(L.sameScoreTotals({ ...firstVisitor, bodyweight: 35 }).map((t) => t.bw), [35, 45], "no bodyweight under the limit");
+  assert.deepEqual(L.sameScoreTotals({ ...firstVisitor, bodyweight: 245 }).map((t) => t.bw), [235, 245], "or over it");
+});
+
+test("first visit: the same-score card names both lifters, with 'a' or 'an' as the number is said", () => {
+  assert.equal(L.sameScoreWords(L.sameScoreTotals(firstVisitor)), "A 60 kg lifter with 327 kg scores the same as you. So does an 80 kg lifter with 400 kg.");
+  assert.match(L.sameScoreWords(L.sameScoreTotals({ ...firstVisitor, bodyweight: 245 })), /^A 235 kg lifter with \d+ kg scores the same as you\.$/, "one lifter when the other is out of range");
+  assert.deepEqual(["8", "80", "83.5", "11", "18.5", "110", "60"].map(L.articleFor), ["an", "an", "an", "an", "an", "a", "a"]);
+});
+
+test("first visit: where you stand among first-meet powerlifters in your class, in words", () => {
+  const data = { rungs: [{ sex: "M", weightClassKg: "74", experience: "first meet", lifters: 396, dots: { p10: 266, p25: 300, p50: 338, p75: 370, p90: 400 } }] };
+  const at = (total) => L.firstStanding(data, { ...firstVisitor, squat: total - 257.5 }); // bench + deadlift = 257.5
+  const mid = at(400); // ~300.4 DOTS
+  assert.equal(mid.wclass, "74");
+  assert.equal(mid.passed, 25);
+  assert.equal(mid.next.percentile, 50);
+  assert.deepEqual(L.standingWords(mid), { title: "Stronger than at least 25 in 100", more: null });
+  const low = at(340);
+  assert.equal(low.passed, 0);
+  assert.deepEqual(L.standingWords(low), { title: "Not yet stronger than 10 in 100", more: `+${low.next.kg} kg on your total gets you there.` });
+  assert.equal(low.next.kg % 2.5, 0, "kilos to go in 2.5 kg steps");
+  const top = at(560);
+  assert.deepEqual(L.standingWords(top), { title: "Stronger than 90 in 100", more: null });
+  assert.equal(L.firstStanding(data, { ...firstVisitor, bodyweight: 90 }), null, "no rungs for the group");
+  assert.equal(L.firstGroupWords("F", "63"), "UK powerlifters at their first meet, women at 63 kg.");
+});
