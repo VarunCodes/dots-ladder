@@ -128,28 +128,79 @@ function renderExchange(d) {
     : `${Math.abs(gap) >= 0.5 ? `At your size, a kilo off is worth more in ${more} than in ${less}. ` : ""}Rates change as your total and bodyweight change.`;
 }
 
-const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
+const SHORT = { squat: "SQ", bench: "BP", deadlift: "DL" };
 
-/** Your three lifts as bars against your best, each with where it sits among its own rungs for the group shown. */
-function renderSplit(d, group) {
-  const { profile } = d;
-  const best = Math.max(...L.LIFTS.map((lift) => profile[lift]));
-  $("split-for").textContent = `Against UK meet lifters: ${group}.`;
-  $("lift-split").replaceChildren(
+/** A share-of-total bar: one segment per lift, labelled while there's room (the bar's label says it all anyway). */
+function shareBar(bar, shares, who, { opportunity = [], short = true, minLabel = 15 } = {}) {
+  const pct = (lift) => `${Math.round(shares[lift])}%`;
+  bar.setAttribute("aria-label", `${who}: ${L.LIFTS.map((lift) => `${L.LIFT_NAMES[lift].toLowerCase()} ${pct(lift)}`).join(", ")}`);
+  bar.replaceChildren(
     ...L.LIFTS.map((lift) => {
-      const li = el("li", "split-row");
-      const mark = icon(`icon-${lift}`);
-      mark.setAttribute("class", "split-icon");
-      const track = el("span", "split-track");
-      const fill = el("span", "split-fill");
-      fill.style.width = `${(profile[lift] / best) * 100}%`;
-      track.append(fill);
-      li.append(mark, el("span", "split-name", LIFT_NAMES[lift]), track, el("span", "split-kg", `${profile[lift]} kg`));
-      const where = L.rungPosition(d.liftRungs(lift), profile[lift]);
-      if (where) li.append(el("span", "split-pos muted small", where[0].toUpperCase() + where.slice(1)));
+      const seg = el("span", `balance-seg ${lift}${opportunity.includes(lift) ? " opportunity" : ""}`);
+      seg.style.flex = `${shares[lift]} 1 0`;
+      if (shares[lift] >= minLabel) seg.textContent = short ? `${SHORT[lift]} ${pct(lift)}` : pct(lift);
+      return seg;
+    }),
+  );
+}
+
+/** Lift balance: your split against the typical one, each lift among its own rungs, and what stands out. */
+// The lift whose detail Lift balance shows: picked by tapping its row, kept for this visit only (null = the default).
+let balanceLift = null;
+
+function renderBalance(d, group) {
+  const { shares, typical, rows, lines, selected } = d.liftBalance;
+  const opportunity = rows.filter((r) => r.opportunity).map((r) => r.lift);
+  shareBar($("balance-you"), shares, "You", { opportunity });
+  $("balance-typical-label").hidden = $("balance-typical").hidden = !typical;
+  if (typical) shareBar($("balance-typical"), typical, "Typical", { short: false, minLabel: 9 });
+  $("balance-for").textContent = typical
+    ? `Typical = median split for UK meet lifters: ${group} (${typical.lifters} lifters, OpenPowerlifting).${typical.scaled ? " Scaled to 100%." : ""}`
+    : `No typical split for ${group} yet.`;
+  $("balance-callout").hidden = !lines.length;
+  $("balance-lines").replaceChildren(...lines.map(balanceLine));
+
+  // Only a lift with rungs can be picked; a pick that no longer has them falls back to the default.
+  const pickable = rows.filter((r) => r.band);
+  const shown = pickable.find((r) => r.lift === balanceLift) ?? pickable.find((r) => r.lift === selected) ?? null;
+  $("balance-rows").replaceChildren(
+    ...rows.map((row) => {
+      const button = el("button", "balance-row");
+      button.type = "button";
+      button.disabled = !row.band;
+      button.setAttribute("aria-expanded", String(row === shown));
+      button.append(
+        el("span", "balance-name", L.LIFT_NAMES[row.lift]),
+        el("span", "balance-kg", `${row.kg} kg`),
+        el("span", `balance-band${row.opportunity ? " opportunity" : ""}`, row.band || "No rungs"),
+      );
+      button.addEventListener("click", () => {
+        balanceLift = row.lift;
+        renderBalance(d, group);
+        $("balance-rows").querySelectorAll("button")[rows.indexOf(row)].focus();
+      });
+      const li = el("li");
+      li.append(button);
+      // The picked lift's detail opens right under its row.
+      if (row === shown) {
+        const detail = el("div", "balance-detail");
+        detail.id = "balance-detail";
+        button.setAttribute("aria-controls", detail.id);
+        detail.append(...row.detail.map(balanceLine));
+        li.append(detail);
+      }
       return li;
     }),
   );
+  $("balance-pick").hidden = !shown;
+}
+
+/** A line of Lift balance's text: an optional bold lead, then the rest. */
+function balanceLine(line) {
+  const p = el("p");
+  if (line.lead) p.append(el("strong", "", line.lead), " ");
+  p.append(line.text);
+  return p;
 }
 
 function renderRow(row, profile) {
@@ -222,7 +273,7 @@ function render() {
   renderNext(profile, points, group, missing);
   renderCalculator(d);
   renderExchange(d);
-  renderSplit(d, `${sexWord.toLowerCase()} ${wclass} kg, ${experience}`);
+  renderBalance(d, `${sexWord.toLowerCase()} ${wclass} kg, ${experience}`);
   $("ladder").replaceChildren(...rows.map((row) => renderRow(row, profile)));
 }
 

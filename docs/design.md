@@ -111,9 +111,21 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - Rows: "−1 kg bodyweight · +3.2 DOTS", "+2.5 kg on any lift · +1.9 DOTS", and "Same swap in GL · 1 kg ≈ 3.1 kg" for the other formula.
    - Caption: "At your size, a kilo off is worth more in DOTS than in GL." when the two formulas differ by 0.5 kg or more on the bar, then "Rates change as your total and bodyweight change."
    - At the formula's limits (DOTS's 40 kg floor and 210 kg ceiling for men, GL's 40 / 35 kg floor), a lighter bodyweight scores nothing extra: the tiles and the bodyweight row go, and the caption says "At 40 kg, DOTS doesn't score a lighter bodyweight any higher, so only the bar counts." The other formula's row shows only when it has a rate.
-7. **"LIFT SPLIT"**: "Against UK meet lifters: men 83 kg, first meet." (the group the rungs show, so it follows the experience tabs), then three horizontal bars (Squat, Bench, Deadlift). Under each bar, where that lift sits among its own rungs ("Between P50 and P75", "Above P90"), so the lift holding your total back stands out.
-   - Track `--divider`, fill `--text-2`, height 10px, radius 5px.
-   - Width is relative to your best lift; the kg value sits on the right.
+7. **"Lift balance" card** (`--surface`): your split against the typical one, each lift among its own rungs, and what stands out.
+   - Eyebrow "Share of your total", title "Lift balance".
+   - **Two share bars**, "You" and "Typical": a segment per lift sized by its share of the total. Yours read "SQ 28%", "BP 31%", "DL 41%" (squat `--text`, bench `--text-2`, deadlift `--muted`; the biggest-opportunity lift in `--accent`); typical's read "35%" on `--border`. A segment too small for its label drops the label, not the layout; each bar's aria-label names all three.
+   - **Typical** is the group's median share of each lift (the group the rungs show, so it follows the experience tabs), scaled to 100%. Caption: "Typical = median split for UK meet lifters: men 74 kg, first meet (396 lifters, OpenPowerlifting).", plus "Scaled to 100%." when the medians didn't sum to it. A group without one shows only your bar: "No typical split for men 74 kg, first meet yet."
+   - **Callout** (1px `--accent` outline, target mark), above the rows: up to four lines, each a fact from the rungs, never training advice; lines that don't apply are left out.
+     1. "**Squat is your biggest opportunity.** It sits below P10, and its share is 6 points under typical.": the lowest-ranked lift among its own rungs (a share further under typical breaks a tie; otherwise both are named). When every lift sits in the same band: "**Your lifts rank evenly.** All three sit between P25 and P50."
+     2. "Deadlift is 7.5 kg from P25, the closest rung of your three lifts."
+     3. "Bench is your strongest lift: P75–P90." (not when they rank evenly)
+     4. "All three lifts at their next rung (+10, +10 and +12.5 kg) would take your score to P25 (+23.9 DOTS).", or "… would add 5.6 DOTS." when it climbs no score rung. Only when two or more lifts have a rung ahead. A trial line, to review.
+   - "Tap a lift to see its next rungs." (`--muted`, small), then **a row per lift**, each a button: name, kg (`--muted`), and where it sits among its own rungs on the right ("Below P10", "P75–P90", "Above P90"); the biggest-opportunity lift's in `--accent`. A lift without rungs reads "No rungs" and can't be picked.
+   - **Tapping a row opens its detail under it** (one at a time; `--surface-2` with an `--accent` left edge; `aria-expanded`). It opens on the biggest opportunity (ranking evenly: the nearest rung), and the pick lasts for this visit only.
+     1. "**Squat:** below P10, share 6 points under typical."
+     2. "+10 kg to P10 (120 kg) would add 7.4 DOTS.", or "… would take your score to P25 (+7.4 DOTS)." when it climbs a score rung.
+     3. The rung after, the same way: "+30 kg to P25 (140 kg) would take your score to P25 (+22.1 DOTS)." A trial line, to review. The points tell apart two lines that reach the same score rung.
+   - No "at a typical split you'd squat ~137 kg" line: it's a hypothetical number, too close to an estimate.
 
 ### 5.2 Log test (`#/log`)
 
@@ -232,7 +244,7 @@ Each new field defaults when it's missing, so adding an optional field never nee
 - Calculate scores whenever they're displayed. Never store them.
 - The store wraps every storage read and write in try/catch. If storage is empty, corrupt or unavailable, the app starts with an empty state (and changes last until the page closes). A screen with no tests shows an empty state that links to `#/log`.
 
-**Rung data** (`data/rungs.json`, built by the pipeline, the only data the page loads): for each group (sex, class, experience), `dots` and `gl` percentiles and, under `lifts`, each lift's percentiles in kg rounded to the nearest 2.5 kg, all from the same lifters' same results. Each lift's set carries its own `lifters` count and follows the same rules (20+ lifters, p10/p90 only at 50+). Per-lift rungs come from full-power meets only, so all three lifts describe the same people as the score rungs; they don't change with the DOTS / GL toggle.
+**Rung data** (`data/rungs.json`, built by the pipeline, the only data the page loads): for each group (sex, class, experience), `dots` and `gl` percentiles and, under `lifts`, each lift's percentiles in kg rounded to the nearest 2.5 kg, all from the same lifters' same results. Each lift's set carries its own `lifters` count and follows the same rules (20+ lifters, p10/p90 only at 50+). Per-lift rungs come from full-power meets only, so all three lifts describe the same people as the score rungs; they don't change with the DOTS / GL toggle. Under `split`, the typical split: each lift's median share of a lifter's own total (in %, 1 decimal place), from the group's lifters with all three lifts, with its `lifters` count; only at 20+.
 
 ## 7. Calculations (unit-test these)
 
@@ -331,5 +343,5 @@ Restrained and quick: motion confirms a change, it never decorates. Plain CSS, u
 2. ✅ **Tab bar and routing.** The three hash routes and the fixed bottom bar. (PR #12)
 3. ✅ **Scoring module and tests.** Pure functions for DOTS and GL, kg to the next rung and the same total at the target bodyweight, with the section 7 cases; the DOTS/GL toggle and GL rungs.
 4. ✅ **Log test.** Steppers, live result and saving (PR #12); the dated test history with an editable date, "vs last test", exact meet dates and the "Meet in N days" pill.
-5. ✅ **Progress.** The chart (one, a few and 10+ tests), the weight-class lever, the lift split (since moved to the Ladder), and the editable list of tests.
+5. ✅ **Progress.** The chart (one, a few and 10+ tests), the weight-class lever, the lift split (since moved to the Ladder, now Lift balance), and the editable list of tests.
 6. ✅ **PWA.** `manifest.webmanifest` and a network-first service worker that caches the app shell and the rung data; installs and works offline. (PR #3, before the redesign)

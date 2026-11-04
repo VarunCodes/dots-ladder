@@ -582,7 +582,7 @@ test("rungs climbed counts rungs passed, positive up and negative down", () => {
 // --- Contract: the committed JSON files work with the page ------------------------
 
 test("every committed rung is aggregate only, with the same percentiles in every formula", () => {
-  const allowed = new Set(["sex", "weightClassKg", "experience", "lifters", "lifts", ...FORMULA_IDS]);
+  const allowed = new Set(["sex", "weightClassKg", "experience", "lifters", "lifts", "split", ...FORMULA_IDS]);
   const percentiles = new Set(["p10", "p25", "p50", "p75", "p90"]);
   for (const rung of readJson("../data/rungs.json").rungs) {
     const where = `${rung.sex} ${rung.weightClassKg} ${rung.experience}`;
@@ -606,6 +606,17 @@ test("committed rungs are rounded: DOTS to whole points, GL to 1 decimal place, 
       const scores = L.rungsFor({ rungs: [rung] }, formula, rung.sex, rung.weightClassKg, rung.experience).rungs.map((r) => r.score);
       assert.deepEqual(scores, [...scores].sort((x, y) => x - y), `${where}: ${formula} percentiles out of order`);
     }
+  }
+});
+
+test("committed typical splits are aggregate only: 20+ lifters, a median share per lift, close to 100 in all", () => {
+  for (const rung of readJson("../data/rungs.json").rungs) {
+    if (!rung.split) continue;
+    const where = `${rung.sex} ${rung.weightClassKg} ${rung.experience} split`;
+    assert.deepEqual(Object.keys(rung.split).sort(), ["bench", "deadlift", "lifters", "squat"], where);
+    assert.ok(rung.split.lifters >= 20 && rung.split.lifters <= rung.lifters, `${where}: ${rung.split.lifters} lifters`);
+    const sum = L.LIFTS.reduce((total, lift) => total + rung.split[lift], 0);
+    assert.ok(Math.abs(sum - 100) < 5, `${where}: sums to ${sum}`);
   }
 });
 
@@ -790,4 +801,108 @@ test("the calculator says which values it can't use", () => {
   assert.deepEqual(L.totalNeeded(me68, calcRungs, { target: 312, bw: 20 }).problems, ["bw"]);
   assert.deepEqual(L.totalNeeded(me68, calcRungs, { target: 2000, bw: NaN }).problems, ["target", "bw"]);
   assert.equal(L.totalNeeded(me68, calcRungs, { target: 2000, bw: NaN }).needed, undefined);
+});
+
+// --- Lift balance ------------------------------------------------------------------
+
+// Made-up rungs in kg, for a made-up 110 / 120 / 160 kg lifter at 70 kg.
+const balanceRungs = {
+  squat: [{ percentile: 10, score: 120 }, { percentile: 25, score: 140 }, { percentile: 50, score: 155 }],
+  bench: [{ percentile: 10, score: 80 }, { percentile: 25, score: 90 }, { percentile: 50, score: 105 }, { percentile: 75, score: 117.5 }, { percentile: 90, score: 130 }],
+  deadlift: [{ percentile: 10, score: 152.5 }, { percentile: 25, score: 172.5 }, { percentile: 50, score: 195 }],
+};
+const scoreRungs = [{ percentile: 10, score: 266 }, { percentile: 25, score: 300 }, { percentile: 50, score: 338 }];
+const lifter = { sex: "M", bodyweight: 70, squat: 110, bench: 120, deadlift: 160, formula: "dots", weightClass: null };
+const typical = { lifters: 396, squat: 35, bench: 24, deadlift: 41, scaled: false };
+const balance = (profile, rungs = balanceRungs, split = typical) => L.liftBalance(profile, (lift) => rungs[lift], split, scoreRungs);
+const texts = (b) => b.lines.map((l) => [l.lead, l.text].filter(Boolean).join(" "));
+
+test("lift shares are each lift's part of your total", () => {
+  const shares = L.liftShares(lifter);
+  assert.deepEqual(L.LIFTS.map((lift) => Math.round(shares[lift])), [28, 31, 41]);
+});
+
+test("the typical split is scaled to 100 and says so, or is null without one", () => {
+  const data = { rungs: [{ sex: "M", weightClassKg: "74", experience: "first meet", split: { lifters: 30, squat: 34, bench: 23, deadlift: 41 } }] };
+  const split = L.typicalSplit(data, "M", "74", "first meet");
+  assert.equal(split.lifters, 30);
+  assert.ok(split.scaled, "the medians summed to 98");
+  assert.equal(Math.round((split.squat + split.bench + split.deadlift) * 1e9) / 1e9, 100);
+  assert.equal(split.squat.toFixed(1), (3400 / 98).toFixed(1));
+  assert.equal(L.typicalSplit(data, "M", "83", "first meet"), null);
+  assert.equal(L.typicalSplit({ rungs: [{ ...data.rungs[0], split: undefined }] }, "M", "74", "first meet"), null, "an older rungs.json");
+});
+
+test("a rung band is compact: below the lowest, between two, above the top", () => {
+  assert.equal(L.rungBand(balanceRungs.squat, 110), "Below P10");
+  assert.equal(L.rungBand(balanceRungs.bench, 120), "P75–P90");
+  assert.equal(L.rungBand(balanceRungs.squat, 155), "Above P50");
+  assert.equal(L.rungBand(balanceRungs.squat, 120), "P10–P25", "reaching a rung clears it");
+  assert.equal(L.rungBand([], 100), "");
+});
+
+test("lift balance names the biggest opportunity, the nearest rung, the strongest lift and every lift at its next rung", () => {
+  const b = balance(lifter);
+  assert.deepEqual(b.rows.map((r) => [r.lift, r.band, r.opportunity]), [["squat", "Below P10", true], ["bench", "P75–P90", false], ["deadlift", "P10–P25", false]]);
+  assert.equal(b.lines[0].lead, "Squat is your biggest opportunity.");
+  assert.deepEqual(texts(b), [
+    "Squat is your biggest opportunity. It sits below P10, and its share is 7 points under typical.",
+    "Squat is 10 kg from P10, the closest rung of your three lifts.",
+    "Bench is your strongest lift: P75–P90.",
+    "All three lifts at their next rung (+10, +10 and +12.5 kg) would take your score to P25 (+24.4 DOTS).",
+  ]);
+  assert.equal(b.selected, "squat", "the opportunity is shown first");
+});
+
+test("each lift's detail: where it sits, then its next rung and the one after, with what each does for the score", () => {
+  const b = balance(lifter);
+  const detail = (lift) => texts({ lines: b.rows.find((r) => r.lift === lift).detail });
+  assert.deepEqual(detail("squat"), [
+    "Squat: below P10, share 7 points under typical.",
+    "+10 kg to P10 (120 kg) would take your score to P25 (+7.5 DOTS).",
+    "+30 kg to P25 (140 kg) would take your score to P25 (+22.5 DOTS).", // the points tell it apart from the line above
+  ]);
+  assert.deepEqual(detail("bench"), ["Bench: between P75 and P90, share 7 points over typical.", "+10 kg to P90 (130 kg) would take your score to P25 (+7.5 DOTS)."]);
+  assert.equal(detail("deadlift")[1], "+12.5 kg to P25 (172.5 kg) would take your score to P25 (+9.4 DOTS).");
+  const top = balance({ ...lifter, squat: 160 }).rows[0].detail;
+  assert.equal(top.length, 1, "above its top rung: no rungs ahead");
+  assert.match(top[0].text, /^above P50, share /);
+  assert.deepEqual(balance(lifter, { ...balanceRungs, bench: [] }).rows[1].detail, [{ text: "No bench rungs for this group yet." }]);
+  assert.equal(balance(lifter, balanceRungs, null).rows[0].detail[0].text, "below P10.", "no share comparison without a typical split");
+});
+
+test("lift balance can name any lift, and says when the next rung doesn't climb a score rung", () => {
+  const b = balance({ ...lifter, squat: 125, bench: 100, deadlift: 150 });
+  assert.equal(b.lines[0].lead, "Deadlift is your biggest opportunity.");
+  assert.match(texts(b)[1], /^Deadlift is 2\.5 kg from P10/);
+  assert.equal(texts(b)[2], "Bench is your strongest lift: P25–P50.");
+  assert.match(texts(b)[3], /^All three lifts at their next rung \(\+15, \+5 and \+2\.5 kg\) would add \d+\.\d DOTS\.$/);
+  assert.match(b.rows[2].detail[1].text, /^\+2\.5 kg to P10 \(152\.5 kg\) would add \d+\.\d DOTS\.$/);
+});
+
+test("lift balance: a lower share than typical breaks a tie in rank, else both are named", () => {
+  const tied = { ...lifter, squat: 115, deadlift: 145 }; // both below P10
+  assert.equal(balance(tied).lines[0].lead, "Squat is your biggest opportunity.", "squat's share is further under typical");
+  const even = { lifters: 30, ...L.liftShares(tied), scaled: false };
+  assert.deepEqual(balance(tied, balanceRungs, even).lines[0], { lead: "Squat and deadlift are your biggest opportunities.", text: "Both sit below P10." });
+  assert.deepEqual(balance(tied, balanceRungs, null).lines[0], { lead: "Squat and deadlift are your biggest opportunities.", text: "Both sit below P10." }, "no typical split");
+  assert.equal(balance(lifter, balanceRungs, null).lines[0].text, "It sits below P10.", "no share comparison without one");
+});
+
+test("lift balance: lifts in the same band rank evenly, with no opportunity or strongest line", () => {
+  const b = balance({ ...lifter, squat: 145, bench: 95, deadlift: 187.5 });
+  assert.deepEqual(texts(b)[0], "Your lifts rank evenly. All three sit between P25 and P50.");
+  assert.ok(b.rows.every((r) => !r.opportunity));
+  assert.ok(!texts(b).some((t) => /strongest/.test(t)));
+  assert.match(texts(b)[1], /^Deadlift is 7\.5 kg from P50/);
+  assert.equal(b.selected, "deadlift", "the nearest lift is shown first, with no opportunity");
+});
+
+test("lift balance skips lifts above their top rung or without rungs, and says nothing with one lift to compare", () => {
+  const top = balance({ ...lifter, squat: 160, bench: 135, deadlift: 200 });
+  assert.ok(!texts(top).some((t) => /closest rung/.test(t)), "every lift above its top rung");
+  const one = balance(lifter, { squat: balanceRungs.squat, bench: [], deadlift: [] });
+  assert.deepEqual(one.lines, []);
+  assert.equal(one.selected, "squat", "the only lift with rungs");
+  assert.deepEqual(one.rows.map((r) => r.band), ["Below P10", "", ""]);
 });

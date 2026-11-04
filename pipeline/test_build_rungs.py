@@ -177,7 +177,7 @@ def test_extreme_percentiles_need_a_bigger_group(tmp_path):
 
 def test_dots_and_gl_come_from_the_same_lifters(tmp_path):
     result = rung(br.build(write_csv(tmp_path, first_timers(20)), min_group=20), "first meet")
-    assert set(result) == {"sex", "weightClassKg", "experience", "lifters", "dots", "gl", "lifts"}
+    assert set(result) == {"sex", "weightClassKg", "experience", "lifters", "dots", "gl", "lifts", "split"}
     totals = sorted(300 + i * 5 for i in range(20))
     assert result["dots"]["p50"] == round(br.percentile([br.dots("M", 70, t) for t in totals], 50))
     assert result["gl"]["p50"] == round(br.percentile([br.gl("M", 70, t) for t in totals], 50), 1)
@@ -225,6 +225,23 @@ def test_each_lift_gets_its_own_percentiles_in_kg_rounded_to_2_5(tmp_path):
         values = [v for k, v in result["lifts"][lift].items() if k != "lifters"]
         assert all(v % 2.5 == 0 for v in values), (lift, values)
         assert set(result["lifts"][lift]) == {"lifters", "p25", "p50", "p75"}
+
+
+def test_split_is_the_median_share_of_each_lift_per_lifter(tmp_path):
+    # Shares are worked out per lifter, then the median taken per lift (so they needn't sum to 100).
+    rows = [row(f"L {i}", "2025-06-01", "Debut", total=400, Best3SquatKg=100 + i, Best3BenchKg=100 - i, Best3DeadliftKg=200)
+            for i in range(21)]
+    split = rung(br.build(write_csv(tmp_path, rows), min_group=20), "first meet")["split"]
+    assert split == {"lifters": 21, "squat": 27.5, "bench": 22.5, "deadlift": 50.0}
+    assert "New" not in json.dumps(split)
+
+
+def test_split_needs_20_lifters_with_all_three_lifts(tmp_path):
+    rows = first_timers(19) + first_timers(5, prefix="Old", Best3BenchKg="")
+    result = rung(br.build(write_csv(tmp_path, rows), min_group=20), "first meet")
+    assert result["lifters"] == 24 and "split" not in result
+    full = rung(br.build(write_csv(tmp_path, first_timers(20)), min_group=20), "first meet")["split"]
+    assert full == {"lifters": 20, "squat": 35.0, "bench": 25.0, "deadlift": 40.0}
 
 
 def test_lift_percentiles_follow_the_size_rules_on_their_own_count(tmp_path):

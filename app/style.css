@@ -780,7 +780,7 @@ a:hover { color: var(--accent-hover); }
 /* A single lift's PR: a small label above its point (the hollow ring means a rung first cleared). */
 .chart-pr { fill: var(--text); font-family: var(--body); font-size: 9px; font-weight: 700; letter-spacing: 0.06em; }
 
-.lever, .split { margin-top: 24px; display: flex; flex-direction: column; gap: 6px; }
+.lever { margin-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 .lever { padding: 16px; border: 1px solid var(--border); border-radius: 16px; }
 .lever { gap: 14px; }
 .lever-classes { align-self: stretch; }
@@ -802,14 +802,48 @@ a:hover { color: var(--accent-hover); }
 .lever-label { fill: var(--muted); font-family: var(--body); font-size: 11px; font-variant-numeric: tabular-nums; }
 .lever-label.goal, .chart-tick.goal { fill: var(--accent); font-weight: 600; }
 
-.split-list { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 0; padding: 0; list-style: none; }
-.split-row { display: grid; grid-template-columns: 24px 72px 1fr auto; align-items: center; gap: 4px 10px; }
-/* Where the lift sits among its rungs, under its bar. */
-.split-pos { grid-column: 3 / -1; margin-top: -2px; }
-.split-icon { width: 24px; height: 24px; color: var(--muted); }
-.split-track { height: 10px; border-radius: 5px; background: var(--divider); overflow: hidden; }
-.split-fill { display: block; height: 100%; border-radius: 5px; background: var(--text-2); }
-.split-kg { font-family: var(--display); font-size: 1.125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Lift balance: your share of each lift against the group's typical split, then each lift among its own rungs. */
+.balance { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
+.balance-bars { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 14px; }
+.balance-who { margin: 0; font-weight: 600; }
+.balance-who.muted { font-weight: 400; }
+.balance-who[hidden], .balance-bar[hidden], .balance-callout[hidden] { display: none; }
+.balance-bar { display: flex; gap: 2px; height: 40px; border-radius: 10px; overflow: hidden; }
+.balance-seg {
+  display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden;
+  font-size: clamp(0.8125rem, 3.8vw, 0.9375rem); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums;
+  color: var(--bg); background: var(--text-2);
+}
+.balance-seg.squat { background: var(--text); }
+.balance-seg.deadlift { background: var(--muted); }
+.balance-seg.opportunity { background: var(--accent); color: var(--on-accent); }
+.balance-bar.typical .balance-seg { background: var(--border); color: var(--text-2); font-weight: 400; }
+.balance-rows { display: flex; flex-direction: column; margin: 0 -12px; padding: 0; list-style: none; }
+.balance-rows li + li { border-top: 1px solid var(--divider); }
+.balance-row {
+  display: grid; grid-template-columns: minmax(5.5rem, auto) 1fr auto; align-items: baseline; gap: 10px;
+  width: 100%; min-height: 44px; margin: 0; padding: 10px 12px; border: 0; border-radius: 10px;
+  background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+  transition: background-color var(--duration-quick) var(--ease-in-out);
+}
+.balance-rows li:has([aria-expanded="true"]) { border-radius: 10px; background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent); }
+.balance-row:disabled { cursor: default; color: var(--muted); }
+.balance-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) { .balance-row:not(:disabled, [aria-expanded="true"]):hover { background: var(--surface-2); } }
+.balance-pick { margin: 0; }
+.balance-pick[hidden] { display: none; }
+.balance-detail { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 14px; }
+.balance-detail p { margin: 0; color: var(--text-2); }
+.balance-detail p:first-child { color: var(--text); }
+.balance-name { font-weight: 600; }
+.balance-kg { color: var(--muted); font-variant-numeric: tabular-nums; }
+.balance-band { text-align: right; font-variant-numeric: tabular-nums; }
+.balance-band.opportunity { color: var(--accent); font-weight: 600; }
+.balance-callout { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--accent); border-radius: 14px; }
+.balance-mark { flex: none; width: 24px; height: 24px; margin-top: 1px; fill: none; stroke: var(--accent); stroke-width: 2.2; }
+.balance-lines { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.balance-lines p { margin: 0; color: var(--text-2); }
+.balance-lines p:first-child { color: var(--text); }
 
 /* Your numbers: each value behind your score, tested in your latest record or carried from an earlier one. */
 .numbers { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
