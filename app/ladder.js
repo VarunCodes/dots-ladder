@@ -869,13 +869,13 @@ export function firstStanding(data, profile) {
 }
 
 /**
- * Step 4's headline. Only five rungs are known, so between two it's "at least" the one reached: "Stronger than at
- * least 25 in 100"; at the top, "Stronger than 90 in 100"; below them all, "Not yet stronger than 10 in 100" with
- * the kilos to go.
+ * Step 4's headline. Only five rungs are known, so between two it's "at least" the one reached: "You are stronger
+ * than at least 25 in 100"; at the top, "You are stronger than 90 in 100"; below them all, "You are not yet
+ * stronger than 10 in 100" with the kilos to go.
  */
 export function standingWords({ passed, next }) {
-  if (!passed) return { title: `Not yet stronger than ${next.percentile} in 100`, more: `+${next.kg} kg on your total gets you there.` };
-  return { title: next ? `Stronger than at least ${passed} in 100` : `Stronger than ${passed} in 100`, more: null };
+  if (!passed) return { title: `You are not yet stronger than ${next.percentile} in 100`, more: `+${next.kg} kg on your total gets you there.` };
+  return { title: next ? `You are stronger than at least ${passed} in 100` : `You are stronger than ${passed} in 100`, more: null };
 }
 
 /** Who step 4 compares you with: "UK powerlifters at their first meet, men at 74 kg." */

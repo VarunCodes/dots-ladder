@@ -15,6 +15,8 @@ const kg = (value) => `${Number(value.toFixed(1))}`;
 
 let step = 1;
 let rungsData = null;
+// Fields the visitor has finished with (left after changing): their problems show even with one digit.
+const finished = new Set();
 
 const form = () => $("onboarding");
 const submit = () => form().querySelector('button[type="submit"]');
@@ -29,16 +31,40 @@ function read() {
   };
 }
 
-/** This step's fields that are entered but out of range, and whether all of them are valid. */
+/**
+ * A field's problem shows once it's worth flagging: two digits typed (one digit is still being typed), or the
+ * field finished with. Until then, no red border and no message.
+ */
+const readyToFlag = (name) => finished.has(name) || form().elements[name].value.replace(/\D/g, "").length >= 2;
+
+/** This step's fields that are entered but out of range (flagged once ready), and whether all of them are valid. */
 function check() {
   const raw = read();
   const fields = STEP_FIELDS[step];
-  const problems = L.enteredProblems(raw).filter((name) => fields.includes(name));
+  const problems = L.enteredProblems(raw).filter((name) => fields.includes(name) && name !== "sex" && readyToFlag(name));
+  for (const name of [...L.LIFTS, "bodyweight"]) form().elements[name].closest(".onboard-unit").classList.toggle("flagged", problems.includes(name));
   $("onboard-note").textContent = problems.map((name) => FIELD_TEXT[name]).join(" ");
   submit().disabled = L.invalidFields(raw).some((name) => fields.includes(name));
   // The total adds up what's typed so far.
   const total = L.LIFTS.map((lift) => raw[lift]).filter((v) => Number.isFinite(v) && v > 0).reduce((sum, v) => sum + v, 0);
   $("onboard-total").textContent = `${kg(total)} kg`;
+}
+
+const SVG = "http://www.w3.org/2000/svg";
+
+/** A simple standing figure (head and body), scaled; decorative, as the chart's label names the bodyweights. */
+function lifterFigure(scale) {
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("class", "reveal-figure");
+  svg.setAttribute("viewBox", "0 0 24 40");
+  svg.setAttribute("aria-hidden", "true");
+  svg.style.height = `${Math.round(48 * scale)}px`;
+  const head = document.createElementNS(SVG, "circle");
+  Object.entries({ cx: 12, cy: 6, r: 5 }).forEach(([k, v]) => head.setAttribute(k, v));
+  const body = document.createElementNS(SVG, "rect");
+  Object.entries({ x: 4, y: 13, width: 16, height: 27, rx: 6 }).forEach(([k, v]) => body.setAttribute(k, v));
+  svg.append(head, body);
+  return svg;
 }
 
 /** Step 3: the score, and the same score's totals at 10 kg lighter and heavier, as bars that grow once. */
@@ -59,6 +85,8 @@ function renderScore(profile) {
       const bar = el("span", "reveal-bar");
       bar.style.height = `${(120 * b.total) / top}px`;
       bar.style.setProperty("--order", b.you ? others.length : others.indexOf(b));
+      // A lifter in each bar, drawn bigger the heavier they are: the bars differ because the people do.
+      bar.append(lifterFigure(Math.min(1.3, Math.max(0.7, b.bw / profile.bodyweight))));
       const step = b.bw - profile.bodyweight;
       col.append(
         el("span", "reveal-kg", `${kg(b.total)} kg`),
@@ -109,7 +137,7 @@ function show(next, animate = true) {
   for (const panel of form().querySelectorAll(".onboard-step")) panel.hidden = Number(panel.dataset.step) !== step;
   $("onboard-count").textContent = `Step ${step} of ${STEPS}`;
   form().querySelectorAll(".onboard-bar span").forEach((bar, i) => bar.classList.toggle("done", i < step));
-  form().querySelector(".onboard-back").disabled = step === 1;
+  form().querySelector(".onboard-back").hidden = step === 1;
   form().querySelector(".onboard-private").hidden = step > 2;
   submit().textContent = step === STEPS ? "Show my ladder" : "Next";
   const profile = L.validProfile(read());
@@ -126,12 +154,17 @@ function show(next, animate = true) {
 /** Back to an empty step 1, e.g. after "Clear my numbers". */
 export function resetOnboarding() {
   form().reset();
+  finished.clear();
   show(1, false);
 }
 
 export function setupOnboarding(data) {
   rungsData = data;
   form().addEventListener("input", check);
+  form().addEventListener("change", (event) => {
+    if (event.target.type === "number") finished.add(event.target.name);
+    check();
+  });
   form().querySelector(".onboard-back").addEventListener("click", () => show(step - 1));
   // Next (or Enter in a field) moves on once the step's values are valid; the last step saves them as the first
   // record, dated today, and the store's subscriber leaves the first visit for the Ladder.

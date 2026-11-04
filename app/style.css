@@ -423,20 +423,22 @@ a:hover { color: var(--accent-hover); }
 .onboard .segmented { margin: 0; flex-wrap: wrap; }
 .onboard .segmented legend { width: 100%; margin-bottom: 8px; padding: 0; }
 .onboard .segmented label { min-height: 52px; }
-.onboard-unit { display: flex; align-items: center; gap: 8px; color: var(--text-2); }
-.onboard-unit input {
-  flex: 1; min-width: 0; width: 100%; min-height: 52px; padding: 0 14px;
-  border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text);
-  font: 700 1.75rem var(--display); font-variant-numeric: tabular-nums;
+/* Each value sits in a row (label left, box right), with its unit inside the box. */
+.onboard-rows { display: flex; flex-direction: column; gap: 10px; }
+.onboard-rows label { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); color: var(--text); }
+.onboard-unit {
+  flex: 0 0 9rem; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 8px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--muted);
+  transition: border-color var(--duration-quick) var(--ease-smooth-out);
 }
+.onboard-unit:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.onboard-unit.flagged { border-color: var(--error); }
+.onboard-unit input {
+  flex: 1; min-width: 0; width: 100%; padding: 0; border: 0; background: transparent; color: var(--text);
+  font: 700 1.5rem var(--display); font-variant-numeric: tabular-nums; text-align: right;
+}
+.onboard-unit input:focus { outline: none; }
 .onboard-unit input::placeholder { color: var(--muted); opacity: 0.5; }
-.onboard-unit input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.onboard-unit input:user-invalid { border-color: var(--error); }
-.onboard-bw { display: flex; flex-direction: column; gap: 6px; }
-.onboard-lifts { display: flex; flex-direction: column; gap: 10px; }
-.onboard-lifts label { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); color: var(--text); }
-.onboard-lifts .onboard-unit { flex: 0 0 8.5rem; min-width: 0; }
-.onboard-lifts input { width: 100%; min-height: 44px; padding: 0 10px; background: var(--bg); font-size: 1.5rem; text-align: right; }
 .onboard-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; color: var(--text-2); }
 .onboard-total strong { font: 700 2.25rem var(--display); color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .onboard-private { margin: auto 0 0; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); color: var(--text-2); line-height: 1.45; }
@@ -444,7 +446,7 @@ a:hover { color: var(--accent-hover); }
 .onboard-private[hidden] { display: none; }
 .onboard-private[hidden] + .onboard-actions { margin-top: auto; }
 .onboard-back { min-height: 52px; padding: 0 20px; }
-.onboard-back:disabled { color: var(--muted); cursor: default; }
+.onboard-back[hidden] { display: none; }
 
 /* Step 3: your score, then the totals that score the same at 10 kg either side. */
 .reveal-score { display: flex; flex-direction: column; gap: 2px; }
@@ -462,6 +464,9 @@ a:hover { color: var(--accent-hover); }
 @keyframes bar-grow { from { transform: scaleY(0); } }
 .reveal-col.you .reveal-kg { font-weight: 700; font-size: 1.25rem; color: var(--accent); }
 .reveal-col.you .reveal-bar { background: var(--accent); }
+.reveal-bar { display: flex; justify-content: center; align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; overflow: hidden; }
+.reveal-figure { width: auto; fill: var(--text-2); opacity: 0.55; }
+.reveal-col.you .reveal-figure { fill: var(--on-accent); opacity: 0.75; }
 .reveal-who { padding: 6px 0 2px; font-size: 0.75rem; color: var(--muted); }
 .reveal-col.you .reveal-who { font-weight: 600; color: var(--text); }
 .reveal-card { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--accent); border-radius: 14px; }
