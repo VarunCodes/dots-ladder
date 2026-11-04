@@ -937,14 +937,14 @@ test("first visit: where you stand among first-meet powerlifters in your class, 
   assert.deepEqual(L.standingWords(mid), { title: "You are stronger than at least 25 in 100", more: null });
   const low = at(340);
   assert.equal(low.passed, 0);
-  assert.deepEqual(L.standingWords(low), { title: "You are not yet stronger than 10 in 100", more: `+${low.next.kg} kg on your total gets you there.` });
+  assert.deepEqual(L.standingWords(low), { title: "Your first target: stronger than 10 in 100", more: `+${low.next.kg} kg on your total gets you there.` });
   assert.equal(low.next.kg % 2.5, 0, "kilos to go in 2.5 kg steps");
   const top = at(560);
   assert.deepEqual(L.standingWords(top), { title: "You are stronger than 90 in 100", more: null });
   assert.equal(L.firstStanding(data, { ...firstVisitor, bodyweight: 90 }), null, "no rungs for the group");
   assert.equal(L.firstGroupWords("F", "63"), "UK powerlifters at their first meet, women at 63 kg.");
   assert.equal(L.dotKeyWords("F", "76", 90), "Each dot stands for 1 in 100 female powerlifters at 76 kg. You are stronger than the ones in yellow.");
-  assert.equal(L.dotKeyWords("M", "120+", 0), "Each dot stands for 1 in 100 male powerlifters at 120+ kg.", "no yellow dots, so no second sentence");
+  assert.equal(L.dotKeyWords("M", "120+", 0), "Each dot stands for 1 in 100 male powerlifters at 120+ kg. The outlined ones are your first target.", "below every rung: the first target");
 });
 
 test("first visit: each other bar says how far its total is from yours", () => {

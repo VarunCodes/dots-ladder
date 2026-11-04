@@ -117,10 +117,16 @@ function renderStanding(profile) {
   $("onboard-h4").textContent = words.title;
   $("standing-more").textContent = words.more ?? "";
   $("standing-key").textContent = L.dotKeyWords(profile.sex, standing.wclass, standing.passed);
-  dots.setAttribute("aria-label", `100 dots, ${standing.passed} filled in: you are stronger than ${standing.passed} of every 100 of these powerlifters.`);
+  dots.setAttribute(
+    "aria-label",
+    standing.passed
+      ? `100 dots, ${standing.passed} filled in: you are stronger than ${standing.passed} of every 100 of these powerlifters.`
+      : `100 dots, ${standing.next.percentile} outlined: your first target is to be stronger than ${standing.next.percentile} of every 100 of these powerlifters.`,
+  );
   dots.replaceChildren(
     ...Array.from({ length: 100 }, (_, i) => {
-      const dot = el("span", i < standing.passed ? "on" : "");
+      // Below every rung, the first rung's dots are outlined as the target.
+      const dot = el("span", i < standing.passed ? "on" : !standing.passed && i < standing.next.percentile ? "target" : "");
       dot.style.setProperty("--i", i);
       return dot;
     }),

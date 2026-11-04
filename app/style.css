@@ -483,7 +483,8 @@ a:hover { color: var(--accent-hover); }
 .standing-dots[hidden] { display: none; }
 .standing-dots span { aspect-ratio: 1; border-radius: 50%; background: var(--border); }
 .standing-dots span.on { background: var(--accent); }
-.standing-dots.fill span.on { animation: dot-in var(--duration-quick) var(--ease-smooth-out) backwards; animation-delay: calc(var(--i) * 4ms); }
+.standing-dots span.target { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
+.standing-dots.fill :is(span.on, span.target) { animation: dot-in var(--duration-quick) var(--ease-smooth-out) backwards; animation-delay: calc(var(--i) * 4ms); }
 @keyframes dot-in { from { opacity: 0; scale: 0.4; } }
 #standing-key { margin: 0; line-height: 1.45; }
 
@@ -1154,7 +1155,7 @@ td.plan-third { font-weight: 700; }
   .event::details-content { transition: none; }
   .chart-pulse, .chart-arrive { display: none; }
   @keyframes rise-in { from { opacity: 0; } }
-  .reveal-bars.grow .reveal-bar, .standing-dots.fill span.on { animation: none; }
+  .reveal-bars.grow .reveal-bar, .standing-dots.fill :is(span.on, span.target) { animation: none; }
   .onboard-bar span { transition: none; }
   @keyframes swap-in { from { opacity: 0; } }
   @keyframes draw-check { from { stroke-dashoffset: 0; } }

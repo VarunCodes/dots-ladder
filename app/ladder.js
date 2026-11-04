@@ -871,10 +871,11 @@ export function firstStanding(data, profile) {
 /**
  * Step 4's headline. Only five rungs are known, so between two it's "at least" the one reached: "You are stronger
  * than at least 25 in 100"; at the top, "You are stronger than 90 in 100"; below them all, "You are not yet
- * stronger than 10 in 100" with the kilos to go.
+ * stronger than 10 in 100"... reframed as a first target: "Your first target: stronger than 10 in 100", with the
+ * kilos to go.
  */
 export function standingWords({ passed, next }) {
-  if (!passed) return { title: `You are not yet stronger than ${next.percentile} in 100`, more: `+${next.kg} kg on your total gets you there.` };
+  if (!passed) return { title: `Your first target: stronger than ${next.percentile} in 100`, more: `+${next.kg} kg on your total gets you there.` };
   return { title: next ? `You are stronger than at least ${passed} in 100` : `You are stronger than ${passed} in 100`, more: null };
 }
 
@@ -884,10 +885,13 @@ export function totalGapWords(other, yours) {
   return gap === 0 ? "the same" : `${Number(Math.abs(gap).toFixed(1))} kg ${gap < 0 ? "less" : "more"}`;
 }
 
-/** Step 4's key to the dots: "Each dot stands for 1 in 100 female powerlifters at 76 kg. You are stronger than the ones in yellow." */
+/**
+ * Step 4's key to the dots: "Each dot stands for 1 in 100 female powerlifters at 76 kg. You are stronger than the
+ * ones in yellow." Below every rung, the outlined dots are the first target instead.
+ */
 export function dotKeyWords(sex, wclass, passed) {
   const who = `${sex === "M" ? "male" : "female"} powerlifters at ${wclass} kg`;
-  return `Each dot stands for 1 in 100 ${who}.${passed ? " You are stronger than the ones in yellow." : ""}`;
+  return `Each dot stands for 1 in 100 ${who}. ${passed ? "You are stronger than the ones in yellow." : "The outlined ones are your first target."}`;
 }
 
 /** Who step 4 compares you with: "UK powerlifters at their first meet, men at 74 kg." */
