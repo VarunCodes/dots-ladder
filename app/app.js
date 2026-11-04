@@ -145,8 +145,11 @@ function shareBar(bar, shares, who, { opportunity = [], short = true, minLabel =
 }
 
 /** Lift balance: your split against the typical one, each lift among its own rungs, and what stands out. */
+// The lift whose detail Lift balance shows: picked by tapping its row, kept for this visit only (null = the default).
+let balanceLift = null;
+
 function renderBalance(d, group) {
-  const { shares, typical, rows, lines } = d.liftBalance;
+  const { shares, typical, rows, lines, selected } = d.liftBalance;
   const opportunity = rows.filter((r) => r.opportunity).map((r) => r.lift);
   shareBar($("balance-you"), shares, "You", { opportunity });
   $("balance-typical-label").hidden = $("balance-typical").hidden = !typical;
@@ -154,26 +157,50 @@ function renderBalance(d, group) {
   $("balance-for").textContent = typical
     ? `Typical = median split for UK meet lifters: ${group} (${typical.lifters} lifters, OpenPowerlifting).${typical.scaled ? " Scaled to 100%." : ""}`
     : `No typical split for ${group} yet.`;
+  $("balance-callout").hidden = !lines.length;
+  $("balance-lines").replaceChildren(...lines.map(balanceLine));
+
+  // Only a lift with rungs can be picked; a pick that no longer has them falls back to the default.
+  const pickable = rows.filter((r) => r.band);
+  const shown = pickable.find((r) => r.lift === balanceLift) ?? pickable.find((r) => r.lift === selected) ?? null;
   $("balance-rows").replaceChildren(
     ...rows.map((row) => {
-      const li = el("li", "balance-row");
-      li.append(
+      const button = el("button", "balance-row");
+      button.type = "button";
+      button.disabled = !row.band;
+      button.setAttribute("aria-expanded", String(row === shown));
+      button.append(
         el("span", "balance-name", L.LIFT_NAMES[row.lift]),
         el("span", "balance-kg", `${row.kg} kg`),
-        el("span", `balance-band${row.opportunity ? " opportunity" : ""}`, row.band),
+        el("span", `balance-band${row.opportunity ? " opportunity" : ""}`, row.band || "No rungs"),
       );
+      button.addEventListener("click", () => {
+        balanceLift = row.lift;
+        renderBalance(d, group);
+        $("balance-rows").querySelectorAll("button")[rows.indexOf(row)].focus();
+      });
+      const li = el("li");
+      li.append(button);
+      // The picked lift's detail opens right under its row.
+      if (row === shown) {
+        const detail = el("div", "balance-detail");
+        detail.id = "balance-detail";
+        button.setAttribute("aria-controls", detail.id);
+        detail.append(...row.detail.map(balanceLine));
+        li.append(detail);
+      }
       return li;
     }),
   );
-  $("balance-callout").hidden = !lines.length;
-  $("balance-lines").replaceChildren(
-    ...lines.map((line) => {
-      const p = el("p");
-      if (line.lead) p.append(el("strong", "", line.lead), " ");
-      p.append(line.text);
-      return p;
-    }),
-  );
+  $("balance-pick").hidden = !shown;
+}
+
+/** A line of Lift balance's text: an optional bold lead, then the rest. */
+function balanceLine(line) {
+  const p = el("p");
+  if (line.lead) p.append(el("strong", "", line.lead), " ");
+  p.append(line.text);
+  return p;
 }
 
 function renderRow(row, profile) {

@@ -841,7 +841,7 @@ test("a rung band is compact: below the lowest, between two, above the top", () 
   assert.equal(L.rungBand([], 100), "");
 });
 
-test("lift balance names the biggest opportunity, the nearest rung, the strongest lift and what it does for the score", () => {
+test("lift balance names the biggest opportunity, the nearest rung, the strongest lift and every lift at its next rung", () => {
   const b = balance(lifter);
   assert.deepEqual(b.rows.map((r) => [r.lift, r.band, r.opportunity]), [["squat", "Below P10", true], ["bench", "P75–P90", false], ["deadlift", "P10–P25", false]]);
   assert.equal(b.lines[0].lead, "Squat is your biggest opportunity.");
@@ -849,8 +849,26 @@ test("lift balance names the biggest opportunity, the nearest rung, the stronges
     "Squat is your biggest opportunity. It sits below P10, and its share is 7 points under typical.",
     "Squat is 10 kg from P10, the closest rung of your three lifts.",
     "Bench is your strongest lift: P75–P90.",
-    "Squat to its P10 (+10 kg) would take your score to P25.",
+    "All three lifts at their next rung (+10, +10 and +12.5 kg) would take your score to P25 (+24.4 DOTS).",
   ]);
+  assert.equal(b.selected, "squat", "the opportunity is shown first");
+});
+
+test("each lift's detail: where it sits, then its next rung and the one after, with what each does for the score", () => {
+  const b = balance(lifter);
+  const detail = (lift) => texts({ lines: b.rows.find((r) => r.lift === lift).detail });
+  assert.deepEqual(detail("squat"), [
+    "Squat: below P10, share 7 points under typical.",
+    "+10 kg to P10 (120 kg) would take your score to P25 (+7.5 DOTS).",
+    "+30 kg to P25 (140 kg) would take your score to P25 (+22.5 DOTS).", // the points tell it apart from the line above
+  ]);
+  assert.deepEqual(detail("bench"), ["Bench: between P75 and P90, share 7 points over typical.", "+10 kg to P90 (130 kg) would take your score to P25 (+7.5 DOTS)."]);
+  assert.equal(detail("deadlift")[1], "+12.5 kg to P25 (172.5 kg) would take your score to P25 (+9.4 DOTS).");
+  const top = balance({ ...lifter, squat: 160 }).rows[0].detail;
+  assert.equal(top.length, 1, "above its top rung: no rungs ahead");
+  assert.match(top[0].text, /^above P50, share /);
+  assert.deepEqual(balance(lifter, { ...balanceRungs, bench: [] }).rows[1].detail, [{ text: "No bench rungs for this group yet." }]);
+  assert.equal(balance(lifter, balanceRungs, null).rows[0].detail[0].text, "below P10.", "no share comparison without a typical split");
 });
 
 test("lift balance can name any lift, and says when the next rung doesn't climb a score rung", () => {
@@ -858,7 +876,8 @@ test("lift balance can name any lift, and says when the next rung doesn't climb 
   assert.equal(b.lines[0].lead, "Deadlift is your biggest opportunity.");
   assert.match(texts(b)[1], /^Deadlift is 2\.5 kg from P10/);
   assert.equal(texts(b)[2], "Bench is your strongest lift: P25–P50.");
-  assert.match(texts(b)[3], /^Deadlift to its P10 \(\+2\.5 kg\) would add \d+\.\d DOTS\.$/);
+  assert.match(texts(b)[3], /^All three lifts at their next rung \(\+15, \+5 and \+2\.5 kg\) would add \d+\.\d DOTS\.$/);
+  assert.match(b.rows[2].detail[1].text, /^\+2\.5 kg to P10 \(152\.5 kg\) would add \d+\.\d DOTS\.$/);
 });
 
 test("lift balance: a lower share than typical breaks a tie in rank, else both are named", () => {
@@ -876,7 +895,7 @@ test("lift balance: lifts in the same band rank evenly, with no opportunity or s
   assert.ok(b.rows.every((r) => !r.opportunity));
   assert.ok(!texts(b).some((t) => /strongest/.test(t)));
   assert.match(texts(b)[1], /^Deadlift is 7\.5 kg from P50/);
-  assert.match(texts(b).at(-1), /^Deadlift to its P50 \(\+7\.5 kg\)/, "the nearest lift, with no opportunity");
+  assert.equal(b.selected, "deadlift", "the nearest lift is shown first, with no opportunity");
 });
 
 test("lift balance skips lifts above their top rung or without rungs, and says nothing with one lift to compare", () => {
@@ -884,5 +903,6 @@ test("lift balance skips lifts above their top rung or without rungs, and says n
   assert.ok(!texts(top).some((t) => /closest rung/.test(t)), "every lift above its top rung");
   const one = balance(lifter, { squat: balanceRungs.squat, bench: [], deadlift: [] });
   assert.deepEqual(one.lines, []);
+  assert.equal(one.selected, "squat", "the only lift with rungs");
   assert.deepEqual(one.rows.map((r) => r.band), ["Below P10", "", ""]);
 });

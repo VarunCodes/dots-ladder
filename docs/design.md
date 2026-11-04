@@ -115,12 +115,16 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
    - Eyebrow "Share of your total", title "Lift balance".
    - **Two share bars**, "You" and "Typical": a segment per lift sized by its share of the total. Yours read "SQ 28%", "BP 31%", "DL 41%" (squat `--text`, bench `--text-2`, deadlift `--muted`; the biggest-opportunity lift in `--accent`); typical's read "35%" on `--border`. A segment too small for its label drops the label, not the layout; each bar's aria-label names all three.
    - **Typical** is the group's median share of each lift (the group the rungs show, so it follows the experience tabs), scaled to 100%. Caption: "Typical = median split for UK meet lifters: men 74 kg, first meet (396 lifters, OpenPowerlifting).", plus "Scaled to 100%." when the medians didn't sum to it. A group without one shows only your bar: "No typical split for men 74 kg, first meet yet."
-   - **A row per lift:** name, kg (`--muted`), and where it sits among its own rungs on the right ("Below P10", "P75–P90", "Above P90"); the biggest-opportunity lift's in `--accent`.
-   - **Callout** (1px `--accent` outline, target mark): up to four lines, each a fact from the rungs, never training advice; lines that don't apply are left out.
+   - **Callout** (1px `--accent` outline, target mark), above the rows: up to four lines, each a fact from the rungs, never training advice; lines that don't apply are left out.
      1. "**Squat is your biggest opportunity.** It sits below P10, and its share is 6 points under typical.": the lowest-ranked lift among its own rungs (a share further under typical breaks a tie; otherwise both are named). When every lift sits in the same band: "**Your lifts rank evenly.** All three sit between P25 and P50."
      2. "Deadlift is 7.5 kg from P25, the closest rung of your three lifts."
      3. "Bench is your strongest lift: P75–P90." (not when they rank evenly)
-     4. "Squat to its P10 (+10 kg) would take your score to P25.", or "… would add 5.6 DOTS." when it climbs no score rung. A trial line, to review how it reads.
+     4. "All three lifts at their next rung (+10, +10 and +12.5 kg) would take your score to P25 (+23.9 DOTS).", or "… would add 5.6 DOTS." when it climbs no score rung. Only when two or more lifts have a rung ahead. A trial line, to review.
+   - "Tap a lift to see its next rungs." (`--muted`, small), then **a row per lift**, each a button: name, kg (`--muted`), and where it sits among its own rungs on the right ("Below P10", "P75–P90", "Above P90"); the biggest-opportunity lift's in `--accent`. A lift without rungs reads "No rungs" and can't be picked.
+   - **Tapping a row opens its detail under it** (one at a time; `--surface-2` with an `--accent` left edge; `aria-expanded`). It opens on the biggest opportunity (ranking evenly: the nearest rung), and the pick lasts for this visit only.
+     1. "**Squat:** below P10, share 6 points under typical."
+     2. "+10 kg to P10 (120 kg) would add 7.4 DOTS.", or "… would take your score to P25 (+7.4 DOTS)." when it climbs a score rung.
+     3. The rung after, the same way: "+30 kg to P25 (140 kg) would take your score to P25 (+22.1 DOTS)." A trial line, to review. The points tell apart two lines that reach the same score rung.
    - No "at a typical split you'd squat ~137 kg" line: it's a hypothetical number, too close to an estimate.
 
 ### 5.2 Log test (`#/log`)

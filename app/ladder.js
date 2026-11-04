@@ -707,12 +707,15 @@ const named = (lifts) => {
 
 /**
  * Lift balance for the Ladder: your shares, the typical split (or null), a row per lift ({ lift, kg, band,
- * opportunity }), and up to four lines of facts from the rungs, the first with a bold `lead`:
+ * opportunity, detail }), the lift to show first (`selected`), and up to four summary lines of facts from the
+ * rungs, the first with a bold `lead`:
  *   1. your biggest opportunity: the lowest-ranked lift among its own rungs (a lower share than typical breaks a
  *      tie), or "Your lifts rank evenly" when every lift sits in the same band;
  *   2. the lift nearest its next rung, in kg;
  *   3. your strongest lift (not when they rank evenly);
- *   4. what the opportunity lift's next rung would do for your score.
+ *   4. what every lift at its next rung would do for your score.
+ * A row's `detail` is that lift's own lines: where it sits (and its share against typical), then its next rung
+ * and the one after, in kg, each with what it would do for your score.
  * `liftRungs(lift)` gives a lift's rungs in kg; `scoreRungs` are the score rungs for the same group.
  */
 export function liftBalance(profile, liftRungs, typical, scoreRungs) {
@@ -773,23 +776,42 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
     lines.push({ text: `${named(strongest)} ${plural ? "are your strongest lifts" : "is your strongest lift"}: ${band(strongest[0])}.` });
   }
 
-  // What the opportunity lift's next rung (or, when they rank evenly, the nearest one) does for your score.
-  const focus = even ? nearest : ahead.find((a) => a.lift === opportunity[0]);
-  if (focus) {
-    const now = profileScore(profile);
-    const then = profileScore({ ...profile, [focus.lift]: focus.next.score });
-    const climbs = rungsClimbed(scoreRungs, now, then);
-    const reaches = scoreRungs.findLast((r) => r.score <= then);
-    const to = `${LIFT_NAMES[focus.lift]} to its P${focus.next.percentile} (+${kgText(focus.kg)} kg) would`;
-    lines.push({
-      text: climbs > 0
-        ? `${to} take your score to P${reaches.percentile}.`
-        : `${to} add ${formatScore(profile.formula, then - now)} ${FORMULAS[profile.formula].label}.`,
-    });
+  // What lifting more does for your score: "take your score to P25 (+12.3 DOTS)", or just the points when no rung
+  // is passed. The points tell apart two lines that reach the same rung.
+  const now = profileScore(profile);
+  const scoreEffect = (lifts) => {
+    const then = profileScore({ ...profile, ...lifts });
+    const points = `${formatScore(profile.formula, then - now)} ${FORMULAS[profile.formula].label}`;
+    if (rungsClimbed(scoreRungs, now, then) > 0) return `take your score to P${scoreRungs.findLast((r) => r.score <= then).percentile} (+${points})`;
+    return `add ${points}`;
+  };
+
+  // Every lift with a rung ahead, at its next rung together (only when two or more have one).
+  if (ahead.length > 1) {
+    const who = ahead.length === 3 ? "All three lifts" : named(ahead.map((a) => a.lift));
+    const kgs = listed(ahead.map((a) => `+${kgText(a.kg)}`));
+    const at = Object.fromEntries(ahead.map((a) => [a.lift, a.next.score]));
+    lines.push({ text: `${who} at their next rung (${kgs} kg) would ${scoreEffect(at)}.` });
   }
 
-  const rows = LIFTS.map((lift) => ({ lift, kg: profile[lift], band: band(lift), opportunity: opportunity.includes(lift) }));
-  return { shares, typical, rows, lines };
+  // Each lift's own detail, shown when it's selected: where it sits, then its next rung and the one after, each
+  // with what it does for your score.
+  const detail = (lift) => {
+    const rungs = rungsOf[lift];
+    if (!rungs.length) return [{ text: `No ${LIFT_NAMES[lift].toLowerCase()} rungs for this group yet.` }];
+    const points = Math.round(Math.abs(gap(lift)));
+    const share = !typical ? "" : points < 1 ? ", share close to typical" : `, share ${points} point${points === 1 ? "" : "s"} ${gap(lift) < 0 ? "under" : "over"} typical`;
+    const out = [{ lead: `${LIFT_NAMES[lift]}:`, text: `${rungPosition(rungs, profile[lift])}${share}.` }];
+    for (const rung of rungs.filter((r) => r.score > profile[lift]).slice(0, 2)) {
+      out.push({ text: `+${kgText(rung.score - profile[lift])} kg to P${rung.percentile} (${kgText(rung.score)} kg) would ${scoreEffect({ [lift]: rung.score })}.` });
+    }
+    return out;
+  };
+
+  // The lift shown first: the opportunity, else (ranking evenly) the nearest rung, else the first with rungs.
+  const selected = opportunity[0] ?? nearest?.lift ?? ranked[0] ?? null;
+  const rows = LIFTS.map((lift) => ({ lift, kg: profile[lift], band: band(lift), opportunity: opportunity.includes(lift), detail: detail(lift) }));
+  return { shares, typical, rows, lines, selected };
 }
 
 // --- Reference marker: an estimate, not data ---------------------------------------
