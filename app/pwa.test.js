@@ -9,7 +9,7 @@ const read = (path) => readFileSync(new URL(path, root));
 const manifest = JSON.parse(read("manifest.webmanifest"));
 const indexHtml = read("index.html").toString();
 
-// Relative paths only: Pages serves the site under /dots-ladder/, not the domain root.
+// Relative paths only, so the site works wherever it is served: dotsladder.app, a fork's Pages sub-path or localhost.
 const isRelative = (path) => !/^(\/|[a-z]+:)/i.test(path);
 
 /** PNG width and height, from the IHDR chunk. */
