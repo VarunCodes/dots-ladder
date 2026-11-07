@@ -41,7 +41,7 @@ const v1 = (overrides = {}) =>
 test("a version 1 save migrates with nothing lost", () => {
   const { data, from } = store.readSaved(v1(), today);
   assert.equal(from, "v1");
-  assert.deepEqual(data, { settings, entries: [first, squatPr], events: [event], view });
+  assert.deepEqual(data, { settings, entries: [first, squatPr], events: [event], view, draft: null });
 });
 
 test("an older profile with numbers and no records becomes the first record, dated today", () => {
@@ -61,7 +61,7 @@ test("starting the store saves the migration under one key, and leaves version 1
   const storage = v1();
   store.start({ today }, storage);
   const saved = JSON.parse(storage.data.get(store.DATA_KEY));
-  assert.deepEqual(saved, { version: 2, settings, entries: [first, squatPr], events: [event], view });
+  assert.deepEqual(saved, { version: 2, settings, entries: [first, squatPr], events: [event], view, draft: null });
   for (const key of Object.values(store.V1_KEYS)) assert.ok(storage.data.has(key), `${key} kept for an older cached app`);
   assert.equal(store.readSaved(storage, today).from, "v2", "next time, version 2 is read");
 });
@@ -245,7 +245,7 @@ test("a backup holds everything saved, with its date, and not your last backup's
 test("restoring a backup gives the same data, backed up on the file's date", () => {
   const { data, summary, problem } = store.readBackup(store.backupFile(backupData, "2026-10-20").text, today);
   assert.equal(problem, undefined);
-  assert.deepEqual(data, { ...backupData, settings: { ...settings, lastBackup: "2026-10-20" } });
+  assert.deepEqual(data, { ...backupData, settings: { ...settings, lastBackup: "2026-10-20" }, draft: null });
   assert.deepEqual(summary, { exported: "2026-10-20", records: 2, events: 1, latest: "2026-10-01" });
   // Restored through the store, it's saved and shows as your numbers.
   const storage = fakeStorage();
@@ -282,4 +282,20 @@ test("a restore that's refused changes nothing", () => {
   const before = store.getState();
   assert.equal(store.update(() => ({ ...backupData, entries: [squatPr] })).ok, false);
   assert.equal(store.getState(), before);
+});
+
+// --- A first visit's draft --------------------------------------------------------------
+
+test("a first visit's answers are saved as a draft, cleaned, and cleared with your numbers, never backed up", () => {
+  const storage = fakeStorage();
+  store.start({ today }, storage);
+  store.update(() => ({ draft: { sex: "F", bodyweight: 63, competed: "often", lifts: { squat: { mode: "set", kg: 60, reps: 5 } } } }));
+  const saved = store.readSaved(storage, today).data.draft;
+  assert.deepEqual(saved, { sex: "F", bodyweight: 63, competed: null, mode: null, via: "steps", lifts: { squat: { mode: "set", kg: 60, reps: 5 } } }, "an unknown answer is left unanswered");
+  assert.equal("draft" in JSON.parse(store.backupFile({ ...store.getState(), entries: [first] }, today).text), false, "not in a backup");
+  store.update(() => ({ entries: [first], draft: null }));
+  assert.equal(store.readSaved(storage, today).data.draft, null, "gone once the first record is saved");
+  store.update(() => ({ draft: { sex: "M" } }));
+  store.clearNumbers();
+  assert.equal(store.readSaved(storage, today).data.draft, null, "and with Clear my numbers");
 });

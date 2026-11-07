@@ -73,6 +73,11 @@ function testForm(record) {
   }
   const unlogged = L.VALUES.filter((name) => !logged.includes(name));
   if (unlogged.length) fields.push(el("p", "muted small wide", `${capital(unlogged.join(", ").replace(/, ([^,]*)$/, " and $1"))} carried from earlier records.`));
+  const estimates = lifts.filter((lift) => L.isEstimated(record, lift));
+  if (estimates.length) {
+    const what = estimates.map((lift) => `${LIFT_NAMES[lift]} ${L.estimateText(record, lift)}`).join("; ");
+    fields.push(el("p", "muted small wide", `${what}. Change a value to make it a tested max.`));
+  }
   const note = el("p", "event-note muted small wide");
   note.setAttribute("role", "status");
   const remove = el("button", "link-button wide", `Delete ${lowerName(record)}`);
@@ -139,7 +144,8 @@ function onTestInput(item, form) {
     note.textContent = `Not saved: ${firstRule || problems.map((name) => TEST_TEXT[name]).join(" ")}`;
     return;
   }
-  persistTests(tests.map((t) => (t.id === raw.id ? L.validTest(raw) : t)));
+  // A lift estimated from a set keeps its set unless its value was changed here (then it's a tested max).
+  persistTests(tests.map((t) => (t.id === raw.id ? L.validTest(L.editedSets(t, raw)) : t)));
   note.textContent = "Saved on this device only.";
 }
 
@@ -174,7 +180,8 @@ function refreshTestSummaries() {
     const title = item.querySelector(".event-title");
     title.textContent = fmtDay(record.date);
     if (records.has(id)) title.append(" ", el("span", "pr-badge", "PR"));
-    item.querySelector(".test-sub").textContent = [L.recordName(record), loggedText(record), otherSex ? SEX_WORDS[record.sex] : ""].filter(Boolean).join(" · ");
+    const estimated = L.LIFTS.some((lift) => L.isEstimated(record, lift)) ? "est." : "";
+    item.querySelector(".test-sub").textContent = [L.recordName(record), loggedText(record), estimated, otherSex ? SEX_WORDS[record.sex] : ""].filter(Boolean).join(" · ");
     item.querySelector(".event-score").textContent = item.dataset.invalid ? "not saved" : S.formatScore(formula, score);
     const problem = L.deleteProblem(tests, id);
     const remove = item.querySelector(".link-button");

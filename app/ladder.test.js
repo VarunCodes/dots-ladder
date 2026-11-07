@@ -717,9 +717,9 @@ test("your numbers: tested or carried, how long ago, PRs and the last-tested not
   const by = Object.fromEntries(rows.map((row) => [row.name, row]));
   assert.deepEqual(rows.map((row) => row.name), ["bodyweight", "squat", "bench", "deadlift"]);
   assert.deepEqual(by.bodyweight, { name: "bodyweight", kg: 68, date: "2026-10-30", days: 1, tested: true });
-  assert.deepEqual(by.bench, { name: "bench", kg: 120, date: "2026-10-30", days: 1, tested: true, best: 120, pr: true });
-  assert.deepEqual(by.squat, { name: "squat", kg: 110, date: "2026-09-17", days: 44, tested: false, best: 115, pr: false }, "below an earlier best");
-  assert.deepEqual(by.deadlift, { name: "deadlift", kg: 160, date: "2026-10-15", days: 16, tested: false, best: 160, pr: true });
+  assert.deepEqual(by.bench, { name: "bench", kg: 120, date: "2026-10-30", days: 1, tested: true, best: 120, pr: true, estimate: "" });
+  assert.deepEqual(by.squat, { name: "squat", kg: 110, date: "2026-09-17", days: 44, tested: false, best: 115, pr: false, estimate: "" }, "below an earlier best");
+  assert.deepEqual(by.deadlift, { name: "deadlift", kg: 160, date: "2026-10-15", days: 16, tested: false, best: 160, pr: true, estimate: "" });
   assert.equal(L.yourNumbers([tests[0]], "2026-08-01").rows.some((row) => row.pr), false, "a first value isn't a PR");
   assert.deepEqual(stale, [{ lift: "squat", weeks: 6 }]);
 });
@@ -909,92 +909,169 @@ test("lift balance skips lifts above their top rung or without rungs, and says n
 
 // --- First visit -------------------------------------------------------------------
 
-const firstVisitor = { sex: "M", bodyweight: 70, squat: 110, bench: 97.5, deadlift: 160 };
+// Made-up rungs: women 63 kg at their first meet, and men 74 kg at their first and second meet.
+const fvData = {
+  rungs: [
+    { sex: "F", weightClassKg: "63", experience: "first meet", lifters: 300,
+      dots: { p10: 237, p25: 264, p50: 302, p75: 333, p90: 358 },
+      lifts: { squat: { lifters: 300, p10: 70, p25: 85, p50: 97.5, p75: 112.5, p90: 122.5 }, bench: { lifters: 300, p10: 40, p25: 45, p50: 52.5, p75: 60, p90: 65 }, deadlift: { lifters: 300, p10: 97.5, p25: 110, p50: 122.5, p75: 135, p90: 145 } } },
+    { sex: "M", weightClassKg: "74", experience: "first meet", lifters: 400,
+      dots: { p10: 266, p25: 300, p50: 340, p75: 380, p90: 410 },
+      lifts: { squat: { lifters: 400, p10: 120, p25: 140, p50: 160, p75: 180, p90: 195 }, bench: { lifters: 400, p10: 80, p25: 95, p50: 110, p75: 125, p90: 135 }, deadlift: { lifters: 400, p10: 150, p25: 175, p50: 195, p75: 215, p90: 230 } } },
+    { sex: "M", weightClassKg: "74", experience: "second meet", lifters: 60,
+      dots: { p25: 320, p50: 355, p75: 390 },
+      lifts: { squat: { lifters: 60, p25: 150, p50: 170, p75: 185 }, bench: { lifters: 60, p25: 100, p50: 115, p75: 130 }, deadlift: { lifters: 60, p25: 185, p50: 205, p75: 220 } } },
+  ],
+};
+const lift = (kg, mode = "max", reps = null) => ({ kg, mode, reps });
+const finished = { sex: "F", bodyweight: 63, competed: "never", mode: "set", via: "steps", lifts: { squat: lift(60, "set", 5), bench: lift(35, "set", 8), deadlift: lift(80, "set", 5) } };
 
-test("first visit: the totals that score the same DOTS 10 kg either side, yours exact and the others to whole kg", () => {
-  assert.deepEqual(L.sameScoreTotals(firstVisitor), [
-    { bw: 60, total: 327, you: false },
-    { bw: 70, total: 367.5, you: true },
-    { bw: 80, total: 400, you: false },
-  ]);
-  assert.deepEqual(L.sameScoreTotals({ ...firstVisitor, bodyweight: 35 }).map((t) => t.bw), [35, 45], "no bodyweight under the limit");
-  assert.deepEqual(L.sameScoreTotals({ ...firstVisitor, bodyweight: 245 }).map((t) => t.bw), [235, 245], "or over it");
+test("first visit: a saved draft is cleaned, and anything unknown is left unanswered", () => {
+  assert.equal(L.cleanDraft(null), null);
+  assert.deepEqual(L.cleanDraft(finished), finished);
+  const odd = L.cleanDraft({ sex: "X", bodyweight: 20, competed: "often", mode: "guess", via: "?", lifts: { squat: { kg: 900, mode: "set", reps: 2.5 }, curl: { kg: 20 } } });
+  assert.deepEqual(odd, { sex: null, bodyweight: null, competed: null, mode: null, via: "steps", lifts: { squat: { mode: "set", kg: null, reps: null } } });
+  assert.equal(L.draftStarted(L.emptyDraft()), false);
+  assert.equal(L.draftStarted({ ...L.emptyDraft(), sex: "M" }), true);
 });
 
-test("first visit: the same-score card names both lifters, with 'a' or 'an' as the number is said", () => {
-  assert.equal(L.sameScoreWords(L.sameScoreTotals(firstVisitor)), "A 60 kg lifter with 327 kg scores the same as you. So does an 80 kg lifter with 400 kg.");
-  assert.match(L.sameScoreWords(L.sameScoreTotals({ ...firstVisitor, bodyweight: 245 })), /^A 235 kg lifter with \d+ kg scores the same as you\.$/, "one lifter when the other is out of range");
-  assert.deepEqual(["8", "80", "83.5", "11", "18.5", "110", "60"].map(L.articleFor), ["an", "an", "an", "an", "an", "a", "a"]);
+test("first visit: a lift is a max, or a set of up to 10 reps whose estimate rounds down to 2.5 kg", () => {
+  assert.equal(L.liftEntryProblem(lift(100)), null);
+  assert.equal(L.liftEntryProblem(lift(null)), "kg");
+  assert.equal(L.liftEntryProblem(lift(601)), "kg");
+  assert.equal(L.liftEntryProblem(lift(60, "set", null)), "reps");
+  assert.equal(L.liftEntryProblem(lift(60, "set", 11)), "too-many-reps");
+  assert.equal(L.liftEntryProblem(lift(580, "set", 10)), "estimate", "a max over 600 kg");
+  assert.equal(L.draftMax(finished, "squat"), 70, "60 × 5 → 70");
+  assert.equal(L.draftMax(finished, "bench"), 42.5, "35 × 8 → 44.33, down to 42.5");
+  assert.equal(L.draftMax({ lifts: { squat: lift(60, "set", 1) } }, "squat"), 60, "one rep is the weight itself");
+  assert.equal(L.draftEstimated({ lifts: { squat: lift(60, "set", 1) } }, "squat"), false, "and isn't an estimate");
+  assert.equal(L.draftEstimated(finished, "squat"), true);
+  assert.equal(L.draftMax({ lifts: {} }, "squat"), null);
 });
 
-test("first visit: where you stand among first-meet powerlifters in your class, in words", () => {
-  const data = { rungs: [{ sex: "M", weightClassKg: "74", experience: "first meet", lifters: 396, dots: { p10: 266, p25: 300, p50: 338, p75: 370, p90: 400 } }] };
-  const at = (total) => L.firstStanding(data, { ...firstVisitor, squat: total - 257.5 }); // bench + deadlift = 257.5
-  const mid = at(400); // ~300.4 DOTS
-  assert.equal(mid.wclass, "74");
-  assert.equal(mid.passed, 25);
-  assert.equal(mid.next.percentile, 50);
-  assert.deepEqual(L.standingWords(mid), { title: "You are stronger than at least 25 in 100", more: null });
-  const low = at(340);
-  assert.equal(low.passed, 0);
-  assert.deepEqual(L.standingWords(low), { title: "Your first target: stronger than 10 in 100", more: `+${low.next.kg} kg on your total gets you there.` });
-  assert.equal(low.next.kg % 2.5, 0, "kilos to go in 2.5 kg steps");
-  const top = at(560);
-  assert.deepEqual(L.standingWords(top), { title: "You are stronger than 90 in 100", more: null });
-  assert.equal(L.firstStanding(data, { ...firstVisitor, bodyweight: 90 }), null, "no rungs for the group");
-  assert.equal(L.firstGroupWords("F", "63"), "UK powerlifters at their first meet, women at 63 kg.");
-  assert.equal(L.dotKeyWords("F", "76", 90), "Each dot stands for 1 in 100 female powerlifters at 76 kg. You are stronger than the ones in yellow.");
-  assert.equal(L.dotKeyWords("M", "120+", 0), "Each dot stands for 1 in 100 male powerlifters at 120+ kg. The outlined ones are your first target.", "below every rung: the first target");
+test("first visit: a screen shows only once its answers are in, and a draft picks up at the first one missing", () => {
+  const draft = { ...L.emptyDraft(), sex: "F", bodyweight: 63 };
+  assert.equal(L.canShow(draft, "competed"), true);
+  assert.equal(L.canShow(draft, "max-known"), false, "meets not answered yet");
+  assert.equal(L.canShow(finished, "standing"), true);
+  assert.equal(L.canShow(finished, "settings"), false, "not a screen");
+  assert.equal(L.canShow({}, "welcome"), true);
+  assert.equal(L.firstMissing(L.emptyDraft()), "sex");
+  assert.equal(L.firstMissing(draft), "competed");
+  assert.equal(L.firstMissing({ ...draft, competed: "never" }), "max-known");
+  assert.equal(L.firstMissing({ ...finished, lifts: { ...finished.lifts, bench: lift(null, "set", 8) } }), "bench");
+  assert.equal(L.firstMissing(finished), "standing");
 });
 
-test("first visit: below every rung, the gym-goer estimate is a labelled reference point, apart from the ladder", () => {
-  assert.equal(L.gymGoerWords("M", 236), "For scale, not part of this ladder: you're above a regular gym-goer, who scores about 200 DOTS (estimate).");
-  assert.equal(L.gymGoerWords("F", 150), "For scale, not part of this ladder: a regular gym-goer scores about 160 DOTS (estimate).");
-  assert.equal(L.gymGoerWords("M", 200), L.gymGoerWords("M", 236), "reaching it counts as above");
+test("first visit: Back goes one screen back, and from the results to quick setup when that's how they came", () => {
+  assert.equal(L.previousScreen(finished, "sex"), "welcome");
+  assert.equal(L.previousScreen(finished, "squat"), "max-known");
+  assert.equal(L.previousScreen(finished, "standing"), "deadlift");
+  assert.equal(L.previousScreen({ ...finished, via: "quick" }, "standing"), "quick");
+  assert.equal(L.previousScreen(finished, "quick"), "welcome");
+  assert.deepEqual(L.FIRST_VISIT_STEPS, ["sex", "bodyweight", "competed", "max-known", "squat", "bench", "deadlift", "standing", "score", "target", "next"]);
 });
 
-test("first visit: each other bar says how far its total is from yours", () => {
-  assert.equal(L.totalGapWords(327, 367.5), "40.5 kg less");
-  assert.equal(L.totalGapWords(400, 367.5), "32.5 kg more");
-  assert.equal(L.totalGapWords(367.5, 367.5), "the same");
+test("first visit: the first record holds all four values, with the sets behind any estimates", () => {
+  const record = L.draftRecord(finished, "2026-11-07", "r1");
+  assert.deepEqual(record, { id: "r1", date: "2026-11-07", sex: "F", bodyweight: 63, squat: 70, bench: 42.5, deadlift: 92.5, sets: { squat: { kg: 60, reps: 5 }, bench: { kg: 35, reps: 8 }, deadlift: { kg: 80, reps: 5 } } });
+  const maxes = { ...finished, lifts: { squat: lift(90), bench: lift(50), deadlift: lift(115) } };
+  assert.equal("sets" in L.draftRecord(maxes, "2026-11-07", "r2"), false, "tested maxes keep no sets");
+  assert.equal(L.draftRecord({ ...finished, bodyweight: null }, "2026-11-07", "r3"), null, "not finished");
+  assert.ok(L.canSaveTests([record]), "it saves as a first record");
 });
 
-test("first visit: each step asks for its own fields, and Next waits for them", () => {
-  const blank = { sex: "M", bodyweight: NaN, squat: NaN, bench: NaN, deadlift: NaN };
-  assert.equal(L.firstStepState(1, blank).canGoOn, false, "no bodyweight yet");
-  assert.equal(L.firstStepState(1, { ...blank, bodyweight: 70 }).canGoOn, true, "lifts belong to step 2");
-  assert.equal(L.firstStepState(2, { ...blank, bodyweight: 70, squat: 110, bench: 97.5 }).canGoOn, false, "one lift missing");
-  assert.equal(L.firstStepState(2, { ...firstVisitor }).canGoOn, true);
-  assert.equal(L.firstStepState(1, { ...blank, bodyweight: 20 }, { bodyweight: "20" }).canGoOn, false, "out of range");
-  assert.equal(L.firstStepState(3, blank).canGoOn, true, "steps 3 and 4 ask for nothing");
+test("first visit: compared with the group for your meets so far, or first-meet lifters when that group is too small", () => {
+  const man = { ...finished, sex: "M", bodyweight: 74 };
+  assert.equal(L.draftGroup(fvData, { ...man, competed: "once" }).experience, "second meet");
+  const fell = L.draftGroup(fvData, { ...man, competed: "more" });
+  assert.deepEqual([fell.experience, fell.fellBack], ["first meet", true]);
+  assert.equal(L.draftGroup(fvData, { ...finished, bodyweight: 90 }), null, "no rungs for the class");
+  assert.equal(L.groupWords({ sex: "F", wclass: "63", experience: "first meet" }), "women, 63 kg, at their first meet");
+  assert.equal(L.groupWords({ sex: "M", wclass: "120+", experience: "3+ meets" }), "men, over 120 kg, with 3 or more meets");
+  assert.deepEqual([L.classRange("F", "63"), L.classRange("F", "47"), L.classRange("F", "84+")], ["57.1 to 63 kg", "up to 47 kg", "over 84 kg"]);
 });
 
-test("first visit: a value is flagged at two digits or once it's left, never at one digit", () => {
-  const raw = (bodyweight) => ({ sex: "M", bodyweight, squat: NaN, bench: NaN, deadlift: NaN });
-  assert.deepEqual(L.firstStepState(1, raw(2), { bodyweight: "2" }).flagged, [], "one digit: still typing");
-  assert.deepEqual(L.firstStepState(1, raw(2), { bodyweight: "2" }, ["bodyweight"]).flagged, ["bodyweight"], "one digit, left: flagged");
-  assert.deepEqual(L.firstStepState(1, raw(20), { bodyweight: "20" }).flagged, ["bodyweight"], "two digits, out of range");
-  assert.deepEqual(L.firstStepState(1, raw(70.5), { bodyweight: "70.5" }).flagged, [], "valid: nothing to flag");
-  assert.deepEqual(L.firstStepState(1, raw(NaN), { bodyweight: "" }, ["bodyweight"]).flagged, [], "blank is missing, not wrong");
-  const lifts = { ...firstVisitor, squat: 900 };
-  assert.deepEqual(L.firstStepState(1, lifts, { squat: "900" }).flagged, [], "step 1 doesn't flag step 2's fields");
-  assert.deepEqual(L.firstStepState(2, lifts, { squat: "900" }).flagged, ["squat"]);
-  assert.deepEqual(["2", "20", "2.5", "", undefined].map((t) => L.readyToFlag(t, false)), [false, true, true, false, false]);
+test("first visit: each lift's card puts it on the ladder, or says where it would place at a meet", () => {
+  const group = L.draftGroup(fvData, finished);
+  assert.deepEqual(L.liftPlaceWords("deadlift", 92.5, group), {
+    title: "+5 kg puts your deadlift on the ladder",
+    more: "That's the first rung: 97.5 kg, against women, 63 kg, at their first meet.",
+  });
+  assert.deepEqual(L.liftPlaceWords("bench", 47.5, group), {
+    title: "At a meet, your bench press would place ahead of at least 25 in 100",
+    more: "Women, 63 kg, at their first meet. Next rung: 52.5 kg, ahead of 50.",
+  });
+  assert.match(L.liftPlaceWords("squat", 130, group).more, /That's the top rung\.$/);
+  assert.deepEqual(L.placeOn(group.lifts.squat, 85), { passed: 25, next: { percentile: 50, score: 97.5 } }, "reaching a rung passes it");
 });
 
-test("first visit: the step count, Back, the privacy note and the last button", () => {
-  const at = (step) => L.firstStepState(step, firstVisitor);
-  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).count), ["Step 1 of 4", "Step 2 of 4", "Step 3 of 4", "Step 4 of 4"]);
-  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).back), [false, true, true, true], "no Back on step 1");
-  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).privateNote), [true, true, false, false], "the note sits with the inputs");
-  assert.deepEqual([1, 2, 3, 4].map((step) => at(step).next), ["Next", "Next", "Next", "Show my ladder"]);
+test("first visit: the 100 below the first rung names the kilos onto the ladder and outlines the first rung", () => {
+  const group = L.draftGroup(fvData, finished);
+  const below = L.standingWords(L.draftProfile(finished), group); // 205 kg at 63 kg
+  assert.equal(below.title, "+17.5 kg on your total puts you on the ladder.");
+  assert.equal(below.more, "That's the first rung: a 222.5 kg total. The 10 outlined dots are the lifters you'd pass.");
+  assert.deepEqual([below.filled, below.outlined, below.key], [0, 10, ["The first rung"]]);
+  const on = L.standingWords({ ...L.draftProfile(finished), squat: 100, bench: 55, deadlift: 125 }, group);
+  assert.match(on.title, /^At a meet, you'd place ahead of at least \d+ of these 100 lifters\.$/);
+  assert.match(on.more, /^Next rung: \+\d+(\.5)? kg on your total to pass \d+\.$/);
+  assert.deepEqual(on.key, ["You're ahead", "Your next rung"]);
+  const top = L.standingWords({ ...L.draftProfile(finished), squat: 200, bench: 120, deadlift: 220 }, group);
+  assert.deepEqual([top.more, top.filled, top.outlined], ["That's the top rung.", 90, 90]);
 });
 
-test("first visit: step 2's total adds up only the lifts typed so far", () => {
-  assert.equal(L.typedTotal({ squat: 110, bench: NaN, deadlift: 160 }), 270);
-  assert.equal(L.typedTotal({ squat: NaN, bench: NaN, deadlift: NaN }), 0);
-  assert.equal(L.typedTotal({ squat: -5, bench: 97.5, deadlift: 160 }), 257.5, "a negative isn't added");
+test("first visit: the score screen shows two ways to raise it, and the gym-goer estimate named by sex", () => {
+  const profile = { ...L.draftProfile(finished), squat: 90, bench: 50, deadlift: 115 }; // 255 kg at 63 kg
+  const words = L.scoreWords(profile);
+  assert.equal(words.from, "From a 255 kg total at 63 kg bodyweight.");
+  assert.deepEqual(words.rows.map((r) => r.label), ["Lift 5 kg more in total", "Lift the same at 61 kg"]);
+  assert.ok(words.rows.every((r) => r.change > 0), "both raise it");
+  assert.match(words.gymGoer, /^For comparison, a woman who trains at the gym regularly scores about 160\./);
+  assert.match(L.scoreWords({ ...profile, sex: "M" }).gymGoer, /a man who trains at the gym regularly scores about 200\./);
+  assert.equal(L.scoreWords({ ...profile, bodyweight: 40 }).rows.length, 1, "no lighter row at DOTS's lightest bodyweight");
 });
+
+test("first visit: the target is kilos on the total, and each lift's next rung", () => {
+  const group = L.draftGroup(fvData, finished);
+  const below = L.targetWords(L.draftProfile(finished), group);
+  assert.deepEqual([below.add, below.total, below.title, below.onLadder], [17.5, 222.5, "on your total puts you on the ladder.", false]);
+  assert.deepEqual(below.lifts.map((l) => [l.lift, l.kg, l.words]), [["squat", 85, "ahead of 25 in 100"], ["bench", 45, "ahead of 25 in 100"], ["deadlift", 97.5, "first rung"]]);
+  const top = L.targetWords({ ...L.draftProfile(finished), squat: 200, bench: 120, deadlift: 220 }, group);
+  assert.deepEqual([top.add, top.title], [0, "You're past every rung"]);
+  assert.ok(top.lifts.every((l) => l.kg === null && l.words === "Top rung"));
+});
+
+test("first visit: the answer about meets is kept as the Ladder's experience", () => {
+  assert.equal(L.settingsOf({ experience: "second meet" }).experience, "second meet");
+  assert.equal("experience" in L.settingsOf({ experience: "lots" }), false);
+  assert.deepEqual(L.COMPETED, { never: "first meet", once: "second meet", more: "3+ meets" });
+});
+
+// --- Lifts estimated from a set --------------------------------------------------------
+
+test("estimated lifts: a record keeps the set, and the lift is worked out from it whenever it's read", () => {
+  const raw = { id: "a", date: "2026-11-07", sex: "F", bodyweight: 63, squat: 999, bench: 50, deadlift: 115, sets: { squat: { kg: 60, reps: 5 } } };
+  const clean = L.validTest(raw);
+  assert.equal(clean.squat, 70, "the set wins over a stale saved value");
+  assert.deepEqual(clean.sets, { squat: { kg: 60, reps: 5 } });
+  assert.equal(L.validTest({ ...raw, squat: undefined }).squat, 70, "a set alone is enough");
+  assert.deepEqual(L.cleanSets({ squat: { kg: 60, reps: 1 }, bench: { kg: 60, reps: 12 }, deadlift: { kg: -5, reps: 5 }, curl: { kg: 20, reps: 5 } }), {}, "1 rep, past 10, out of range or not a lift");
+  assert.equal("sets" in L.validTest({ ...raw, sets: { squat: { kg: 60, reps: 11 } }, squat: 100 }), false, "a bad set is dropped and the value kept");
+  assert.equal(L.estimateText(clean, "squat"), "est. from 60 kg × 5");
+  assert.equal(L.estimateText(clean, "bench"), "");
+  assert.deepEqual([L.isEstimated(clean, "squat"), L.isEstimated(clean, "bench")], [true, false]);
+});
+
+test("estimated lifts: changing an estimated lift by hand makes it a tested max; leaving it keeps the set", () => {
+  const before = { id: "a", date: "2026-11-07", sex: "F", bodyweight: 63, squat: 70, bench: 42.5, deadlift: 115, sets: { squat: { kg: 60, reps: 5 }, bench: { kg: 35, reps: 8 } } };
+  const read = ({ sets, ...rest }) => rest; // what the 1RMs form reads back: no sets
+  assert.deepEqual(L.editedSets(before, { ...read(before), squat: 75 }).sets, { bench: { kg: 35, reps: 8 } });
+  assert.deepEqual(L.editedSets(before, { ...read(before), date: "2026-11-06" }).sets, before.sets, "a new date keeps both");
+  assert.equal("sets" in L.editedSets(before, { ...read(before), squat: 75, bench: 45 }), false);
+  assert.equal(L.yourNumbers([L.validTest(before)], "2026-11-07").rows.find((r) => r.name === "squat").estimate, "est. from 60 kg × 5");
+});
+
 
 test("your data: the last backup's day is a setting, kept only when it's a real day", () => {
   assert.equal(L.settingsOf({ lastBackup: "2026-11-01" }).lastBackup, "2026-11-01");

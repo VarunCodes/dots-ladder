@@ -173,3 +173,12 @@ test("exchange rate has no bodyweight swap at the formula's limits", () => {
   }
   assert.ok(S.exchangeRate("gl", { total: 300, bw: 36, sex: "F" }).perKgBw > 0);
 });
+
+test("estimated max: Epley from a set, rounded down to 2.5 kg, 1 to 10 reps", () => {
+  assert.equal(S.estimateMax(60, 5), 70, "60 × (1 + 5/30) = 70");
+  assert.equal(S.estimateMax(35, 8), 42.5, "44.33 rounds down");
+  assert.equal(S.estimateMax(100, 10), 132.5, "133.3 rounds down");
+  assert.equal(S.estimateMax(62.5, 1), 62.5, "one rep is the weight itself, unrounded");
+  assert.equal(S.MAX_SET_REPS, 10);
+  for (const [kg, reps] of [[60, 11], [60, 0], [60, 2.5], [0, 5], [-5, 5], [NaN, 5]]) assert.equal(S.estimateMax(kg, reps), null, `${kg} × ${reps}`);
+});

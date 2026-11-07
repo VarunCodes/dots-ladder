@@ -84,6 +84,18 @@ export function exchangeRate(formula, { total, bw, sex }) {
   return { perKgBw: gain, perBarStep, kgOnBarPerKgBw: totalForScore(formula, { points: now + gain, bw, sex }) - total };
 }
 
+// --- An estimated max from a set --------------------------------------------------------
+// For a lifter who knows a set (60 kg × 5) but has never tested a max: Epley's formula, kg × (1 + reps / 30),
+// rounded down to 2.5 kg so the rounding never flatters. Past 10 reps the estimate isn't reliable, so it's refused.
+
+export const MAX_SET_REPS = 10;
+
+/** The estimated one-rep max for `kg` lifted `reps` times; one rep is the weight itself; null past 10 reps or for a bad set. */
+export function estimateMax(kg, reps) {
+  if (!(kg > 0) || !Number.isInteger(reps) || reps < 1 || reps > MAX_SET_REPS) return null;
+  return reps === 1 ? kg : Math.floor((kg * (1 + reps / 30)) / 2.5 + 1e-9) * 2.5;
+}
+
 /** A score at the formula's display precision: DOTS "277.9", GL "55.92". */
 export function formatScore(formula, value) {
   return value.toFixed(FORMULAS[formula].decimals);

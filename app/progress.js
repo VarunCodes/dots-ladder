@@ -363,11 +363,13 @@ function renderNumbers() {
       const li = el("li");
       const name = el("span", "numbers-name", VALUE_NAMES[row.name]);
       if (row.pr) name.append(" ", el("span", "pr-badge", "PR"));
-      const verb = row.name === "bodyweight" ? "Weighed" : "Tested";
+      const verb = row.name === "bodyweight" ? "Weighed" : row.estimate ? "Estimated" : "Tested";
       const when = row.tested ? `${verb} ${shortDay(row.date)}` : `Carried from ${shortDay(row.date)}`;
       const isStale = stale.some((s) => s.lift === row.name);
       const kg = el("span", "numbers-kg", `${row.kg} kg`);
-      if (row.best != null && row.kg < row.best) kg.append(el("span", "numbers-best", `best ${row.best} kg`));
+      // An estimate says what it's from; the stale note below still asks for a real test in time.
+      if (row.estimate) kg.append(el("span", "numbers-best", row.estimate));
+      else if (row.best != null && row.kg < row.best) kg.append(el("span", "numbers-best", `best ${row.best} kg`));
       li.append(name, kg, el("span", `numbers-when${isStale ? " stale" : ""}`, `${when} · ${L.agoText(row.days)}`));
       return li;
     }),

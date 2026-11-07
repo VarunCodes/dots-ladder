@@ -43,75 +43,15 @@
   <main>
     <section id="screen-ladder" class="screen" aria-labelledby="ladder-title">
       <h1 id="ladder-title" class="visually-hidden">DOTS Ladder</h1>
-      <!-- First visit, nothing saved on this device: four steps that teach DOTS with your own numbers, then the Ladder. -->
-      <form id="onboarding" class="onboard" autocomplete="off" novalidate hidden>
-        <div class="onboard-progress">
-          <p id="onboard-count" class="muted small">Step 1 of 4</p>
-          <div class="onboard-bar" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <!-- First visit, nothing saved on this device: one question per screen (onboarding.js draws each), then the Ladder. -->
+      <section id="onboarding" class="onboard" aria-label="Get started" hidden>
+        <div class="fv-top">
+          <button id="onboard-back" class="fv-back" type="button" aria-label="Back">←</button>
+          <div id="onboard-bar" class="fv-bar" aria-hidden="true"></div>
         </div>
-
-        <section class="onboard-step" data-step="1" aria-labelledby="onboard-h1">
-          <h2 id="onboard-h1" tabindex="-1">How strong are you for your size?</h2>
-          <p class="onboard-lede">DOTS turns your total and bodyweight into one score.</p>
-          <fieldset class="segmented">
-            <legend class="onboard-label">Sex</legend>
-            <label><input type="radio" name="sex" value="M" checked><svg class="sex-icon" aria-hidden="true"><use href="#icon-male"/></svg>Men</label>
-            <label><input type="radio" name="sex" value="F"><svg class="sex-icon" aria-hidden="true"><use href="#icon-female"/></svg>Women</label>
-          </fieldset>
-          <div class="onboard-rows">
-            <label>Bodyweight <span class="visually-hidden">(kg)</span><span class="onboard-unit"><input name="bodyweight" type="number" inputmode="decimal" step="any" min="30" max="250" placeholder="70"><span aria-hidden="true">kg</span></span></label>
-          </div>
-        </section>
-
-        <section class="onboard-step" data-step="2" aria-labelledby="onboard-h2" hidden>
-          <h2 id="onboard-h2" tabindex="-1">Your best lifts</h2>
-          <p class="onboard-lede">Enter your heaviest single for each lift: the heaviest weight you have lifted once with good form. Use your best recent single, not a guess.</p>
-          <div class="onboard-rows">
-            <label>Squat <span class="visually-hidden">(kg)</span><span class="onboard-unit"><input name="squat" type="number" inputmode="decimal" step="any" min="1" max="600" placeholder="0"><span aria-hidden="true">kg</span></span></label>
-            <label>Bench <span class="visually-hidden">(kg)</span><span class="onboard-unit"><input name="bench" type="number" inputmode="decimal" step="any" min="1" max="600" placeholder="0"><span aria-hidden="true">kg</span></span></label>
-            <label>Deadlift <span class="visually-hidden">(kg)</span><span class="onboard-unit"><input name="deadlift" type="number" inputmode="decimal" step="any" min="1" max="600" placeholder="0"><span aria-hidden="true">kg</span></span></label>
-          </div>
-          <p class="onboard-total" role="status"><span>Total, added up for you</span><strong id="onboard-total">0 kg</strong></p>
-        </section>
-
-        <section class="onboard-step" data-step="3" aria-labelledby="onboard-h3" hidden>
-          <div class="reveal-score">
-            <h2 id="onboard-h3" class="onboard-label" tabindex="-1">Your score</h2>
-            <p class="reveal-number"><strong id="reveal-score"></strong><span>DOTS</span></p>
-            <p id="reveal-from" class="muted small"></p>
-          </div>
-          <p class="onboard-lede">DOTS is a strength score for your size. It combines your total and bodyweight into one number.</p>
-          <figure class="reveal-chart">
-            <figcaption id="reveal-caption" class="muted small"></figcaption>
-            <div id="reveal-bars" class="reveal-bars" role="img"></div>
-          </figure>
-          <div class="reveal-card">
-            <p class="onboard-label">Same score, different totals</p>
-            <p id="reveal-same"></p>
-            <p class="muted">That's why we compare you with powerlifters in your weight class.</p>
-          </div>
-        </section>
-
-        <section class="onboard-step" data-step="4" aria-labelledby="onboard-h4" hidden>
-          <div class="standing-who">
-            <p class="onboard-label">Compared with</p>
-            <p id="standing-who"></p>
-          </div>
-          <h2 id="onboard-h4" tabindex="-1"></h2>
-          <p id="standing-more" class="onboard-lede"></p>
-          <div id="standing-dots" class="standing-dots" role="img"></div>
-          <p id="standing-key" class="muted small"></p>
-          <p id="standing-scale" class="standing-scale small" hidden></p>
-        </section>
-
-        <p id="onboard-note" class="small" role="status"></p>
-        <p class="onboard-private small"><strong>Saved on this phone only.</strong> Nothing you enter is sent to us or stored anywhere else.</p>
-        <div class="onboard-actions">
-          <button type="button" class="button onboard-back" hidden>Back</button>
-          <button type="submit" class="primary" disabled>Next</button>
-        </div>
-        <button id="onboard-restore" type="button" class="link-button onboard-restore">Restore from a backup</button>
-      </form>
+        <p id="onboard-count" class="visually-hidden" aria-live="polite"></p>
+        <div id="onboard-screen" class="fv-screen"></div>
+      </section>
 
       <div id="standing" hidden>
         <header class="hero">

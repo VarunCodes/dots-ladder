@@ -9,7 +9,7 @@ import { $, choiceGroup, el, formulaChoice, replay, setNumber } from "./dom.js";
 import { renderCalculator, setupCalculator } from "./calculator.js";
 import { eventLabel, refreshEvents, setupEvents } from "./events.js";
 import { openLog, refreshLog, setupLog } from "./log.js";
-import { resetOnboarding, setupOnboarding } from "./onboarding.js";
+import { resetOnboarding, screenFrom, setupOnboarding, show as showFirstVisit } from "./onboarding.js";
 import { openMeet, refreshMeet, setupMeet } from "./meet.js";
 import { toast } from "./popup.js";
 import { openProgress, refreshProgress, setupProgress } from "./progress.js";
@@ -308,10 +308,14 @@ try {
     thisMonth: L.monthOf(new Date()),
     experience: L.EXPERIENCE[0],
   });
+  // The Ladder opens on the meet experience given on the first visit (its tabs change it for the visit only).
+  const experience = store.getState().settings.experience;
+  if (experience) store.update((s) => ({ session: { ...s.session, experience } }));
   if (rungsData.snapshot) $("snapshot").textContent = `, snapshot ${fmtDate(rungsData.snapshot)}`;
   const hasNumbers = () => Boolean(derived(store.getState()).profile);
 
-  // Routing: "#/ladder" (default), "#/log", "#/progress" and "#/meet". Without saved numbers, everything is the first visit.
+  // Routing: "#/ladder" (default), "#/log", "#/progress" and "#/meet". Without saved numbers, everything is the
+  // first visit, one screen per step ("#/start/bodyweight"), with no tab bar or footer to scroll past.
   const route = () => {
     const numbers = hasNumbers();
     $("onboarding").hidden = numbers;
@@ -319,7 +323,11 @@ try {
     $("tabbar").hidden = !numbers;
     const screen = numbers ? L.routeFrom(location.hash) : "ladder";
     showScreen(screen);
-    if (!numbers) return;
+    document.querySelector("body > footer").hidden = !numbers;
+    if (!numbers) {
+      showFirstVisit(screenFrom(location.hash));
+      return;
+    }
     if (screen === "log") openLog({ focusClass: location.hash.endsWith("?class") });
     else render();
     if (screen === "progress") openProgress();
@@ -330,6 +338,7 @@ try {
   // the Ladder redraws (the events panel is on it) and the open screen refreshes in place, keeping what's typed.
   store.subscribe(() => {
     if (hasNumbers() === $("onboarding").hidden) {
+      if (!hasNumbers()) return; // a first visit's answer: its screen updates itself
       render();
       const screen = L.routeFrom(location.hash);
       if (screen === "log") refreshLog();
