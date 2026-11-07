@@ -73,7 +73,7 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
 `app/pwa.test.js` checks the installable app:
 
-- **Manifest**: the fields Chrome needs to offer install, `display: standalone`, and `start_url` and `scope` of `./` (the site lives under `/dots-ladder/`).
+- **Manifest**: the fields Chrome needs to offer install, `display: standalone`, and `start_url` and `scope` of `./` (so the site works at a domain root or under a sub-path).
 - **Icons**: every icon exists, is a PNG of its declared size, and there's a 192 px, a 512 px and a maskable one.
 - **Service worker**: every file in its cache list exists, and every file the page loads is in that list, so the page opens offline. That covers `index.html` (in-page `#` references from the icon sprite are skipped), every module `app/app.js` imports directly or indirectly, the data files, files the stylesheet loads (the font) and the manifest icons. Adding a file to the page without caching it fails CI.
 - **Offline behaviour**: `sw.js` runs in Node with a stub network and cache. Online, it serves the network copy, saves it, and revalidates rather than trusting the browser's HTTP cache. Offline, it serves the saved copy, opening any page falls back to the saved start page, and with nothing saved the request fails instead of hanging. Other sites and non-GET requests are left to the browser.
