@@ -33,4 +33,5 @@ For comparison, the lowest published rung for men (74 kg, first meet, "beats 10%
 
 - Rungs come only from OpenPowerlifting. Nothing estimated is ever added to `data/rungs.json`.
 - At most this one reference marker. More estimates (untrained, "elite" or anything else) would dilute the ladder's point: real lifters, real meets.
+- A lifter's own lift estimated from a set they did (Epley, on the first visit) is neither a marker nor a rung: it's the lifter's number, labelled "est." with its set, and compared against the measured rungs like any other.
 - If a measured population dataset ever appears, replace the estimate, or remove the marker if it doesn't hold up.

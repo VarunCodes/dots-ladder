@@ -1,6 +1,6 @@
 // Pure logic for the DOTS ladder: no DOM, so it runs in the browser and under `node --test`.
 // Weight classes mirror pipeline/build_rungs.py; the scoring formulas live in scoring.js.
-import { DEFAULT_FORMULA, FORMULAS, FORMULA_IDS, formatScore, kgToNextRung, score, totalForScore } from "./scoring.js";
+import { DEFAULT_FORMULA, FORMULAS, FORMULA_IDS, MAX_SET_REPS, estimateMax, formatScore, kgToNextRung, score, totalForScore } from "./scoring.js";
 
 const CLASSES = {
   M: [59, 66, 74, 83, 93, 105, 120],
@@ -254,7 +254,8 @@ function cleanRack(raw) {
 /**
  * A profile's settings, the only part that's saved: { weightClass, formula, targetBw }, with defaults for anything
  * missing or invalid, plus the optional ones only when set: openerPct (the attempt planner's choice), rack
- * (your rack heights for meet day) and lastBackup (the day you last backed up, for Your data's reminder).
+ * (your rack heights for meet day), lastBackup (the day you last backed up, for Your data's reminder) and
+ * experience (the meet experience you gave on your first visit, which the Ladder opens on).
  */
 export function settingsOf(profile) {
   return {
@@ -264,6 +265,7 @@ export function settingsOf(profile) {
     ...(OPENER_PCTS.includes(profile?.openerPct) && { openerPct: profile.openerPct }),
     ...(cleanRack(profile?.rack) && { rack: cleanRack(profile.rack) }),
     ...(isDay(profile?.lastBackup) && { lastBackup: profile.lastBackup }),
+    ...(EXPERIENCE.includes(profile?.experience) && { experience: profile.experience }),
   };
 }
 
@@ -284,6 +286,10 @@ export function legacyProfile(raw) {
 // on a date are the latest of each up to that date, carried forward; the earliest record holds all four, so every
 // record has a full set to score. Each record keeps its sex, so it's scored in the category it was done in.
 // Class and formula are settings on the profile; the profile's sex and numbers are worked out from the latest values.
+//
+// A lift can be an estimate from a set: the record keeps the set under `sets` ({ squat: { kg: 60, reps: 5 } }) and
+// the lift's value is worked out from it whenever the record is read (estimateMax), so a later change to the
+// formula reaches every record. The value is saved alongside, so an older copy of the app still reads the record.
 
 export const EARLIEST_DATE = "1990-01-01";
 export const VALUES = ["bodyweight", ...LIFTS];
@@ -329,8 +335,41 @@ export function testProblems(raw, today) {
 export function validTest(raw, fallbackSex) {
   if (raw == null || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id) return null;
   const sex = raw.sex in CLASSES ? raw.sex : fallbackSex;
-  if (!(sex in CLASSES) || testProblems(raw, "9999-12-31").length) return null;
-  return { id: raw.id, date: raw.date, sex, ...Object.fromEntries(loggedValues(raw).map((name) => [name, raw[name]])) };
+  const sets = cleanSets(raw.sets);
+  const withEstimates = { ...raw, ...Object.fromEntries(Object.entries(sets).map(([lift, set]) => [lift, estimateMax(set.kg, set.reps)])) };
+  if (!(sex in CLASSES) || testProblems(withEstimates, "9999-12-31").length) return null;
+  const values = Object.fromEntries(loggedValues(withEstimates).map((name) => [name, withEstimates[name]]));
+  return { id: raw.id, date: raw.date, sex, ...values, ...(Object.keys(sets).length && { sets }) };
+}
+
+/** The sets behind estimated lifts, kept only when they give a lift in range from 2 to 10 reps: { squat: { kg, reps } }. */
+export function cleanSets(raw) {
+  const sets = {};
+  for (const lift of LIFTS) {
+    const set = raw?.[lift];
+    const max = set && inRange(set.kg, LIMITS.lift) && set.reps > 1 ? estimateMax(set.kg, set.reps) : null;
+    if (max != null && inRange(max, LIMITS.lift)) sets[lift] = { kg: set.kg, reps: set.reps };
+  }
+  return sets;
+}
+
+/** Whether a record's lift is estimated from a set. */
+export const isEstimated = (record, lift) => Boolean(record?.sets?.[lift]);
+
+/** "est. from 60 kg × 5" for an estimated lift, or "" for a tested one. */
+export function estimateText(record, lift) {
+  const set = record?.sets?.[lift];
+  return set ? `est. from ${set.kg} kg × ${set.reps}` : "";
+}
+
+/**
+ * A record as edited in the 1RMs list: a lift whose value was changed by hand is a tested max now, so its set goes;
+ * the sets of lifts left alone stay. Returns the record with what's left of `sets`.
+ */
+export function editedSets(before, after) {
+  const sets = Object.fromEntries(Object.entries(before.sets ?? {}).filter(([lift]) => after[lift] === before[lift]));
+  const { sets: _, ...rest } = after;
+  return Object.keys(sets).length ? { ...rest, sets } : rest;
 }
 
 /** Records oldest first by date; records on the same day keep the order they were saved in. */
@@ -414,7 +453,8 @@ export const STALE_WEEKS = 6; // a lift last tested this long ago gets a "last t
  * How current each number behind your score is, as of today: one row per value (bodyweight, then the lifts)
  * { name, kg, date (when it was last logged), days (since then), tested (logged in your latest record, rather than
  * carried from an earlier one) }, and for lifts { best (your best ever), pr (the record that set it was a PR, as in
- * prs(): it beat every earlier value, so a first value or an equalled best isn't one) }. `stale` lists the lifts
+ * prs(): it beat every earlier value, so a first value or an equalled best isn't one), estimate ("est. from 60 kg × 5",
+ * or "" for a tested lift) }. `stale` lists the lifts
  * last tested STALE_WEEKS or more ago, oldest first, with their weeks. Null with no records.
  */
 export function yourNumbers(tests, today) {
@@ -426,7 +466,9 @@ export function yourNumbers(tests, today) {
   const rows = VALUES.map((name) => {
     const date = latest.from[name];
     const row = { name, kg: latest.values[name], date, days: daysBetween(date, today), tested: date === latest.record.date };
-    return LIFTS.includes(name) ? { ...row, best: best[name], pr: Boolean(prRecords.get(setBy(name, date).id)?.includes(name)) } : row;
+    if (!LIFTS.includes(name)) return row;
+    const record = setBy(name, date);
+    return { ...row, best: best[name], pr: Boolean(prRecords.get(record.id)?.includes(name)), estimate: estimateText(record, name) };
   });
   const stale = rows
     .filter((row) => row.name !== "bodyweight" && row.days >= STALE_WEEKS * 7)
@@ -838,137 +880,247 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
   return { shares, typical, rows, lines, selected };
 }
 
-// --- First visit: four steps that teach DOTS with your own numbers -----------------------
-// Always DOTS, against first-meet powerlifters in the class your bodyweight falls in: the closest group to someone
-// who hasn't competed yet.
+// --- First visit: one question per screen ------------------------------------------------
+// A newcomer answers one thing at a time (category, bodyweight, meets so far, whether they know their max, then each
+// lift), and every few screens get something back: their class, where each lift places them, the 100, their
+// score and the next target. Always DOTS. What's answered is kept as a draft in the store, so a half-finished
+// visit picks up where it stopped; the first record is saved only at the end.
+//
+// Draft: { sex, bodyweight, competed ("never" | "once" | "more"), mode ("max" | "set"), via ("steps" | "quick"),
+//          lifts: { squat: { mode, kg, reps } } }, each null until answered.
 
-export const FIRST_VISIT_STEPS = 4;
-// The fields each step asks for: its Next waits for them, and only their problems are shown.
-const FIRST_STEP_FIELDS = { 1: ["sex", "bodyweight"], 2: LIFTS, 3: [], 4: [] };
+/** The screens in order; the progress bar counts these. "welcome" comes before them and "quick" stands in for 1-7. */
+export const FIRST_VISIT_STEPS = ["sex", "bodyweight", "competed", "max-known", ...LIFTS, "standing", "score", "target", "next"];
+export const FIRST_VISIT_SCREENS = ["welcome", "quick", ...FIRST_VISIT_STEPS];
+export const COMPETED = { never: EXPERIENCE[0], once: EXPERIENCE[1], more: EXPERIENCE[2] };
+const ENTRY_MODES = ["max", "set"];
 
-/**
- * Whether a field's problem is worth showing yet: once it's finished with (left after changing), or once two digits
- * are typed. "2" is still being typed, so a single digit is never flagged; "20" is.
- */
-export function readyToFlag(text, finished) {
-  return Boolean(finished) || `${text ?? ""}`.replace(/\D/g, "").length >= 2;
-}
-
-/**
- * One first-visit step's state from what's typed: `raw` holds the values (numbers, NaN when blank), `texts` what's
- * in each box, `finished` the names of fields left after changing. Returns { count, back, privateNote, next, canGoOn,
- * flagged }: Back from step 2, the privacy note on steps 1-2, "Show my ladder" on the last step, Next only when the
- * step's fields are valid, and the step's fields to flag (red border and message).
- */
-export function firstStepState(step, raw, texts = {}, finished = []) {
-  const fields = FIRST_STEP_FIELDS[step];
-  const done = new Set(finished);
+/** A saved draft, cleaned: anything unknown or out of range is left unanswered (null). */
+export function cleanDraft(raw) {
+  if (raw == null || typeof raw !== "object") return null;
+  const one = (value, allowed) => (allowed.includes(value) ? value : null);
+  const lifts = {};
+  for (const lift of LIFTS) {
+    const entry = raw.lifts?.[lift];
+    if (!entry || typeof entry !== "object") continue;
+    lifts[lift] = {
+      mode: one(entry.mode, ENTRY_MODES) ?? "max",
+      kg: inRange(entry.kg, LIMITS.lift) ? entry.kg : null,
+      reps: Number.isInteger(entry.reps) && entry.reps >= 1 ? entry.reps : null,
+    };
+  }
   return {
-    count: `Step ${step} of ${FIRST_VISIT_STEPS}`,
-    back: step > 1,
-    privateNote: step <= 2,
-    next: step === FIRST_VISIT_STEPS ? "Show my ladder" : "Next",
-    canGoOn: !invalidFields(raw).some((name) => fields.includes(name)),
-    flagged: enteredProblems(raw).filter((name) => fields.includes(name) && name !== "sex" && readyToFlag(texts[name], done.has(name))),
+    sex: one(raw.sex, Object.keys(CLASSES)),
+    bodyweight: inRange(raw.bodyweight, LIMITS.bodyweight) ? raw.bodyweight : null,
+    competed: one(raw.competed, Object.keys(COMPETED)),
+    mode: one(raw.mode, ENTRY_MODES),
+    via: one(raw.via, ["steps", "quick"]) ?? "steps",
+    lifts,
   };
 }
 
-/** Step 2's running total: the lifts typed so far (blank or not-yet-valid boxes add nothing). */
-export function typedTotal(raw) {
-  return LIFTS.map((lift) => raw[lift]).filter((v) => Number.isFinite(v) && v > 0).reduce((sum, v) => sum + v, 0);
+/** An empty draft: nothing answered. */
+export const emptyDraft = () => cleanDraft({});
+
+/** Whether a draft holds any answer worth offering to pick up again. */
+export const draftStarted = (draft) => Boolean(draft?.sex);
+
+/**
+ * What's wrong with one lift's entry, or null: "kg" (missing or outside 1-600 kg), "reps" (not a whole number from
+ * 1), "too-many-reps" (past 10, where the estimate isn't reliable) or "estimate" (a set whose estimate is out of range).
+ */
+export function liftEntryProblem(entry) {
+  if (!inRange(entry?.kg, LIMITS.lift)) return "kg";
+  if (entry.mode !== "set") return null;
+  if (!Number.isInteger(entry.reps) || entry.reps < 1) return "reps";
+  if (entry.reps > MAX_SET_REPS) return "too-many-reps";
+  return inRange(estimateMax(entry.kg, entry.reps), LIMITS.lift) ? null : "estimate";
+}
+
+export const LIFT_ENTRY_TEXT = {
+  kg: "Enter a weight from 1 to 600 kg.",
+  reps: "Reps are a whole number, 1 or more.",
+  "too-many-reps": `Estimates get unreliable past ${MAX_SET_REPS} reps. Use a heavier set of ${MAX_SET_REPS} or fewer.`,
+  estimate: "That set gives a max over 600 kg. Check the weight.",
+};
+
+/** A lift's max from the draft: the weight, or the estimate from a set; null until it's valid. */
+export function draftMax(draft, lift) {
+  const entry = draft?.lifts?.[lift];
+  if (liftEntryProblem(entry)) return null;
+  return entry.mode === "set" ? estimateMax(entry.kg, entry.reps) : entry.kg;
+}
+
+/** Whether a lift in the draft is an estimate (a set of 2 or more reps). */
+export const draftEstimated = (draft, lift) => draft?.lifts?.[lift]?.mode === "set" && draft.lifts[lift].reps > 1;
+
+/** The answers each screen needs before it can show; a screen opened early goes to firstMissing instead. */
+const NEEDS = {
+  bodyweight: ["sex"],
+  competed: ["sex", "bodyweight"],
+  "max-known": ["sex", "bodyweight", "competed"],
+  squat: ["sex", "bodyweight", "competed", "mode"],
+  bench: ["sex", "bodyweight", "competed", "mode", "squat"],
+  deadlift: ["sex", "bodyweight", "competed", "mode", "squat", "bench"],
+  standing: ["sex", "bodyweight", "competed", ...LIFTS],
+  score: ["sex", "bodyweight", "competed", ...LIFTS],
+  target: ["sex", "bodyweight", "competed", ...LIFTS],
+  next: ["sex", "bodyweight", "competed", ...LIFTS],
+};
+const answered = (draft, need) => (LIFTS.includes(need) ? draftMax(draft, need) != null : draft?.[need] != null);
+
+/** Whether a screen can show with this draft's answers. */
+export function canShow(draft, screen) {
+  if (!FIRST_VISIT_SCREENS.includes(screen)) return false;
+  return (NEEDS[screen] ?? []).every((need) => answered(draft, need));
+}
+
+/** The first screen still waiting for an answer ("standing" once everything's in), for picking up a draft. */
+export function firstMissing(draft) {
+  const order = [["sex", "sex"], ["bodyweight", "bodyweight"], ["competed", "competed"], ["mode", "max-known"], ...LIFTS.map((l) => [l, l])];
+  return order.find(([need]) => !answered(draft, need))?.[1] ?? "standing";
+}
+
+/** The screen Back goes to from this one: the one before it, or quick setup's form for the results after it. */
+export function previousScreen(draft, screen) {
+  if (screen === "quick" || screen === "sex") return "welcome";
+  if (screen === "standing" && draft?.via === "quick") return "quick";
+  const i = FIRST_VISIT_STEPS.indexOf(screen);
+  return i > 0 ? FIRST_VISIT_STEPS[i - 1] : "welcome";
+}
+
+/** Your numbers from a finished draft, as a profile (DOTS, class from bodyweight); null until every answer is in. */
+export function draftProfile(draft) {
+  if (!canShow(draft, "standing")) return null;
+  return validProfile({ sex: draft.sex, bodyweight: draft.bodyweight, ...Object.fromEntries(LIFTS.map((l) => [l, draftMax(draft, l)])), weightClass: null, formula: "dots" });
+}
+
+/** The first record from a finished draft, dated `today`: all four values, with the sets behind any estimates. */
+export function draftRecord(draft, today, id) {
+  const profile = draftProfile(draft);
+  if (!profile) return null;
+  const sets = Object.fromEntries(LIFTS.filter((l) => draftEstimated(draft, l)).map((l) => [l, { kg: draft.lifts[l].kg, reps: draft.lifts[l].reps }]));
+  const record = testFrom(profile, today, id);
+  return Object.keys(sets).length ? { ...record, sets } : record;
 }
 
 /**
- * The totals that score the same DOTS as yours 10 kg lighter, at your bodyweight and 10 kg heavier, lightest first:
- * [{ bw, total, you }]. Yours is your own total; the others are rounded to whole kg. A bodyweight outside the
- * limits is left out.
+ * Who a first visit is compared with: the group for its sex, class and meet experience, falling back to first-meet
+ * lifters when the class has too few at that experience. { sex, wclass, experience, fellBack, rungs (DOTS), lifts
+ * ({ squat: rungs in kg }) }, or null when even first meet has no rungs.
  */
-export function sameScoreTotals(profile) {
-  const { sex, bodyweight } = profile;
-  const points = score("dots", { total: sumLifts(profile), bw: bodyweight, sex });
-  return [-10, 0, 10]
-    .map((step) => ({ step, bw: Math.round((bodyweight + step) * 10) / 10 }))
-    .filter(({ bw }) => inRange(bw, LIMITS.bodyweight))
-    .map(({ step, bw }) => ({
-      bw,
-      total: step === 0 ? sumLifts(profile) : Math.round(totalForScore("dots", { points, bw, sex })),
-      you: step === 0,
-    }));
+export function draftGroup(data, draft) {
+  if (!draft?.sex || draft.bodyweight == null) return null;
+  const wclass = weightClass(draft.sex, draft.bodyweight);
+  const want = COMPETED[draft.competed ?? "never"];
+  const experience = [want, EXPERIENCE[0]].find((exp) => rungsFor(data, "dots", draft.sex, wclass, exp)?.rungs.length);
+  if (!experience) return null;
+  const lifts = Object.fromEntries(LIFTS.map((l) => [l, liftRungsFor(data, l, draft.sex, wclass, experience)?.rungs ?? []]));
+  return { sex: draft.sex, wclass, experience, fellBack: experience !== want, rungs: rungsFor(data, "dots", draft.sex, wclass, experience).rungs, lifts };
 }
 
-/** "a" or "an" before a number, as it's said: "an 80 kg lifter", "an 11 kg", "a 110 kg lifter". */
-export function articleFor(number) {
-  return /^(8|1[18](\.|$))/.test(`${number}`) ? "an" : "a";
+/** "women, 63 kg, at their first meet", "men, over 120 kg, with 3 or more meets". */
+export function groupWords({ sex, wclass, experience }) {
+  const who = sex === "F" ? "women" : "men";
+  const cls = wclass.endsWith("+") ? `over ${wclass.slice(0, -1)} kg` : `${wclass} kg`;
+  return `${who}, ${cls}, ${experience === EXPERIENCE[2] ? "with 3 or more meets" : `at their ${experience}`}`;
 }
 
-/** Step 3's card: "A 60 kg lifter with 327 kg scores the same as you. So does an 80 kg lifter with 400 kg." */
-export function sameScoreWords(totals) {
-  const kg = (value) => `${Number(value.toFixed(1))}`;
-  const [first, second] = totals.filter((t) => !t.you).map((t) => `${articleFor(kg(t.bw))} ${kg(t.bw)} kg lifter with ${kg(t.total)} kg`);
-  if (!first) return "";
-  return [`${first[0].toUpperCase()}${first.slice(1)} scores the same as you.`, second && `So does ${second}.`].filter(Boolean).join(" ");
+/** The bodyweights a class covers, as at a meet: "57.1 to 63 kg", "up to 47 kg", "over 84 kg". */
+export function classRange(sex, wclass) {
+  if (wclass.endsWith("+")) return `over ${wclass.slice(0, -1)} kg`;
+  const limits = CLASSES[sex];
+  const below = limits[limits.indexOf(Number(wclass)) - 1];
+  return below ? `${below}.1 to ${wclass} kg` : `up to ${wclass} kg`;
 }
 
 /**
- * Where a first visit stands among first-meet powerlifters in its class: { wclass, passed (the highest rung's
- * percentile your DOTS reaches, 0 below them all), next ({ percentile, kg on your total }, null above them all) };
- * null when the group has no rungs.
+ * Where a value sits among rungs: { passed (the highest percentile reached, 0 below them all), next (the first rung
+ * above, or null at the top) }. Only five rungs are known, so it's always "at least" the one passed.
  */
-export function firstStanding(data, profile) {
-  const wclass = weightClass(profile.sex, profile.bodyweight);
-  const group = rungsFor(data, "dots", profile.sex, wclass, EXPERIENCE[0]);
-  if (!group?.rungs.length) return null;
-  const lifts = { total: sumLifts(profile), bw: profile.bodyweight, sex: profile.sex };
+export function placeOn(rungs, value) {
+  return { passed: rungs.findLast((r) => r.score <= value)?.percentile ?? 0, next: rungs.find((r) => r.score > value) ?? null };
+}
+
+const kgWords = (n) => `${Number(n.toFixed(1))} kg`;
+
+/**
+ * A lift's card once it's typed, in ladder words: below the first rung, the kilos that put it on the ladder;
+ * on it, where it would place at a meet and the next rung. { title, more }.
+ */
+export function liftPlaceWords(lift, max, group) {
+  const name = lift === "bench" ? "bench press" : lift;
+  const { passed, next } = placeOn(group.lifts[lift], max);
+  if (!passed && next) return { title: `+${kgWords(next.score - max)} puts your ${name} on the ladder`, more: `That's the first rung: ${kgWords(next.score)}, against ${groupWords(group)}.` };
+  const title = `At a meet, your ${name} would place ahead of at least ${passed} in 100`;
+  const who = groupWords(group);
+  return { title, more: `${who[0].toUpperCase()}${who.slice(1)}.${next ? ` Next rung: ${kgWords(next.score)}, ahead of ${next.percentile}.` : " That's the top rung."}` };
+}
+
+/**
+ * The 100 screen, for your total: { title, more, key, label, filled, outlined }. Below the first rung: the kilos
+ * onto the ladder and the first rung named, with its lifters outlined; on the ladder: where you'd place at a meet
+ * and the kilos to the next rung.
+ */
+export function standingWords(profile, group) {
+  const total = sumLifts(profile);
+  const lifts = { total, bw: profile.bodyweight, sex: profile.sex };
   const points = score("dots", lifts);
-  const next = nextRung(group.rungs, points);
+  const { passed, next } = placeOn(group.rungs, points);
+  const add = next ? Math.max(2.5, kgToNextRung("dots", lifts, next.score)) : 0;
+  if (!passed) {
+    return {
+      title: `+${kgWords(add)} on your total puts you on the ladder.`,
+      more: `That's the first rung: a ${kgWords(total + add)} total. The ${next.percentile} outlined dots are the lifters you'd pass.`,
+      key: ["The first rung"],
+      label: `100 dots, none filled; ${next.percentile} outlined, the first rung.`,
+      filled: 0,
+      outlined: next.percentile,
+    };
+  }
   return {
-    wclass,
-    passed: group.rungs.findLast((r) => r.score <= points)?.percentile ?? 0,
-    next: next && { percentile: next.percentile, kg: kgToNextRung("dots", lifts, next.score) },
+    title: `At a meet, you'd place ahead of at least ${passed} of these 100 lifters.`,
+    more: next ? `Next rung: +${kgWords(add)} on your total to pass ${next.percentile}.` : "That's the top rung.",
+    key: next ? ["You're ahead", "Your next rung"] : ["You're ahead"],
+    label: `100 dots, ${passed} filled${next ? `, up to ${next.percentile} outlined as your next rung` : ""}.`,
+    filled: passed,
+    outlined: next?.percentile ?? passed,
+  };
+}
+
+/** The score screen: the score, and two ways to raise it with your own numbers (the second left out at DOTS's lightest). */
+export function scoreWords(profile) {
+  const total = sumLifts(profile);
+  const { sex, bodyweight } = profile;
+  const now = score("dots", { total, bw: bodyweight, sex });
+  const lighter = Math.max(FORMULAS.dots.lightest(sex), bodyweight - 2);
+  const rows = [{ label: "Lift 5 kg more in total", points: score("dots", { total: total + 5, bw: bodyweight, sex }) }];
+  if (lighter < bodyweight) rows.push({ label: `Lift the same at ${kgWords(lighter)}`, points: score("dots", { total, bw: lighter, sex }) });
+  return {
+    points: now,
+    from: `From a ${kgWords(total)} total at ${kgWords(bodyweight)} bodyweight.`,
+    rows: rows.map((row) => ({ ...row, change: row.points - now })),
+    // The app's one estimate, always named by sex so nobody reads the other one's figure as theirs.
+    gymGoer: `For comparison, ${sex === "F" ? "a woman" : "a man"} who trains at the gym regularly scores about ${GYM_GOER_ESTIMATE[sex]}. That one's an estimate; everything else here comes from real meets.`,
   };
 }
 
 /**
- * Step 4's headline. Only five rungs are known, so between two it's "at least" the one reached: "You are stronger
- * than at least 25 in 100"; at the top, "You are stronger than 90 in 100"; below them all, "You are not yet
- * stronger than 10 in 100"... reframed as a first target: "Your first target: stronger than 10 in 100", with the
- * kilos to go.
+ * The target screen: { add (kg on your total, 0 past every rung), total (the total it makes), title, lifts }, where
+ * lifts are each lift's next rung ({ lift, kg, add, words }, or kg null at the top).
  */
-export function standingWords({ passed, next }) {
-  if (!passed) return { title: `Your first target: stronger than ${next.percentile} in 100`, more: `+${next.kg} kg on your total gets you there.` };
-  return { title: next ? `You are stronger than at least ${passed} in 100` : `You are stronger than ${passed} in 100`, more: null };
-}
-
-/** How another total compares with yours, for step 3's bars: "40.5 kg less", "32.5 kg more", "the same". */
-export function totalGapWords(other, yours) {
-  const gap = Math.round((other - yours) * 10) / 10;
-  return gap === 0 ? "the same" : `${Number(Math.abs(gap).toFixed(1))} kg ${gap < 0 ? "less" : "more"}`;
-}
-
-/**
- * Step 4's key to the dots: "Each dot stands for 1 in 100 female powerlifters at 76 kg. You are stronger than the
- * ones in yellow." Below every rung, the outlined dots are the first target instead.
- */
-export function dotKeyWords(sex, wclass, passed) {
-  const who = `${sex === "M" ? "male" : "female"} powerlifters at ${wclass} kg`;
-  return `Each dot stands for 1 in 100 ${who}. ${passed ? "You are stronger than the ones in yellow." : "The outlined ones are your first target."}`;
-}
-
-/**
- * Step 4's reference point below every rung, kept apart from the ladder: the app's one estimate (a regular
- * gym-goer's DOTS), always labelled. "For scale, not part of this ladder: you're above a regular gym-goer, who
- * scores about 200 DOTS (estimate)." Written out here, as the estimate is defined below.
- */
-export function gymGoerWords(sex, points) {
-  const estimate = GYM_GOER_ESTIMATE[sex];
-  return points >= estimate
-    ? `For scale, not part of this ladder: you're above a regular gym-goer, who scores about ${estimate} DOTS (estimate).`
-    : `For scale, not part of this ladder: a regular gym-goer scores about ${estimate} DOTS (estimate).`;
-}
-
-/** Who step 4 compares you with: "UK powerlifters at their first meet, men at 74 kg." */
-export function firstGroupWords(sex, wclass) {
-  return `UK powerlifters at their first meet, ${sex === "M" ? "men" : "women"} at ${wclass} kg.`;
+export function targetWords(profile, group) {
+  const total = sumLifts(profile);
+  const lifts = { total, bw: profile.bodyweight, sex: profile.sex };
+  const { passed, next } = placeOn(group.rungs, score("dots", lifts));
+  const add = next ? Math.max(2.5, kgToNextRung("dots", lifts, next.score)) : 0;
+  const perLift = LIFTS.map((lift) => {
+    const place = placeOn(group.lifts[lift], profile[lift]);
+    if (!place.next) return { lift, kg: null, add: 0, words: "Top rung" };
+    return { lift, kg: place.next.score, add: place.next.score - profile[lift], words: place.passed ? `ahead of ${place.next.percentile} in 100` : "first rung" };
+  });
+  const title = !next ? "You're past every rung" : passed ? `on your total puts you ahead of ${next.percentile} in 100.` : "on your total puts you on the ladder.";
+  return { add, total: total + add, title, onLadder: Boolean(passed), lifts: perLift };
 }
 
 // --- Reference marker: an estimate, not data ---------------------------------------

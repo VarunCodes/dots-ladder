@@ -402,94 +402,103 @@ a:hover { color: var(--accent-hover); }
 
 /* --- First visit ------------------------------------------------------------------ */
 
-/* Four steps, one idea each: the actions sit at the bottom of the screen, within thumb reach. */
+/* One question per screen, built for a 375 × 667 phone first: each question fits without scrolling, and the main
+   button is pinned in thumb reach, above the safe area and above the keyboard (--kb, set from visualViewport). */
 .onboard {
-  display: flex; flex-direction: column; gap: 20px;
-  min-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - 16px);
+  display: flex; flex-direction: column;
+  min-height: calc(100svh - max(16px, env(safe-area-inset-top)));
 }
-.onboard-progress { display: flex; flex-direction: column; gap: 10px; }
-.onboard-progress p { margin: 0; }
-.onboard-bar { display: flex; gap: 6px; }
-.onboard-bar span { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background-color var(--duration-quick) var(--ease-smooth-out); }
-.onboard-bar span.done { background: var(--accent); }
-.onboard-step { display: flex; flex-direction: column; gap: 18px; }
-.onboard-step[hidden] { display: none; }
-.onboard-step.enter { animation: rise-in var(--duration-fast) var(--ease-smooth-out); }
-.onboard-step h2 { margin: 0; font-size: 2.5rem; font-weight: 700; line-height: 1.02; letter-spacing: 0; }
-.onboard-step h2:focus { outline: none; }
-.onboard-lede { margin: 0; color: var(--text-2); line-height: 1.45; }
-.onboard-lede:empty { display: none; }
-.onboard-label { margin: 0; font-size: 0.8125rem; color: var(--muted); }
-.onboard .segmented { margin: 0; flex-wrap: wrap; }
-.onboard .segmented legend { width: 100%; margin-bottom: 8px; padding: 0; }
-.onboard .segmented label { min-height: 52px; }
-/* Each value sits in a row (label left, box right), with its unit inside the box. */
-.onboard-rows { display: flex; flex-direction: column; gap: 10px; }
-.onboard-rows label { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); color: var(--text); }
-.onboard-unit {
-  flex: 0 0 9rem; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 8px;
-  border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--muted);
-  transition: border-color var(--duration-quick) var(--ease-smooth-out);
-}
-.onboard-unit:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
-.onboard-unit.flagged { border-color: var(--error); }
-.onboard-unit input {
-  flex: 1; min-width: 0; width: 100%; padding: 0; border: 0; background: transparent; color: var(--text);
-  font: 700 1.5rem var(--display); font-variant-numeric: tabular-nums; text-align: right;
-}
-.onboard-unit input:focus { outline: none; }
-.onboard-unit input::placeholder { color: var(--muted); opacity: 0.5; }
-.onboard-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; color: var(--text-2); }
-.onboard-total strong { font: 700 2.25rem var(--display); color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.onboard-private { margin: auto 0 0; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); color: var(--text-2); line-height: 1.45; }
-.onboard-private strong { color: var(--text); font-weight: 600; }
-.onboard-private[hidden] { display: none; }
-.onboard-private[hidden] + .onboard-actions { margin-top: auto; }
-.onboard-back { min-height: 52px; padding: 0 20px; }
-.onboard-back[hidden] { display: none; }
+.fv-top { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 10px; min-height: 48px; background: var(--bg); }
+.fv-back { width: 44px; height: 44px; margin-left: -10px; border: 0; border-radius: 12px; background: none; color: var(--text-2); font: inherit; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.fv-bar { display: flex; gap: 3px; }
+.fv-bar span { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background-color var(--duration-quick) var(--ease-smooth-out); }
+.fv-bar span.done { background: var(--accent); }
+.fv-screen { flex: 1; display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
+.fv-screen.enter { animation: rise-in var(--duration-fast) var(--ease-smooth-out); }
+/* Sentence case: a whole question in capitals reads as shouting. */
+.fv-screen h2 { margin: 0; font-size: 2rem; font-weight: 700; line-height: 1.05; letter-spacing: 0; text-transform: none; text-wrap: balance; }
+.fv-screen h2:focus { outline: none; }
+.fv-screen p { margin: 0; }
+.fv-lede { color: var(--text-2); line-height: 1.4; }
+.fv-group { font-size: 0.8125rem; color: var(--muted); }
+.fv-group strong { color: var(--text-2); font-weight: 600; }
+.fv-what { font-size: 0.875rem; line-height: 1.4; color: var(--muted); }
+.fv-what strong { display: block; color: var(--text-2); font-weight: 500; }
+.fv-subhead { font-weight: 600; }
 
-/* Step 3: your score, then the totals that score the same at 10 kg either side. */
-.reveal-score { display: flex; flex-direction: column; gap: 2px; }
-.reveal-score h2.onboard-label { font: 400 0.8125rem var(--body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.reveal-number { display: flex; align-items: baseline; gap: 10px; margin: 0; }
-.reveal-number strong { font: 700 6rem/0.9 var(--display); color: var(--accent); font-variant-numeric: tabular-nums; }
-.reveal-number span { font: 600 1.375rem var(--display); letter-spacing: 0.04em; color: var(--text); }
-.reveal-score .muted { margin: 0; }
-.reveal-chart { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 14px 14px 12px; border-radius: 14px; background: var(--surface); }
-.reveal-bars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; align-items: end; }
-.reveal-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 176px; }
-.reveal-kg { margin-bottom: 4px; font: 600 1.125rem var(--display); color: var(--text-2); font-variant-numeric: tabular-nums; }
-.reveal-bar { width: 100%; border-radius: 10px; background: color-mix(in srgb, var(--muted) 30%, var(--surface)); transform-origin: bottom; }
-.reveal-bars.grow .reveal-bar { animation: bar-grow 340ms var(--ease-smooth-out) backwards; animation-delay: calc(var(--order) * 80ms); }
-@keyframes bar-grow { from { transform: scaleY(0); } }
-.reveal-col.you .reveal-kg { font-weight: 700; font-size: 1.25rem; color: var(--accent); }
-.reveal-col.you .reveal-bar { background: var(--accent); }
-.reveal-bar { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 8px; padding: 8px 4px 10px; box-sizing: border-box; overflow: hidden; }
-.reveal-gap { font-size: 0.75rem; line-height: 1.2; text-align: center; color: var(--text); }
-.reveal-figure { width: auto; fill: var(--text-2); opacity: 0.55; }
-.reveal-col.you .reveal-figure { fill: var(--on-accent); opacity: 0.75; }
-.reveal-who { padding: 6px 0 2px; font-size: 0.75rem; color: var(--muted); }
-.reveal-col.you .reveal-who { font-weight: 600; color: var(--text); }
-.reveal-card { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--accent); border-radius: 14px; }
-.reveal-card p { margin: 0; line-height: 1.45; }
-.reveal-card .onboard-label { font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; }
-#reveal-same { color: var(--text); }
+/* Choices: tap to answer and move on */
+.fv-choices { display: flex; flex-direction: column; gap: 10px; }
+.fv-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 1.125rem; font-weight: 600; text-align: left; cursor: pointer; touch-action: manipulation; }
+.fv-choice span { font-size: 0.875rem; font-weight: 400; color: var(--muted); }
+.fv-choice[aria-pressed="true"] { border-color: var(--accent); }
+.fv-choice[aria-pressed="true"]::after { content: "Your answer"; font-size: 0.75rem; font-weight: 500; color: var(--accent); }
+@media (hover: hover) { .fv-choice:hover { border-color: var(--text-2); } }
 
-/* Step 4: who you're compared with, then 100 dots with the share you're stronger than filled in. */
-.standing-who { display: flex; flex-direction: column; gap: 6px; }
-.standing-who .onboard-label { letter-spacing: 0.14em; text-transform: uppercase; }
-#standing-who { margin: 0; color: var(--text-2); line-height: 1.4; }
-.standing-dots { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; }
-.standing-dots[hidden] { display: none; }
-.standing-dots span { aspect-ratio: 1; border-radius: 50%; background: var(--border); }
-.standing-dots span.on { background: var(--accent); }
-.standing-dots span.target { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
-.standing-dots.fill :is(span.on, span.target) { animation: dot-in var(--duration-quick) var(--ease-smooth-out) backwards; animation-delay: calc(var(--i) * 4ms); }
+/* Number entry: 16px or more, so iOS never zooms in */
+.fv-fields { display: flex; gap: 10px; align-items: flex-end; }
+.fv-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.875rem; color: var(--muted); }
+.fv-field.fv-reps { flex: 0 0 34%; }
+.fv-unit { display: flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.fv-unit:focus-within { border-color: var(--text-2); }
+.fv-unit input { width: 100%; min-width: 0; padding: 10px 0; border: 0; background: none; color: var(--text); font: 600 1.875rem var(--display); font-variant-numeric: tabular-nums; outline: none; }
+.fv-unit input::placeholder { color: var(--border); }
+.fv-unit span { color: var(--muted); font-size: 1rem; }
+.fv-times { padding-bottom: 16px; color: var(--muted); font-size: 1.25rem; }
+.fv-problem { color: var(--error); }
+.fv-problem:empty { display: none; }
+.fv-link { align-self: flex-start; }
+
+/* What a value gives back, once it's in */
+.fv-out:empty { display: none; }
+.fv-reward { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 14px; background: var(--surface); animation: rise-in var(--duration-fast) var(--ease-smooth-out); }
+.fv-big { font: 700 1.375rem/1.15 var(--display); }
+.fv-est { font-size: 0.875rem; color: var(--muted); }
+
+/* Big numbers */
+.fv-number { font: 700 4.25rem/0.95 var(--display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.fv-number small { margin-left: 6px; font-size: 1.375rem; color: var(--muted); }
+.fv-statement { font: 700 1.625rem/1.1 var(--display); text-wrap: balance; }
+.fv-screen h2.fv-statement { font-size: 1.625rem; }
+
+/* The 100: a compact crowd, 20 across and 5 deep */
+.fv-crowd { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 4px; max-width: 360px; }
+.fv-crowd span { aspect-ratio: 1; border-radius: 50%; border: 1.5px solid var(--border); }
+.fv-crowd span.on { background: var(--accent); border-color: var(--accent); }
+.fv-crowd span.target { border-color: var(--accent); border-style: dashed; }
+.fv-crowd.fill span.on { animation: dot-in var(--duration-quick) var(--ease-smooth-out) backwards; animation-delay: calc(var(--i) * 8ms); }
 @keyframes dot-in { from { opacity: 0; scale: 0.4; } }
-#standing-key { margin: 0; line-height: 1.45; }
-/* The gym-goer estimate sits apart from the dots, dashed and italic like its row on the Ladder: not a rung. */
-.standing-scale { margin: 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 12px; font-style: italic; color: var(--muted); line-height: 1.45; }
-.standing-scale[hidden] { display: none; }
+.fv-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.8125rem; color: var(--muted); }
+.fv-key span::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; }
+.fv-key .k-on::before { background: var(--accent); }
+.fv-key .k-target::before { border: 1.5px dashed var(--accent); }
+
+.fv-sum { display: flex; flex-direction: column; margin: 0; padding: 2px 14px; border-radius: 14px; background: var(--surface); }
+.fv-sum div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--divider); }
+.fv-sum div:last-child { border-bottom: 0; }
+.fv-sum dt { color: var(--text-2); }
+.fv-sum dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.fv-sum dd span { display: block; font-size: 0.8125rem; font-weight: 400; color: var(--muted); }
+/* The labelled estimate and other asides: dashed and italic, like the gym-goer row on the Ladder, never a rung. */
+.fv-note { padding: 10px 12px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 0.875rem; font-style: italic; line-height: 1.4; }
+.fv-credit { font-size: 0.75rem; color: var(--muted); }
+.fv-credit a { color: var(--muted); }
+.fv-resume { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--accent); border-radius: 14px; }
+.fv-resume-row { display: flex; gap: 8px; }
+.fv-resume-row > * { flex: 1; min-height: 48px; }
+
+/* Quick setup: everything on one form */
+.fv-quick { display: flex; flex-direction: column; gap: 12px; }
+.fv-quick .fv-unit input { padding: 8px 0; font-size: 1.375rem; }
+.fv-quick-lifts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.fv-chip { min-height: 44px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); color: var(--text); font: inherit; font-size: 0.9375rem; cursor: pointer; }
+.fv-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+/* The pinned footer */
+.fv-actions { position: sticky; bottom: var(--kb, 0px); z-index: 1; display: flex; flex-direction: column; gap: 4px; margin-top: auto; padding-top: 16px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(to bottom, transparent, var(--bg) 14px); }
+.fv-actions .link-button { align-self: center; }
+.fv-private { text-align: center; font-size: 0.8125rem; color: var(--muted); }
+@media (max-height: 620px) { .fv-screen h2 { font-size: 1.75rem; } .fv-number { font-size: 3.5rem; } }
 
 .segmented { display: flex; gap: 6px; margin: 14px 0 0; padding: 0; border: 0; }
 .segmented label {
@@ -509,10 +518,7 @@ a:hover { color: var(--accent-hover); }
 .segmented label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sex-icon { width: 18px; height: 18px; flex: none; }
 
-#onboard-note { margin: 0; color: var(--error); }
-#onboard-note:empty { display: none; }
 
-.onboard-actions { display: flex; gap: 8px; }
 .primary {
   flex: 1;
   min-height: 52px;
@@ -950,7 +956,6 @@ a:hover { color: var(--accent-hover); }
 .data-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .data-note { color: var(--error); }
 .data-note:empty { display: none; }
-.onboard-restore { align-self: center; }
 
 /* Hold to clear: fills with red from the left while held (--hold, 0 to 1, set by yourdata.js); letting go empties
    it. A long press selects no text and opens no menu. */
@@ -1188,8 +1193,8 @@ td.plan-third { font-weight: 700; }
   .event::details-content { transition: none; }
   .chart-pulse, .chart-arrive { display: none; }
   @keyframes rise-in { from { opacity: 0; } }
-  .reveal-bars.grow .reveal-bar, .standing-dots.fill :is(span.on, span.target) { animation: none; }
-  .onboard-bar span { transition: none; }
+  .fv-crowd.fill span.on { animation: none; }
+  .fv-bar span { transition: none; }
   @keyframes swap-in { from { opacity: 0; } }
   @keyframes draw-check { from { stroke-dashoffset: 0; } }
   @keyframes drop-in { from { opacity: 0; } }

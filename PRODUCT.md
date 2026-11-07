@@ -39,7 +39,8 @@ The rungs are measured, not guessed. They come from OpenPowerlifting results for
 - Screens: Ladder, Log test, Progress, Meet (unlocked by adding an event).
 - Scores: DOTS or IPF GL, switchable everywhere; the rungs are computed separately for each.
 - Rungs are aggregates only: n ≥ 20 lifters (P10/P90 need n ≥ 50). No individual lifters' rows, no under-18s, no doping-flagged results.
-- Exactly one labelled estimate is allowed: the gym-goer marker (DOTS only). There are no other estimates or hypothetical numbers.
+- Benchmarks are measured only, plus exactly one labelled estimate: the gym-goer marker (DOTS only). No other benchmark is estimated or hypothetical.
+- The lifter's own lifts may be estimated from a set they did (Epley, 2 to 10 reps, rounded down to 2.5 kg), for someone who has never tested a max. It's always labelled "est." with the set it came from, and the record keeps the set.
 - Plain HTML, CSS and JS with no build step and no CDN, hosted on GitHub Pages. The repository is public, so no personal data goes in.
 - Terms used in code and docs: "rung" (a percentile benchmark), "P10" to "P90", "score" (DOTS or GL), "typical" (the median of the lifter's group), "experience" (meet count group). On screen they're not fixed: use whatever words a lifter understands.
 
@@ -67,12 +68,13 @@ Each line states a fact from the lifter's numbers or the rungs, or what to do ne
 
 - `data/rungs.json`: rungs, per-lift rungs and typical lift splits from the OpenPowerlifting bulk download (public domain).
 - `docs/population-estimates.md`: the method behind the single gym-goer estimate.
-- One user test (1 Nov 2026, a gym-app developer who isn't a powerlifter): DOTS, GL and "P10" weren't understood; percentiles were read as the general population rather than UK powerlifters at meets; meet features went unused; repeat use is in doubt.
+- User test 1 (1 Nov 2026, a gym-app developer who isn't a powerlifter): DOTS, GL and "P10" weren't understood; percentiles were read as the general population rather than UK powerlifters at meets; meet features went unused; repeat use is in doubt.
+- User test 2 (7 Nov 2026, a casual gym-goer, no guidance): DOTS and percentiles confusing; unclear what the starting point and the next step are; Progress meant nothing on a first visit. A prototype of a one-question-per-screen first visit (#57) followed: "bench" needed to be "bench press", and "stronger than 10 of them" read oddly.
 - No testimonials, user numbers or endorsements exist. Don't invent any.
 
 ## Product Principles
 
-1. **Real data, honestly labelled.** Every number traces back to OpenPowerlifting or to the lifter's own entries; the one estimate says it's an estimate.
+1. **Real data, honestly labelled.** Every number traces back to OpenPowerlifting or to the lifter's own entries; every estimate (the gym-goer marker, a lift from a set) says it's an estimate.
 2. **Explain before you rank.** Someone who has never competed should understand what a benchmark means and who it represents before seeing where they sit. Plain words beat precise jargon.
 3. **Point to the next step, factually.** Show what the next rung takes and what it would do for the score; leave how to train for it to the lifter.
 4. **Private by default.** The lifter's numbers never leave their device.

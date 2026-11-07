@@ -2,8 +2,9 @@
 // through derive.js and change it only with update(); every change is checked, saved and announced to
 // subscribers, so no screen keeps its own copy or redraws another by hand.
 //
-// State = { version, settings, entries, events, view, session }. All but `session` is saved, under one key;
-// `session` (today, the rung data, the Ladder's experience tab) lives only while the page is open.
+// State = { version, settings, entries, events, view, draft, session }. All but `session` is saved, under one key;
+// `session` (today, the rung data, the Ladder's experience tab) lives only while the page is open. `draft` holds a
+// first visit's answers until its first record is saved, so a half-finished visit picks up where it stopped.
 import * as L from "./ladder.js";
 
 export const DATA_KEY = "dots-ladder:data";
@@ -16,11 +17,11 @@ export const V1_KEYS = {
   events: "dots-ladder:events",
   view: "dots-ladder:progress-view",
 };
-const SAVED = ["settings", "entries", "events", "view"];
+const SAVED = ["settings", "entries", "events", "view", "draft"];
 
-/** Nothing saved yet: default settings and view, no entries or events. */
+/** Nothing saved yet: default settings and view, no entries, events or first-visit draft. */
 export function emptyData() {
-  return { settings: L.settingsOf(null), entries: [], events: [], view: L.cleanView(null) };
+  return { settings: L.settingsOf(null), entries: [], events: [], view: L.cleanView(null), draft: null };
 }
 
 const readJson = (storage, key) => {
@@ -39,6 +40,7 @@ function readV2(raw) {
     entries: L.cleanTests(raw.entries) ?? [],
     events: L.cleanEvents(raw.events) ?? [],
     view: L.cleanView(raw.view),
+    draft: L.cleanDraft(raw.draft),
   };
 }
 
@@ -55,6 +57,7 @@ export function migrateV1(storage, today) {
     entries,
     events: L.cleanEvents(readJson(storage, V1_KEYS.events)) ?? [],
     view: L.cleanView(readJson(storage, V1_KEYS.view)),
+    draft: null,
   };
 }
 
@@ -91,7 +94,8 @@ export function writeSaved(storage, data) {
 }
 
 // --- Backups: everything saved, as one file you keep ------------------------------------
-// { app: "dots-ladder", version, exported: "YYYY-MM-DD", settings, entries, events, view }. A backup is only ever
+// { app: "dots-ladder", version, exported: "YYYY-MM-DD", settings, entries, events, view } (a half-finished first
+// visit's draft isn't part of it). A backup is only ever
 // restored whole, and only when every record and event in it is still valid: an edited or damaged file is refused
 // rather than half restored. Version 2 is the first with backups, so it's the only one read for now; a later
 // version reads older backups by migrating them, like readSaved.
@@ -127,7 +131,7 @@ export function readBackup(text, today) {
   if (!entries || !events || entries.length !== raw.entries.length || events.length !== raw.events.length) return { problem: damaged };
   if (!entries.length) return { problem: "This backup has no records to restore." };
   const exported = L.isDay(raw.exported) && raw.exported <= today ? raw.exported : today;
-  const data = { settings: L.settingsOf({ ...raw.settings, lastBackup: exported }), entries, events, view: L.cleanView(raw.view) };
+  const data = { settings: L.settingsOf({ ...raw.settings, lastBackup: exported }), entries, events, view: L.cleanView(raw.view), draft: null };
   if (!canSave(data)) return { problem: damaged };
   return { data, summary: { exported, records: entries.length, events: events.length, latest: entries.at(-1).date } };
 }
@@ -176,6 +180,7 @@ export function update(change) {
   if (parts.entries) next.entries = L.sortTests(parts.entries); // saved oldest first, same-day in save order
   if (parts.settings) next.settings = L.settingsOf(parts.settings);
   if (parts.view) next.view = L.cleanView(parts.view);
+  if ("draft" in parts) next.draft = L.cleanDraft(parts.draft);
   if (!canSave(next)) return { ok: false, saved: false };
   const saved = SAVED.some((key) => key in parts) ? writeSaved(storage, next) : true;
   state = next;
@@ -201,7 +206,7 @@ export function clearNumbers() {
       // Nothing to clear.
     }
   }
-  state = { ...state, settings: L.settingsOf(null), entries: [] };
+  state = { ...state, settings: L.settingsOf(null), entries: [], draft: null };
   writeSaved(storage, state);
   for (const listener of listeners) listener(state);
 }

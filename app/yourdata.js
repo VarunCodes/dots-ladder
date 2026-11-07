@@ -1,6 +1,7 @@
 // Your data (on Progress): back up everything to a file, restore one, and clear your numbers by holding a button.
-// Nothing leaves the phone unless you move the file yourself. The first visit has a "Restore from a backup" link
-// too, so a new phone can start from a backup. The store reads and checks the file; this is the page wiring.
+// Nothing leaves the phone unless you move the file yourself. The first visit's welcome screen has a "Restore from
+// a backup" link too (onboarding.js calls chooseBackup), so a new phone can start from a backup. The store reads
+// and checks the file; this is the page wiring.
 import * as L from "./ladder.js";
 import * as store from "./store.js";
 import { derived } from "./derive.js";
@@ -80,7 +81,7 @@ async function backUp() {
 let noteFor = null; // where a problem with the chosen file is shown: Your data's note, or the first visit's
 
 /** Opens the file picker; the chosen file is read, checked and confirmed before anything changes. */
-function chooseBackup(note) {
+export function chooseBackup(note) {
   noteFor = note;
   note.textContent = "";
   $("data-file").value = "";
@@ -155,7 +156,6 @@ function setupHoldToClear() {
 export function setupYourData() {
   $("data-export").addEventListener("click", backUp);
   $("data-import").addEventListener("click", () => chooseBackup($("data-note")));
-  $("onboard-restore").addEventListener("click", () => chooseBackup($("onboard-note")));
   $("data-file").addEventListener("change", () => restore($("data-file").files[0]));
   setupHoldToClear();
   askToKeep();
