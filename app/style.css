@@ -481,6 +481,10 @@ a:hover { color: var(--accent-hover); }
 /* The labelled estimate and other asides: dashed and italic, like the gym-goer row on the Ladder, never a rung. */
 .fv-note { padding: 10px 12px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 0.875rem; font-style: italic; line-height: 1.4; }
 .fv-credit { font-size: 0.75rem; color: var(--muted); }
+/* What's inside the app, on the last screen: a short list, each a feature and what it does for you. */
+.fv-points { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.fv-points li { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--surface); color: var(--text-2); font-size: 0.9375rem; line-height: 1.4; }
+.fv-points strong { color: var(--text); font-weight: 600; }
 .fv-credit a { color: var(--muted); }
 .fv-resume { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--accent); border-radius: 14px; }
 .fv-resume-row { display: flex; gap: 8px; }

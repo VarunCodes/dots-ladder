@@ -315,10 +315,22 @@ const SCREENS = {
   },
 
   next() {
+    // What's waiting inside, each a real feature: Lift balance on the Ladder, the Progress chart, Log test.
+    const points = el("ul", "fv-points");
+    for (const [title, text] of [
+      ["Where to improve", "Your biggest opportunity among the three lifts, and the kilos to its next rung."],
+      ["Your climb", "Every test on one chart (score, lifts or bodyweight), with each rung you pass marked."],
+      ["Quick logging", "A new squat PR or a full test in seconds, with the rungs it climbs shown before you save."],
+    ]) {
+      const li = el("li");
+      li.append(el("strong", "", title), text);
+      points.append(li);
+    }
     return [
       heading("When you beat it, log it here"),
-      el("p", "fv-lede", "Each time you log a new best, you'll see your score climb the ladder and your next target move up."),
-      el("p", "fv-lede", "Your numbers stay on this phone. Back them up any time from Progress."),
+      el("p", "fv-lede", "Your ladder is ready. Inside:"),
+      points,
+      el("p", "small muted", "Your numbers stay on this phone. Back them up any time from Progress."),
       actions("Show my ladder", finish).box,
     ];
   },
