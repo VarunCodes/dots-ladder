@@ -230,3 +230,56 @@ test("pop-ups are the app's own, never the browser's", () => {
     assert.doesNotMatch(source(file), /\b(?:window\.)?(?:confirm|alert|prompt)\(/, `${file} opens a browser pop-up`);
   }
 });
+
+// --- Backups: export and restore --------------------------------------------------------
+
+const backupData = { settings: { ...settings, lastBackup: "2026-10-01" }, entries: [first, squatPr], events: [event], view };
+
+test("a backup holds everything saved, with its date, and not your last backup's day", () => {
+  const { name, text } = store.backupFile(backupData, today);
+  assert.equal(name, "dots-ladder-backup-2026-10-30.json");
+  const raw = JSON.parse(text);
+  assert.deepEqual(raw, { app: "dots-ladder", version: store.VERSION, exported: today, settings, entries: [first, squatPr], events: [event], view });
+});
+
+test("restoring a backup gives the same data, backed up on the file's date", () => {
+  const { data, summary, problem } = store.readBackup(store.backupFile(backupData, "2026-10-20").text, today);
+  assert.equal(problem, undefined);
+  assert.deepEqual(data, { ...backupData, settings: { ...settings, lastBackup: "2026-10-20" } });
+  assert.deepEqual(summary, { exported: "2026-10-20", records: 2, events: 1, latest: "2026-10-01" });
+  // Restored through the store, it's saved and shows as your numbers.
+  const storage = fakeStorage();
+  store.start({ today }, storage);
+  assert.deepEqual(store.update(() => data), { ok: true, saved: true });
+  assert.deepEqual(store.readSaved(storage, today).data, data);
+});
+
+test("a backup dated in the future counts as backed up today", () => {
+  const { text } = store.backupFile(backupData, "2027-01-01");
+  assert.equal(store.readBackup(text, today).summary.exported, today);
+});
+
+test("a file that isn't a whole, valid backup is refused with a reason", () => {
+  const good = JSON.parse(store.backupFile(backupData, today).text);
+  const problem = (value) => store.readBackup(typeof value === "string" ? value : JSON.stringify(value), today).problem;
+  assert.match(problem("not json"), /isn't a DOTS Ladder backup/);
+  assert.match(problem({ ...good, app: "other" }), /isn't a DOTS Ladder backup/);
+  assert.match(problem([good]), /isn't a DOTS Ladder backup/);
+  assert.match(problem({ ...good, version: store.VERSION + 1 }), /newer version/);
+  assert.match(problem({ ...good, version: 1 }), /can't be restored/);
+  assert.match(problem({ ...good, entries: [first, { ...squatPr, squat: -5 }] }), /changed or damaged/, "one bad record");
+  assert.match(problem({ ...good, entries: [squatPr] }), /changed or damaged/, "the first record isn't complete");
+  assert.match(problem({ ...good, events: [{ ...event, month: "soon" }] }), /changed or damaged/, "a bad event");
+  assert.match(problem({ ...good, entries: "lots" }), /changed or damaged/);
+  assert.match(problem({ ...good, entries: [] }), /no records/);
+  assert.match(store.readBackup("x".repeat(5_000_001), today).problem, /too big/);
+});
+
+test("a restore that's refused changes nothing", () => {
+  const storage = fakeStorage();
+  store.start({ today }, storage);
+  store.update(() => ({ entries: [first] }));
+  const before = store.getState();
+  assert.equal(store.update(() => ({ ...backupData, entries: [squatPr] })).ok, false);
+  assert.equal(store.getState(), before);
+});

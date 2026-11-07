@@ -656,7 +656,6 @@ a:hover { color: var(--accent-hover); }
 #save-test { flex: none; margin-top: 8px; }
 #save-test:disabled { background: var(--surface); color: var(--muted); }
 .save-hint { text-align: center; }
-#clear-numbers { display: block; margin: 24px auto 0; }
 
 /* --- Panels: the 1RMs list (Log test) and Upcoming (Meet) ------------------------------ */
 
@@ -941,6 +940,37 @@ a:hover { color: var(--accent-hover); }
 .numbers-best { display: block; font-family: var(--body); font-size: 0.75rem; font-weight: 400; color: var(--muted); }
 .numbers-note { color: var(--text-2); }
 .numbers-note:empty { display: none; }
+
+/* Your data: backup, restore and hold to clear. */
+.your-data { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.your-data h2 { font-size: 1.5rem; font-weight: 700; }
+.your-data p { margin: 0; }
+.data-backup { color: var(--text-2); }
+.data-backup.due { color: var(--text); font-weight: 600; }
+.data-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.data-note { color: var(--error); }
+.data-note:empty { display: none; }
+.onboard-restore { align-self: center; }
+
+/* Hold to clear: fills with red from the left while held (--hold, 0 to 1, set by yourdata.js); letting go empties
+   it. A long press selects no text and opens no menu. */
+.hold-button {
+  --hold: 0;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--error) 60%, var(--border));
+  border-radius: 12px;
+  background: linear-gradient(to right, color-mix(in srgb, var(--error) 40%, transparent) calc(var(--hold) * 100%), transparent 0) var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.hold-button.holding { border-color: var(--error); }
 
 .test-head { display: flex; flex-direction: column; gap: 2px; }
 /* A record that beat your previous best on a lift. Chalk, like the chosen tabs: the accent stays for your next action. */

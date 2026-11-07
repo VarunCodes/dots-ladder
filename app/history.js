@@ -27,7 +27,7 @@ const TEST_TEXT = {
   ...Object.fromEntries(L.LIFTS.map((lift) => [lift, `${LIFT_NAMES[lift]} must be ${L.LIMITS.lift.join("–")} kg.`])),
 };
 const DELETE_TEXT = {
-  only: "Your only record. To start over, use “Clear my numbers” on Log test.",
+  only: "Your only record. To start over, hold “Clear my numbers” under Your data on Progress.",
   earliest: "Your first record must hold bodyweight and all three lifts, and the next one doesn't.",
 };
 

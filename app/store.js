@@ -90,6 +90,48 @@ export function writeSaved(storage, data) {
   }
 }
 
+// --- Backups: everything saved, as one file you keep ------------------------------------
+// { app: "dots-ladder", version, exported: "YYYY-MM-DD", settings, entries, events, view }. A backup is only ever
+// restored whole, and only when every record and event in it is still valid: an edited or damaged file is refused
+// rather than half restored. Version 2 is the first with backups, so it's the only one read for now; a later
+// version reads older backups by migrating them, like readSaved.
+
+export const BACKUP_APP = "dots-ladder";
+const BACKUP_MAX_BYTES = 5_000_000;
+
+/** The backup file for the saved data: { name, text }. Your last backup's date isn't part of it. */
+export function backupFile(data, today) {
+  const { lastBackup, ...settings } = data.settings;
+  const backup = { app: BACKUP_APP, version: VERSION, exported: today, settings, entries: data.entries, events: data.events, view: data.view };
+  return { name: `dots-ladder-backup-${today}.json`, text: `${JSON.stringify(backup, null, 2)}\n` };
+}
+
+/**
+ * A backup file's text as data to restore: { data, summary: { exported, records, events, latest } }, or
+ * { problem } with a sentence saying why it can't be. Restored data counts as backed up on the file's date.
+ */
+export function readBackup(text, today) {
+  if (typeof text !== "string" || text.length > BACKUP_MAX_BYTES) return { problem: "This file is too big to be a DOTS Ladder backup." };
+  let raw;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    raw = null;
+  }
+  if (raw?.app !== BACKUP_APP || !Number.isInteger(raw.version)) return { problem: "This file isn't a DOTS Ladder backup." };
+  if (raw.version > VERSION) return { problem: "This backup is from a newer version of DOTS Ladder. Reload the app to update it, then try again." };
+  if (raw.version !== VERSION) return { problem: "This backup is from a version of DOTS Ladder that can't be restored." };
+  const entries = L.cleanTests(raw.entries);
+  const events = L.cleanEvents(raw.events);
+  const damaged = "This backup has been changed or damaged, so it can't be restored. Your numbers haven't changed.";
+  if (!entries || !events || entries.length !== raw.entries.length || events.length !== raw.events.length) return { problem: damaged };
+  if (!entries.length) return { problem: "This backup has no records to restore." };
+  const exported = L.isDay(raw.exported) && raw.exported <= today ? raw.exported : today;
+  const data = { settings: L.settingsOf({ ...raw.settings, lastBackup: exported }), entries, events, view: L.cleanView(raw.view) };
+  if (!canSave(data)) return { problem: damaged };
+  return { data, summary: { exported, records: entries.length, events: events.length, latest: entries.at(-1).date } };
+}
+
 // --- The live store: one per page --------------------------------------------------------
 
 let state = null;
