@@ -76,7 +76,7 @@ Use tabular figures for all numbers (`font-variant-numeric: tabular-nums`) so va
 
 ### 5.0 First visit (nothing saved yet)
 
-Four steps that teach DOTS with the visitor's own numbers (design: the "DOTS Ladder: First Visit" canvas). Each step is one idea, under "Step N of 4" and a four-segment progress bar (`--accent` up to the current step). Back (from step 2) and Next sit at the bottom of the screen; Next waits for the step's values to be valid. Each value sits in a row like step 2's lifts, with "kg" inside its box. A value is flagged (red border and message) only once it has two digits or the field is left, so one digit typed is never an error. Nothing is saved until the last step, and what's typed is kept while moving between steps. Always DOTS, against **first-meet** powerlifters in the class the bodyweight falls in: the closest group to someone who hasn't competed yet.
+Four steps that teach DOTS with the visitor's own numbers (design: the "DOTS Ladder: First Visit" canvas). Each step is one idea, under "Step N of 4" and a four-segment progress bar (`--accent` up to the current step). Back (from step 2) and Next sit at the bottom of the screen; Next waits for the step's values to be valid. Each value sits in a row like step 2's lifts, with "kg" inside its box. A value is flagged (red border and message) only once it has two digits or the field is left, so one digit typed is never an error. Nothing is saved until the last step, and what's typed is kept while moving between steps. Step 1 also has a "Restore from a backup" link under the buttons, so a new phone can start from a backup (as Your data's Restore, section 5.3; a problem with the file shows in the step's note). Always DOTS, against **first-meet** powerlifters in the class the bodyweight falls in: the closest group to someone who hasn't competed yet.
 
 1. **"How strong are you for your size?"** "DOTS turns your total and bodyweight into one score." Sex (Men | Women) and a bodyweight row.
 2. **"Your best lifts"**: squat, bench and deadlift as "your heaviest single", with "Total, added up for you" totalling what's typed. Steps 1 and 2 end with "Saved on this phone only. Nothing you enter is sent to us or stored anywhere else."
@@ -160,9 +160,8 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
 
 6. **"1RMs"**, under Save: every record, newest first (the latest 5, then a "Show all N" button): the date with a **PR** badge (chalk outline) when it beat your previous best on a lift, what it logged ("Squat 1RM · 150 kg", "1RM test · 370 kg @ 70 kg", "Bodyweight · 69.5 kg"; "· Women's" for the other category), and your score at it on the right.
    - Open one to fix its date, sex or the values it logged; the rest are noted as "carried from earlier records". Valid changes save straight away; closing it with invalid values undoes them.
-   - "Delete squat 1RM" (or "Delete 1RM test", …) asks first. Your only record can't be deleted ("Clear my numbers" on Log test starts over), nor the first while the next one doesn't hold all four values.
+   - "Delete squat 1RM" (or "Delete 1RM test", …) asks first. Your only record can't be deleted (holding "Clear my numbers" under Your data on Progress starts over), nor the first while the next one doesn't hold all four values.
    - Fixing a record refreshes the form above: fields you haven't changed take your numbers as of the date again.
-7. **Clear my numbers from this phone**, last, under the list.
 
 ### 5.3 Progress (`#/progress`)
 
@@ -209,6 +208,13 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
    - A **PR** badge (as in 1RMs) when the record that set the lift was a PR; "best 115 kg" under the kg when the lift is below your best.
    - **Last tested:** a lift last tested 6 weeks ago or more gets its "how long ago" in `--text-2`, and a note under the rows, oldest first: "Squat last tested 6 weeks ago." A fact, not training advice. Bodyweight has none: Log test already nudges a bodyweight older than a week.
    - No estimated values: bodyweight is what was logged, never an average.
+7. **"Your data" card** (`--surface`, last): back up, restore and clear (`app/yourdata.js`). Nothing leaves the phone unless you move the file yourself: no account, no cloud.
+   - "Everything you log is saved on this phone only. A backup is one file you can keep in Drive or email to yourself, and restore on any phone."
+   - **Backup line:** "Last backup 6 days ago." or "Not backed up yet." in `--text-2`. Two weeks after the last backup (or, never backed up, after your first record) it adds "Back up to keep your latest records safe." in `--text`, 600. Backing up clears it.
+   - **Kept line** (`--muted`): whether the browser keeps the data when the phone is low on space. Once there's a record, the app asks with `navigator.storage.persist()` (Chrome decides by itself; installed apps usually get it): "Your browser keeps this data, even when the phone is low on space." or "Your browser may clear this data if the phone runs low on space, so keep a backup."
+   - **Back up | Restore**, side by side. Back up saves `dots-ladder-backup-2026-11-07.json` through the phone's share sheet where it takes files (save to Drive, send by email), else as a download; closing the share sheet saves nothing and isn't counted. Then a toast: "Backed up · 14 records".
+   - **Restore** opens the file picker. The file is checked first (section 6); a problem shows in `--error` under the buttons ("This file isn't a DOTS Ladder backup."), and nothing changes. A good one asks first: "Restore this backup?" "Backed up 28 Oct 2026: 14 records and 2 events, the latest from 28 Oct 2026. It replaces everything on this phone." Restoring replaces everything (no merging), opens the Ladder and toasts "Restored · 14 records".
+   - **Hold to clear my numbers**: a full-width button with an `--error` border, and under it "Hold for 3 seconds. Your records and settings go from this phone; your events stay." (also its accessible description). Holding it by touch, mouse, Space or Enter fills it with red from the left; letting go early empties it and clears nothing. After 3 seconds it clears, toasts "Your numbers were cleared from this phone" (which screen readers hear) and goes to the first visit. A long press selects no text and opens no menu. With reduced motion it fills in thirds, once a second. The timing is `app/hold.js`, unit-tested.
 **Nice to have, later:** a gym test or meet type for each entry (meets as diamonds on the chart, with the class competed in), and a trend line with a projection ("P25 around Mar 2027").
 
 ### 5.4 Meet (`#/meet`)
@@ -240,6 +246,7 @@ Each new field defaults when it's missing, so adding an optional field never nee
   - `weightClass` is `null` when it's worked out from bodyweight.
   - `formula` is `"dots"` or `"gl"`: the score every screen shows. It defaults to `"dots"`.
   - `targetBw` is the weight-class lever's class, saved as its top in kg (`66`), or `null` for the default.
+  - `lastBackup` (optional) is the day you last backed up (`"2026-11-07"`), for Your data's reminder; a restore sets it to the backup's date.
 - **`entries`,** every record, oldest first; same-day records keep their save order. **A record holds only what was logged** (any of bodyweight, squat, bench, deadlift): a full 1RM test, a single 1RM, or a bodyweight. Nothing worked out is stored (not "carried", not a type that the logged values already tell).
   - **Your numbers on a date** are the latest of each value up to that date, carried forward. The earliest record must hold all four, so every record has a full set to score; saving refuses a history that doesn't start that way.
   - Each record keeps its sex, so it's always scored in the category it was done in.
@@ -247,6 +254,8 @@ Each new field defaults when it's missing, so adding an optional field never nee
 - **`view`,** what the Progress chart plots (`score`, `lifts`, `bw`), which lift Lifts shows (`total`, `squat`, `bench`, `deadlift`) and over which range (`3m`, `all`). Anything missing or unknown is Score, Total and All.
 
 **Version 1** kept four keys (`dots-ladder:profile`, `:tests`, `:events`, `:progress-view`). They're migrated once, when version 2 doesn't exist yet, with nothing lost: an older profile that still held numbers becomes the first record (dated that day) when there were none, records without a sex take the profile's, and the old "Total" chart tab opens as Lifts → Total. The old keys are left in place for now (an older cached copy of the app still finds its data, and going back a version loses nothing); "Clear my numbers" removes the old profile and records too.
+
+**Backups** (`store.backupFile` / `store.readBackup`) are the saved data as one readable file: `{ "app": "dots-ladder", "version": 2, "exported": "2026-11-07", "settings", "entries", "events", "view" }`, without `lastBackup`. A file is restored only whole: it's refused, with a sentence saying why, when it isn't a DOTS Ladder backup, is from a newer version ("Reload the app to update it"), has no records, is over 5 MB, or has any record or event that isn't valid ("changed or damaged"), so an edited file is never half restored. Restoring goes through `store.update()` like any change, replacing all four saved parts. A later version reads older backups by migrating them, as with version 1's keys.
 
 **Derived values.** `app/derive.js` works out everything from the store once per change (your profile, carried values, one point per day, scores, rungs, PRs, the lever, the exchange rate, your numbers, events' scores) using the pure functions in `ladder.js`, `scoring.js` and `chart.js`. Screens and cards only read these; none keeps its own copy of the entries or works out a score itself. Every change goes through `store.update()`, and one subscriber refreshes the screen that's showing.
 

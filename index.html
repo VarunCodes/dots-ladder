@@ -110,6 +110,7 @@
           <button type="button" class="button onboard-back" hidden>Back</button>
           <button type="submit" class="primary" disabled>Next</button>
         </div>
+        <button id="onboard-restore" type="button" class="link-button onboard-restore">Restore from a backup</button>
       </form>
 
       <div id="standing" hidden>
@@ -273,7 +274,6 @@
         <button id="tests-all" class="button add" type="button" hidden>Show all</button>
         <p id="tests-note" class="muted small" role="status"></p>
       </section>
-      <button id="clear-numbers" type="button" class="link-button">Clear my numbers from this phone</button>
     </section>
 
     <section id="screen-progress" class="screen" aria-labelledby="progress-title" hidden>
@@ -346,6 +346,21 @@
         <p id="numbers-note" class="small numbers-note"></p>
       </section>
 
+      <!-- Back up, restore and clear: everything stays on this phone unless you move the file yourself (yourdata.js). -->
+      <section class="card your-data" aria-labelledby="data-heading">
+        <h2 id="data-heading">Your data</h2>
+        <p class="small">Everything you log is saved on this phone only. A backup is one file you can keep in Drive or email to yourself, and restore on any phone.</p>
+        <p id="data-backup" class="small data-backup"></p>
+        <p id="data-kept" class="muted small"></p>
+        <div class="data-actions">
+          <button id="data-export" class="button" type="button">Back up</button>
+          <button id="data-import" class="button" type="button">Restore</button>
+        </div>
+        <p id="data-note" class="small data-note" role="status"></p>
+        <button id="clear-numbers" class="hold-button" type="button" aria-describedby="clear-hint"><span>Hold to clear my numbers</span></button>
+        <p id="clear-hint" class="muted small">Hold for 3 seconds. Your records and settings go from this phone; your events stay.</p>
+      </section>
+
 
     </section>
 
@@ -384,6 +399,8 @@
   </main>
   <!-- Toasts (popup.js) drop in here, above every screen; dialogs are added to the body as they open. -->
   <div id="toasts" class="toast-region" role="status"></div>
+  <!-- The file picker behind "Restore a backup" and the first visit's "Restore from a backup". -->
+  <input id="data-file" type="file" accept=".json,application/json" hidden>
 
   <footer class="muted small">
     <p>Anonymous percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters shown. Data: <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>.</p>

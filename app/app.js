@@ -13,6 +13,7 @@ import { resetOnboarding, setupOnboarding } from "./onboarding.js";
 import { openMeet, refreshMeet, setupMeet } from "./meet.js";
 import { toast } from "./popup.js";
 import { openProgress, refreshProgress, setupProgress } from "./progress.js";
+import { setupYourData } from "./yourdata.js";
 
 const fmtDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -355,6 +356,7 @@ try {
   setupEvents();
   setupCalculator();
   setupProgress();
+  setupYourData();
   setupMeet();
   window.addEventListener("hashchange", route);
   route();

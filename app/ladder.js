@@ -253,8 +253,8 @@ function cleanRack(raw) {
 
 /**
  * A profile's settings, the only part that's saved: { weightClass, formula, targetBw }, with defaults for anything
- * missing or invalid, plus the optional ones only when set: openerPct (the attempt planner's choice) and rack
- * (your rack heights for meet day).
+ * missing or invalid, plus the optional ones only when set: openerPct (the attempt planner's choice), rack
+ * (your rack heights for meet day) and lastBackup (the day you last backed up, for Your data's reminder).
  */
 export function settingsOf(profile) {
   return {
@@ -263,6 +263,7 @@ export function settingsOf(profile) {
     targetBw: inRange(profile?.targetBw, LIMITS.bodyweight) ? profile.targetBw : null,
     ...(OPENER_PCTS.includes(profile?.openerPct) && { openerPct: profile.openerPct }),
     ...(cleanRack(profile?.rack) && { rack: cleanRack(profile.rack) }),
+    ...(isDay(profile?.lastBackup) && { lastBackup: profile.lastBackup }),
   };
 }
 
@@ -644,6 +645,29 @@ export function shownRecords(tests, all) {
 export function daysBetween(from, to) {
   const utc = (day) => Date.UTC(...day.split("-").map((n, i) => Number(n) - (i === 1 ? 1 : 0)));
   return Math.round((utc(to) - utc(from)) / 86_400_000);
+}
+
+/** "today", "yesterday", "5 days ago", "3 weeks ago". */
+export function agoText(days) {
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return days < 14 ? `${days} days ago` : `${Math.floor(days / 7)} weeks ago`;
+}
+
+// --- Your data: backing up what's on this phone -----------------------------------------
+
+export const BACKUP_DUE_DAYS = 14;
+
+/**
+ * Your data's backup line: { text, due }. A backup is due 2 weeks after the last one or, if you've never backed
+ * up, 2 weeks after your first record; then the line asks for one.
+ */
+export function backupStatus(settings, tests, today) {
+  const last = settings.lastBackup;
+  const since = last ?? tests[0]?.date;
+  const due = since != null && daysBetween(since, today) >= BACKUP_DUE_DAYS;
+  const when = last ? `Last backup ${agoText(daysBetween(last, today))}.` : "Not backed up yet.";
+  return { text: due ? `${when} Back up to keep your latest records safe.` : when, due };
 }
 
 /** The class the event's bodyweight falls in, if it isn't the class the ladder shows; else null. */

@@ -9,6 +9,7 @@ import { derived } from "./derive.js";
 import { CHART, TIP_GAP, TIP_LIFT, chartModel, nearestPoint, progressStats, tipSide } from "./chart.js";
 import { $, choiceGroup, el, formulaChoice, setNumber } from "./dom.js";
 import { fmtDay } from "./events.js";
+import { renderYourData } from "./yourdata.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
@@ -351,8 +352,6 @@ function setupChartTouch() {
 // --- Your numbers ---------------------------------------------------------------------------
 
 const VALUE_NAMES = { bodyweight: "Bodyweight", ...LIFT_NAMES };
-// "today", "yesterday", "5 days ago", "3 weeks ago".
-const ago = (days) => (days === 0 ? "today" : days === 1 ? "yesterday" : days < 14 ? `${days} days ago` : `${Math.floor(days / 7)} weeks ago`);
 
 /** Each value behind your score: tested in your latest record or carried from an earlier one, how long ago, and PRs. */
 function renderNumbers() {
@@ -369,7 +368,7 @@ function renderNumbers() {
       const isStale = stale.some((s) => s.lift === row.name);
       const kg = el("span", "numbers-kg", `${row.kg} kg`);
       if (row.best != null && row.kg < row.best) kg.append(el("span", "numbers-best", `best ${row.best} kg`));
-      li.append(name, kg, el("span", `numbers-when${isStale ? " stale" : ""}`, `${when} · ${ago(row.days)}`));
+      li.append(name, kg, el("span", `numbers-when${isStale ? " stale" : ""}`, `${when} · ${L.agoText(row.days)}`));
       return li;
     }),
   );
@@ -476,4 +475,5 @@ export function refreshProgress() {
   renderChart();
   renderLever();
   renderNumbers();
+  renderYourData();
 }

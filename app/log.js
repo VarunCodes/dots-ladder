@@ -255,12 +255,4 @@ export function setupLog(context) {
     }));
     if (ok) ctx.onSaved(before, record.id);
   });
-
-  // Clearing goes back to the first-visit form; there are no default numbers to fall back to.
-  $("clear-numbers").addEventListener("click", async () => {
-    const text = "Your numbers and 1RM history go from this phone. You'll be asked for them again.";
-    if (!(await ask({ title: "Clear your numbers?", text, action: "Clear" }))) return;
-    // The store forgets your records and settings; its subscriber goes back to the first-visit form.
-    store.clearNumbers();
-  });
 }

@@ -995,3 +995,31 @@ test("first visit: step 2's total adds up only the lifts typed so far", () => {
   assert.equal(L.typedTotal({ squat: NaN, bench: NaN, deadlift: NaN }), 0);
   assert.equal(L.typedTotal({ squat: -5, bench: 97.5, deadlift: 160 }), 257.5, "a negative isn't added");
 });
+
+test("your data: the last backup's day is a setting, kept only when it's a real day", () => {
+  assert.equal(L.settingsOf({ lastBackup: "2026-11-01" }).lastBackup, "2026-11-01");
+  for (const lastBackup of [undefined, null, "2026-02-30", "yesterday", 20261101]) {
+    assert.equal("lastBackup" in L.settingsOf({ lastBackup }), false, `${lastBackup} isn't kept`);
+  }
+});
+
+test("your data: how long ago, in days then weeks", () => {
+  assert.equal(L.agoText(0), "today");
+  assert.equal(L.agoText(-2), "today", "a clock set back doesn't read as the future");
+  assert.equal(L.agoText(1), "yesterday");
+  assert.equal(L.agoText(13), "13 days ago");
+  assert.equal(L.agoText(14), "2 weeks ago");
+  assert.equal(L.agoText(27), "3 weeks ago");
+});
+
+test("your data: a backup is due 2 weeks after the last one, or after your first record if there's none", () => {
+  const tests = [{ id: "a", date: "2026-10-01" }];
+  assert.deepEqual(L.backupStatus({ lastBackup: "2026-11-01" }, tests, "2026-11-07"), { text: "Last backup 6 days ago.", due: false });
+  assert.deepEqual(L.backupStatus({ lastBackup: "2026-10-24" }, tests, "2026-11-07"), {
+    text: "Last backup 2 weeks ago. Back up to keep your latest records safe.",
+    due: true,
+  });
+  assert.deepEqual(L.backupStatus({}, [{ id: "a", date: "2026-11-01" }], "2026-11-07"), { text: "Not backed up yet.", due: false });
+  assert.equal(L.backupStatus({}, tests, "2026-11-07").due, true, "never backed up, first record 5 weeks ago");
+  assert.equal(L.backupStatus({}, [], "2026-11-07").due, false, "nothing to back up");
+});

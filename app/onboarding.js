@@ -142,6 +142,7 @@ function show(next, animate = true) {
   form().querySelectorAll(".onboard-bar span").forEach((bar, i) => bar.classList.toggle("done", i < step));
   form().querySelector(".onboard-back").hidden = !back;
   form().querySelector(".onboard-private").hidden = !privateNote;
+  $("onboard-restore").hidden = step !== 1; // a new phone can start from a backup instead (yourdata.js)
   submit().textContent = label;
   const profile = L.validProfile(read());
   if (step === 3 && profile) renderScore(profile);
