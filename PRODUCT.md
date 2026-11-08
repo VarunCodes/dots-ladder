@@ -32,7 +32,7 @@ The rungs are measured, not guessed. They come from OpenPowerlifting results for
 
 - Used on a phone, mostly at home or in the gym after a test, sometimes ahead of a meet.
 - An installable PWA that works offline with the last data it loaded.
-- Everything the lifter enters stays in the browser on their device. Nothing is sent anywhere.
+- Everything the lifter enters stays in the browser on their device and is never sent anywhere. The only thing that leaves is anonymous usage counts (GoatCounter: which screens are used and whether tests get logged, never a number), on by default, switchable off under Your data, and off when the browser sends Global Privacy Control or Do Not Track. `privacy.html` says so.
 
 ## Capabilities and Constraints
 
@@ -77,7 +77,7 @@ Each line states a fact from the lifter's numbers or the rungs, or what to do ne
 1. **Real data, honestly labelled.** Every number traces back to OpenPowerlifting or to the lifter's own entries; every estimate (the gym-goer marker, a lift from a set) says it's an estimate.
 2. **Explain before you rank.** Someone who has never competed should understand what a benchmark means and who it represents before seeing where they sit. Plain words beat precise jargon.
 3. **Point to the next step, factually.** Show what the next rung takes and what it would do for the score; leave how to train for it to the lifter.
-4. **Private by default.** The lifter's numbers never leave their device.
+4. **Private by default.** The lifter's numbers never leave their device. Anonymous counts say what happened, never what was typed.
 5. **Reward coming back.** Every visit after a test should show movement: a cleared rung, a PR, a shrinking gap.
 
 ## Accessibility & Inclusion

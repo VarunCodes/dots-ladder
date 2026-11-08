@@ -228,6 +228,7 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
    - **Kept line** (`--muted`): whether the browser keeps the data when the phone is low on space. Once there's a record, the app asks with `navigator.storage.persist()` (Chrome decides by itself; installed apps usually get it): "Your browser keeps this data, even when the phone is low on space." or "Your browser may clear this data if the phone runs low on space, so keep a backup."
    - **Back up | Restore**, side by side. Back up saves `dots-ladder-backup-2026-11-07.json` through the phone's share sheet where it takes files (save to Drive, send by email), else as a download; closing the share sheet saves nothing and isn't counted. Then a toast: "Backed up · 14 records".
    - **Restore** opens the file picker. The file is checked first (section 6); a problem shows in `--error` under the buttons ("This file isn't a DOTS Ladder backup."), and nothing changes. A good one asks first: "Restore this backup?" "Backed up 28 Oct 2026: 14 records and 2 events, the latest from 28 Oct 2026. It replaces everything on this phone." Restoring replaces everything (no merging), opens the Ladder and toasts "Restored · 14 records".
+   - **Share anonymous usage counts**: a checkbox (on by default, `--accent` when on) above Hold to clear, with "Which screens are used and whether tests get logged, so the app can be improved. Never your numbers." and a Privacy link. Switching it saves `settings.analytics`.
    - **Hold to clear my numbers**: a full-width button with an `--error` border, and under it "Hold for 3 seconds. Your records and settings go from this phone; your events stay." (also its accessible description). Holding it by touch, mouse, Space or Enter fills it with red from the left; letting go early empties it and clears nothing. After 3 seconds it clears, toasts "Your numbers were cleared from this phone" (which screen readers hear) and goes to the first visit. A long press selects no text and opens no menu. With reduced motion it fills in thirds, once a second. The timing is `app/hold.js`, unit-tested.
 **Nice to have, later:** a gym test or meet type for each entry (meets as diamonds on the chart, with the class competed in), and a trend line with a projection ("P25 around Mar 2027").
 
@@ -240,7 +241,7 @@ Log a single 1RM (a squat PR on Monday), a full 1RM test, or just a bodyweight. 
 
 ## 6. Data model (one store)
 
-Everything stays on the device. Nothing the lifter enters is sent anywhere.
+Everything stays on the device. Nothing the lifter enters is sent anywhere; the only thing that leaves is anonymous usage counts (`app/track.js`, below).
 
 **One store, one key.** `app/store.js` is the only code that reads or writes the browser's storage, under one versioned key, `dots-ladder:data`:
 
@@ -264,6 +265,7 @@ Each new field defaults when it's missing, so adding an optional field never nee
   - `targetBw` is the weight-class lever's class, saved as its top in kg (`66`), or `null` for the default.
   - `lastBackup` (optional) is the day you last backed up (`"2026-11-07"`), for Your data's reminder; a restore sets it to the backup's date.
   - `experience` (optional) is the meet experience from the first visit (`"first meet"`, `"second meet"`, `"3+ meets"`): the tab the Ladder opens on. The tabs change it for the visit only.
+  - `analytics` (optional) is `false` once the lifter switches anonymous usage counts off; missing means on.
 - **`entries`,** every record, oldest first; same-day records keep their save order. **A record holds only what was logged** (any of bodyweight, squat, bench, deadlift): a full 1RM test, a single 1RM, or a bodyweight. Nothing worked out is stored (not "carried", not a type that the logged values already tell).
   - **Your numbers on a date** are the latest of each value up to that date, carried forward. The earliest record must hold all four, so every record has a full set to score; saving refuses a history that doesn't start that way.
   - Each record keeps its sex, so it's always scored in the category it was done in.

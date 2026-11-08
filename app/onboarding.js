@@ -7,6 +7,7 @@ import * as L from "./ladder.js";
 import * as S from "./scoring.js";
 import * as store from "./store.js";
 import { $, el, replay } from "./dom.js";
+import { track } from "./track.js";
 import { chooseBackup } from "./yourdata.js";
 
 let rungsData = null;
@@ -147,7 +148,9 @@ const SCREENS = {
     restore.addEventListener("click", () => chooseBackup(note));
     // With answers saved, the resume card has the buttons; otherwise Start does.
     const box = started ? el("div", "fv-actions") : actions("Start", () => go("sex")).box;
-    box.append(quick, restore, note, el("p", "fv-private", "Nothing you enter leaves this phone."));
+    const privacy = el("p", "fv-private", "Nothing you enter leaves this phone. ");
+    privacy.append(Object.assign(el("a", "", "Privacy"), { href: "privacy.html" }));
+    box.append(quick, restore, note, privacy);
     return [...nodes, box];
   },
 
@@ -461,6 +464,9 @@ function finish() {
   const record = L.draftRecord(d, session.today, L.newId("test"));
   if (!record) return;
   const experience = L.draftGroup(rungsData, d)?.experience ?? L.COMPETED[d.competed];
+  // How it was finished, for the anonymous counts (never the numbers).
+  track(d.via === "quick" ? "first-visit/done-quick" : "first-visit/done-steps");
+  if (record.sets) track("first-visit/used-sets");
   // The store's subscriber leaves the first visit for the Ladder.
   store.update((s) => ({ entries: [record], settings: { ...s.settings, experience }, session: { ...s.session, experience }, draft: null }));
 }
@@ -477,7 +483,10 @@ export function show(screen) {
   current = screen;
   const body = $("onboard-screen");
   body.replaceChildren(...SCREENS[screen]());
-  if (moved) replay(body, "enter");
+  if (moved) {
+    replay(body, "enter");
+    track(`first-visit/${screen}`); // once per screen reached, so the counts show where people stop
+  }
   // The top bar: Back (not on the welcome screen), the progress bar and, for screen readers, the step.
   const step = screen === "quick" ? L.FIRST_VISIT_STEPS.indexOf("deadlift") : L.FIRST_VISIT_STEPS.indexOf(screen);
   // Hidden by visibility, so the button keeps its place in the top bar's grid.

@@ -76,6 +76,8 @@ Each suite runs in well under a second. The pipeline tests build small CSVs insi
 
   If a pipeline change or a data edit would break the page or the privacy rules, CI fails.
 
+`app/track.test.js` checks the anonymous usage counts in `app/track.js`: sent only on the live site, never when switched off or when the browser sends Global Privacy Control or Do Not Track; an event is a name from the fixed list (anything else refused), sent as a GoatCounter event with nothing else; every first-visit screen and tab has an event and no event name holds a digit; only `track.js` contacts GoatCounter, and every literal event passed to `track()` is on the list; the switch is kept as a setting only when true or false.
+
 `app/hold.test.js` checks the hold-to-clear timer in `app/hold.js`, on a fake clock: 3 seconds held finishes once, filling as it goes; letting go early empties it and clears nothing, and holding again starts over; a repeated start (a held key) doesn't restart the clock; a frame that runs after letting go clears nothing; and with reduced motion the fill moves in thirds. Not unit-tested, so on the human check: touch, mouse and keyboard on a phone, no text selection or menu on a long press (iOS Safari), the screen reader's hint and result, and the share sheet.
 
 `app/pwa.test.js` checks the installable app:

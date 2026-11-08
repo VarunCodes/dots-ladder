@@ -254,8 +254,9 @@ function cleanRack(raw) {
 /**
  * A profile's settings, the only part that's saved: { weightClass, formula, targetBw }, with defaults for anything
  * missing or invalid, plus the optional ones only when set: openerPct (the attempt planner's choice), rack
- * (your rack heights for meet day), lastBackup (the day you last backed up, for Your data's reminder) and
- * experience (the meet experience you gave on your first visit, which the Ladder opens on).
+ * (your rack heights for meet day), lastBackup (the day you last backed up, for Your data's reminder),
+ * experience (the meet experience you gave on your first visit, which the Ladder opens on) and analytics
+ * (false when you've switched anonymous usage counts off; they're on by default).
  */
 export function settingsOf(profile) {
   return {
@@ -266,6 +267,7 @@ export function settingsOf(profile) {
     ...(cleanRack(profile?.rack) && { rack: cleanRack(profile.rack) }),
     ...(isDay(profile?.lastBackup) && { lastBackup: profile.lastBackup }),
     ...(EXPERIENCE.includes(profile?.experience) && { experience: profile.experience }),
+    ...(typeof profile?.analytics === "boolean" && { analytics: profile.analytics }),
   };
 }
 

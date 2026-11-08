@@ -11,6 +11,7 @@ import { $, formulaChoice } from "./dom.js";
 import { fmtDay } from "./events.js";
 import { openHistory, refreshHistory, setupHistory } from "./history.js";
 import { ask } from "./popup.js";
+import { track } from "./track.js";
 
 export const FIELD_TEXT = {
   date: "Pick the day of the test (not a future one).",
@@ -249,10 +250,11 @@ export function setupLog(context) {
     // The record, and the class picked here (the only setting on this screen; the rest are kept).
     const before = now();
     const record = L.testFrom(draft, raw.date, L.newId("test"), names);
-    const { ok } = store.update((s) => ({
+    const { ok, saved } = store.update((s) => ({
       entries: [...s.entries, record],
       settings: { ...s.settings, weightClass: draft.weightClass },
     }));
+    if (ok && !saved) track("error/save-refused");
     if (ok) ctx.onSaved(before, record.id);
   });
 }

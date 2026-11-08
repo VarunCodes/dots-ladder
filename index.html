@@ -297,6 +297,12 @@
           <button id="data-import" class="button" type="button">Restore</button>
         </div>
         <p id="data-note" class="small data-note" role="status"></p>
+        <!-- Anonymous usage counts (track.js): on by default, never your numbers. -->
+        <label class="data-switch">
+          <input id="data-analytics" type="checkbox" aria-describedby="analytics-hint">
+          <span>Share anonymous usage counts</span>
+        </label>
+        <p id="analytics-hint" class="muted small">Which screens are used and whether tests get logged, so the app can be improved. Never your numbers. <a href="privacy.html">Privacy</a></p>
         <button id="clear-numbers" class="hold-button" type="button" aria-describedby="clear-hint"><span>Hold to clear my numbers</span></button>
         <p id="clear-hint" class="muted small">Hold for 3 seconds. Your records and settings go from this phone; your events stay.</p>
       </section>
@@ -343,7 +349,7 @@
   <input id="data-file" type="file" accept=".json,application/json" hidden>
 
   <footer class="muted small">
-    <p>Anonymous percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters shown. Data: <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>.</p>
+    <p>Anonymous percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters shown. Data: <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>. <a href="privacy.html">Privacy</a></p>
   </footer>
 
   <nav id="tabbar" class="tabbar" aria-label="Main" hidden>
