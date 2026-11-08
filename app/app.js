@@ -13,6 +13,7 @@ import { resetOnboarding, screenFrom, setupOnboarding, show as showFirstVisit } 
 import { openMeet, refreshMeet, setupMeet } from "./meet.js";
 import { toast } from "./popup.js";
 import { openProgress, refreshProgress, setupProgress } from "./progress.js";
+import { track } from "./track.js";
 import { setupYourData } from "./yourdata.js";
 
 const fmtDate = (iso) =>
@@ -328,6 +329,7 @@ try {
       showFirstVisit(screenFrom(location.hash));
       return;
     }
+    track(`tab/${screen}`);
     if (screen === "log") openLog({ focusClass: location.hash.endsWith("?class") });
     else render();
     if (screen === "progress") openProgress();
@@ -355,6 +357,7 @@ try {
   // After a save: the Ladder, a toast of what it achieved (a PR, a rung cleared) and the score fading in.
   setupLog({
     onSaved: (before, id) => {
+      track("log/saved");
       const d = derived(store.getState());
       const outcome = L.savedText(L.saveOutcome({ before, after: d, rungs: d.group?.rungs ?? [], prLifts: d.prs.get(id) ?? [] }));
       location.hash = "#/ladder";
@@ -370,6 +373,7 @@ try {
   window.addEventListener("hashchange", route);
   route();
 } catch (error) {
+  track("error/data-load");
   $("error").hidden = false;
   $("error").textContent = `Couldn't load the data (${error.message}). If you opened the file directly, serve the folder instead: python3 -m http.server`;
   $("now-caption").textContent = "";

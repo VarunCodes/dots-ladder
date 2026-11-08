@@ -9,6 +9,7 @@ import { $ } from "./dom.js";
 import { fmtDay } from "./events.js";
 import { holdFill, holdTimer } from "./hold.js";
 import { ask, toast } from "./popup.js";
+import { track } from "./track.js";
 
 const now = () => derived(store.getState());
 let kept = null; // whether the browser keeps this site's storage when space runs low; null until asked
@@ -31,7 +32,7 @@ async function askToKeep() {
   if (now().profile) renderYourData();
 }
 
-/** The card: when you last backed up (asking for one when it's due), and whether the browser keeps the data. */
+/** The card: when you last backed up (asking for one when it's due), whether the browser keeps the data, and the counts switch. */
 export function renderYourData() {
   const s = store.getState();
   const status = L.backupStatus(s.settings, s.entries, s.session.today);
@@ -40,6 +41,7 @@ export function renderYourData() {
   $("data-kept").textContent = kept
     ? "Your browser keeps this data, even when the phone is low on space."
     : "Your browser may clear this data if the phone runs low on space, so keep a backup.";
+  $("data-analytics").checked = s.settings.analytics !== false; // on by default
 }
 
 // --- Back up ------------------------------------------------------------------------
@@ -73,6 +75,7 @@ async function backUp() {
   }
   store.update((state) => ({ settings: { ...state.settings, lastBackup: state.session.today } }));
   $("data-note").textContent = "";
+  track("data/backed-up");
   toast(`Backed up · ${plural(s.entries.length, "record")}`);
 }
 
@@ -108,6 +111,7 @@ async function restore(file) {
   }
   // Leaving the first visit re-routes by itself; from Progress, the restored Ladder is the place to land.
   if (location.hash !== "#/ladder") location.hash = "#/ladder";
+  track("data/restored");
   toast(saved ? `Restored · ${plural(summary.records, "record")}` : "Restored, but it couldn't be saved on this phone");
 }
 
@@ -158,6 +162,11 @@ export function setupYourData() {
   $("data-import").addEventListener("click", () => chooseBackup($("data-note")));
   $("data-file").addEventListener("change", () => restore($("data-file").files[0]));
   setupHoldToClear();
+  // Anonymous usage counts: on by default; switching off is saved as a setting (track.js reads it).
+  $("data-analytics").addEventListener("change", (event) => {
+    const analytics = event.target.checked;
+    store.update((st) => ({ settings: { ...st.settings, analytics } }));
+  });
   askToKeep();
   store.subscribe(askToKeep); // after the first record is saved, or a backup restored
 }

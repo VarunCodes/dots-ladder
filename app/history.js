@@ -7,6 +7,7 @@ import { derived } from "./derive.js";
 import { $, el } from "./dom.js";
 import { fmtDay } from "./events.js";
 import { ask } from "./popup.js";
+import { track } from "./track.js";
 
 const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
 const SEX_WORDS = { M: "Men's", F: "Women's" };
@@ -126,6 +127,7 @@ function readTest(form, id) {
 /** Saves the records through the store (whose subscriber redraws every screen); says if storage refused. */
 function persistTests(tests) {
   const { saved } = store.update(() => ({ entries: tests }));
+  if (!saved) track("error/save-refused");
   $("tests-note").textContent = saved ? "" : "Couldn't save on this device; changes last until you close the page.";
 }
 

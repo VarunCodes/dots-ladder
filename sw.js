@@ -6,6 +6,7 @@ const CACHE = "dots-ladder-v1";
 const PRECACHE = [
   "./",
   "index.html",
+  "privacy.html",
   "manifest.webmanifest",
   "app/app.js",
   "app/calculator.js",
@@ -24,6 +25,7 @@ const PRECACHE = [
   "app/popup.js",
   "app/progress.js",
   "app/scoring.js",
+  "app/track.js",
   "app/yourdata.js",
   "app/style.css",
   "data/rungs.json",
