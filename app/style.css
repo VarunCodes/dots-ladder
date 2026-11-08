@@ -14,6 +14,7 @@
   --surface: #1c1d20;
   --surface-2: #17181b;
   --border: #34353a;
+  --outline: #6c6d73; /* edges that carry meaning (fields, choices, empty dots, the progress bar): 3:1 or more on --bg and --surface */
   --divider: #26272b;
   --text: #f2f0ea;
   --text-2: #d6d3cb;
@@ -51,7 +52,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.5 var(--body);
+  font: 1rem/1.5 var(--body); /* rem, so a larger browser text size reaches body text */
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -411,7 +412,7 @@ a:hover { color: var(--accent-hover); }
 .fv-top { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 10px; min-height: 48px; background: var(--bg); }
 .fv-back { width: 44px; height: 44px; margin-left: -10px; border: 0; border-radius: 12px; background: none; color: var(--text-2); font: inherit; font-size: 1.5rem; line-height: 1; cursor: pointer; }
 .fv-bar { display: flex; gap: 3px; }
-.fv-bar span { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background-color var(--duration-quick) var(--ease-smooth-out); }
+.fv-bar span { flex: 1; height: 4px; border-radius: 2px; background: var(--outline); transition: background-color var(--duration-quick) var(--ease-smooth-out); }
 .fv-bar span.done { background: var(--accent); }
 .fv-screen { flex: 1; display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
 .fv-screen.enter { animation: rise-in var(--duration-fast) var(--ease-smooth-out); }
@@ -424,11 +425,11 @@ a:hover { color: var(--accent-hover); }
 .fv-group strong { color: var(--text-2); font-weight: 600; }
 .fv-what { font-size: 0.875rem; line-height: 1.4; color: var(--muted); }
 .fv-what strong { display: block; color: var(--text-2); font-weight: 500; }
-.fv-subhead { font-weight: 600; }
+.fv-subhead { margin: 0; font: 600 1rem/1.4 var(--body); letter-spacing: 0; text-transform: none; color: var(--text); }
 
 /* Choices: tap to answer and move on */
 .fv-choices { display: flex; flex-direction: column; gap: 10px; }
-.fv-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 1.125rem; font-weight: 600; text-align: left; cursor: pointer; touch-action: manipulation; }
+.fv-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 12px 16px; border: 1px solid var(--outline); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 1.125rem; font-weight: 600; text-align: left; cursor: pointer; touch-action: manipulation; }
 .fv-choice span { font-size: 0.875rem; font-weight: 400; color: var(--muted); }
 .fv-choice[aria-pressed="true"] { border-color: var(--accent); }
 .fv-choice[aria-pressed="true"]::after { content: "Your answer"; font-size: 0.75rem; font-weight: 500; color: var(--accent); }
@@ -438,10 +439,11 @@ a:hover { color: var(--accent-hover); }
 .fv-fields { display: flex; gap: 10px; align-items: flex-end; }
 .fv-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.875rem; color: var(--muted); }
 .fv-field.fv-reps { flex: 0 0 34%; }
-.fv-unit { display: flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.fv-unit { display: flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid var(--outline); border-radius: 14px; background: var(--surface); }
 .fv-unit:focus-within { border-color: var(--text-2); }
 .fv-unit input { width: 100%; min-width: 0; padding: 10px 0; border: 0; background: none; color: var(--text); font: 600 1.875rem var(--display); font-variant-numeric: tabular-nums; outline: none; }
-.fv-unit input::placeholder { color: var(--border); }
+/* An example value: readable (4.5:1), but lighter in weight than a typed one. */
+.fv-unit input::placeholder { color: var(--muted); font-weight: 400; opacity: 1; }
 .fv-unit span { color: var(--muted); font-size: 1rem; }
 .fv-times { padding-bottom: 16px; color: var(--muted); font-size: 1.25rem; }
 .fv-problem { color: var(--error); }
@@ -451,6 +453,7 @@ a:hover { color: var(--accent-hover); }
 /* What a value gives back, once it's in */
 .fv-out:empty { display: none; }
 .fv-reward { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 14px; background: var(--surface); animation: rise-in var(--duration-fast) var(--ease-smooth-out); }
+.fv-reward.still { animation: none; } /* already showing: new words, no new entrance */
 .fv-big { font: 700 1.375rem/1.15 var(--display); }
 .fv-est { font-size: 0.875rem; color: var(--muted); }
 
@@ -462,7 +465,7 @@ a:hover { color: var(--accent-hover); }
 
 /* The 100: a compact crowd, 20 across and 5 deep */
 .fv-crowd { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 4px; max-width: 360px; }
-.fv-crowd span { aspect-ratio: 1; border-radius: 50%; border: 1.5px solid var(--border); }
+.fv-crowd span { aspect-ratio: 1; border-radius: 50%; border: 1.5px solid var(--outline); }
 .fv-crowd span.on { background: var(--accent); border-color: var(--accent); }
 .fv-crowd span.target { border-color: var(--accent); border-style: dashed; }
 .fv-crowd.fill span.on { animation: dot-in var(--duration-quick) var(--ease-smooth-out) backwards; animation-delay: calc(var(--i) * 8ms); }
@@ -482,9 +485,9 @@ a:hover { color: var(--accent-hover); }
 .fv-note { padding: 10px 12px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 0.875rem; font-style: italic; line-height: 1.4; }
 .fv-credit { font-size: 0.75rem; color: var(--muted); }
 /* What's inside the app, on the last screen: a short list, each a feature and what it does for you. */
-.fv-points { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.fv-points li { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--surface); color: var(--text-2); font-size: 0.9375rem; line-height: 1.4; }
-.fv-points strong { color: var(--text); font-weight: 600; }
+/* Quick setup: what is still needed before "See where I stand". */
+.fv-needs { color: var(--text-2); text-align: center; }
+.fv-needs:empty { display: none; }
 .fv-credit a { color: var(--muted); }
 .fv-resume { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--accent); border-radius: 14px; }
 .fv-resume-row { display: flex; gap: 8px; }
@@ -493,15 +496,29 @@ a:hover { color: var(--accent-hover); }
 /* Quick setup: everything on one form */
 .fv-quick { display: flex; flex-direction: column; gap: 12px; }
 .fv-quick .fv-unit input { padding: 8px 0; font-size: 1.375rem; }
-.fv-quick-lifts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* Three across while they fit; they wrap (in rem, so larger text wraps sooner) rather than clip. */
+.fv-quick-lifts { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: 8px; }
 .fv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.fv-chip { min-height: 44px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); color: var(--text); font: inherit; font-size: 0.9375rem; cursor: pointer; }
-.fv-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.fv-chip { min-height: 44px; padding: 8px 14px; border: 1px solid var(--outline); border-radius: 22px; background: var(--surface); color: var(--text); font: inherit; font-size: 0.9375rem; cursor: pointer; }
+.fv-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+/* The choice shows as a tick too, never by colour alone. */
+.fv-chip[aria-pressed="true"]::before { content: "✓ "; }
 
 /* The pinned footer */
 .fv-actions { position: sticky; bottom: var(--kb, 0px); z-index: 1; display: flex; flex-direction: column; gap: 4px; margin-top: auto; padding-top: 16px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(to bottom, transparent, var(--bg) 14px); }
+/* While the on-screen keyboard is open the button follows the content, so it never covers the field or its result. */
+.kb-open .fv-actions { position: static; background: none; }
+/* Room below the content for the keyboard, so the page can scroll a result up into view above it. */
+.kb-open .onboard { padding-bottom: var(--kb); }
 .fv-actions .link-button { align-self: center; }
 .fv-private { text-align: center; font-size: 0.8125rem; color: var(--muted); }
+/* High contrast: the dots and the bar keep their meaning in system colours. */
+@media (forced-colors: active) {
+  .fv-crowd span { border-color: CanvasText; }
+  .fv-crowd span.on, .fv-key .k-on::before, .fv-bar span.done { forced-color-adjust: none; background: Highlight; border-color: Highlight; }
+  .fv-crowd span.target, .fv-key .k-target::before { border-color: Highlight; }
+  .fv-bar span { background: GrayText; }
+}
 @media (max-height: 620px) { .fv-screen h2 { font-size: 1.75rem; } .fv-number { font-size: 3.5rem; } }
 
 .segmented { display: flex; gap: 6px; margin: 14px 0 0; padding: 0; border: 0; }

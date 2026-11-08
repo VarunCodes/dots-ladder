@@ -993,53 +993,66 @@ test("first visit: compared with the group for your meets so far, or first-meet 
   assert.deepEqual([L.classRange("F", "63"), L.classRange("F", "47"), L.classRange("F", "84+")], ["57.1 to 63 kg", "up to 47 kg", "over 84 kg"]);
 });
 
-test("first visit: each lift's card puts it on the ladder, or says where it would place at a meet", () => {
+test("first visit: each lift's card says where it is as a share of the group, never in rungs (the ladder isn't shown yet)", () => {
   const group = L.draftGroup(fvData, finished);
-  assert.deepEqual(L.liftPlaceWords("deadlift", 92.5, group), {
-    title: "+5 kg puts your deadlift on the ladder",
-    more: "That's the first rung: 97.5 kg, against women, 63 kg, at their first meet.",
-  });
-  assert.deepEqual(L.liftPlaceWords("bench", 47.5, group), {
-    title: "At a meet, your bench press would place ahead of at least 25 in 100",
-    more: "Women, 63 kg, at their first meet. Next rung: 52.5 kg, ahead of 50.",
-  });
-  assert.match(L.liftPlaceWords("squat", 130, group).more, /That's the top rung\.$/);
+  assert.deepEqual(L.liftPlaceWords("deadlift", 92.5, group), { title: "+5 kg puts your deadlift ahead of 10 in 100", more: "That's a 97.5 kg deadlift." });
+  assert.deepEqual(L.liftPlaceWords("bench", 47.5, group), { title: "Your bench press is ahead of at least 25 in 100", more: "52.5 kg puts it ahead of 50." });
+  assert.equal(L.liftPlaceWords("squat", 130, group).more, "That's as high as these numbers go.");
+  for (const max of [60, 85, 130]) assert.doesNotMatch(Object.values(L.liftPlaceWords("squat", max, group)).join(" "), /rung|ladder/, `${max} kg`);
   assert.deepEqual(L.placeOn(group.lifts.squat, 85), { passed: 25, next: { percentile: 50, score: 97.5 } }, "reaching a rung passes it");
 });
 
-test("first visit: the 100 below the first rung names the kilos onto the ladder and outlines the first rung", () => {
+test("first visit: below the ladder, the 100 leads with the best news among the lifts, then the total", () => {
   const group = L.draftGroup(fvData, finished);
-  const below = L.standingWords(L.draftProfile(finished), group); // 205 kg at 63 kg
-  assert.equal(below.title, "+17.5 kg on your total puts you on the ladder.");
-  assert.equal(below.more, "That's the first rung: a 222.5 kg total. The 10 outlined dots are the lifters you'd pass.");
+  // 70 / 42.5 / 92.5 (205 kg): bench and squat are ahead of 10 in 100 already; squat's 70 kg is exactly its first rung.
+  const below = L.standingWords(L.draftProfile(finished), group);
+  assert.equal(below.title, "Your squat is already ahead of at least 10 in 100.");
+  assert.equal(below.more, "On your total, +17.5 kg puts you on the ladder: a 222.5 kg total. The 10 outlined dots are the lifters you'd pass.");
   assert.deepEqual([below.filled, below.outlined, below.key], [0, 10, ["The first rung"]]);
+  // Nothing on the ladder yet: the closest lift leads.
+  const low = { ...L.draftProfile(finished), squat: 40, bench: 30, deadlift: 60 };
+  assert.deepEqual(L.bestLift(low, group), { lift: "bench", passed: 0, add: 10 });
+  assert.equal(L.standingWords(low, group).title, "Your bench press is closest: +10 kg puts it on the ladder.");
   const on = L.standingWords({ ...L.draftProfile(finished), squat: 100, bench: 55, deadlift: 125 }, group);
   assert.match(on.title, /^At a meet, you'd place ahead of at least \d+ of these 100 lifters\.$/);
-  assert.match(on.more, /^Next rung: \+\d+(\.5)? kg on your total to pass \d+\.$/);
+  assert.match(on.more, /^\+\d+(\.5)? kg on your total puts you ahead of \d+\.$/);
   assert.deepEqual(on.key, ["You're ahead", "Your next rung"]);
   const top = L.standingWords({ ...L.draftProfile(finished), squat: 200, bench: 120, deadlift: 220 }, group);
   assert.deepEqual([top.more, top.filled, top.outlined], ["That's the top rung.", 90, 90]);
 });
 
-test("first visit: the score screen shows two ways to raise it, and the gym-goer estimate named by sex", () => {
-  const profile = { ...L.draftProfile(finished), squat: 90, bench: 50, deadlift: 115 }; // 255 kg at 63 kg
+test("first visit: the score moves up with the total and down with bodyweight, never as advice to cut", () => {
+  const profile = { ...L.draftProfile(finished), squat: 90, bench: 50, deadlift: 115 }; // 255 kg at 63 kg, 274.3
   const words = L.scoreWords(profile);
   assert.equal(words.from, "From a 255 kg total at 63 kg bodyweight.");
-  assert.deepEqual(words.rows.map((r) => r.label), ["Lift 5 kg more in total", "Lift the same at 61 kg"]);
-  assert.ok(words.rows.every((r) => r.change > 0), "both raise it");
-  assert.match(words.gymGoer, /^For comparison, a woman who trains at the gym regularly scores about 160\./);
-  assert.match(L.scoreWords({ ...profile, sex: "M" }).gymGoer, /a man who trains at the gym regularly scores about 200\./);
-  assert.equal(L.scoreWords({ ...profile, bodyweight: 40 }).rows.length, 1, "no lighter row at DOTS's lightest bodyweight");
+  assert.deepEqual(words.rows.map((r) => r.label), ["5 kg more on your total", "The same total at 65 kg bodyweight"]);
+  assert.deepEqual(words.rows.map((r) => Math.sign(r.change)), [1, -1]);
+  assert.doesNotMatch(words.rows.map((r) => r.label).join(" "), /lighter|lose|cut/);
+  assert.match(words.gymGoer, /^You're above a woman who trains at the gym regularly, who scores about 160\./);
+  assert.match(L.scoreWords({ ...profile, sex: "M", squat: 150, bench: 100, deadlift: 190 }).gymGoer, /a man who trains at the gym regularly, who scores about 200\./);
+  assert.equal(L.scoreWords({ ...profile, squat: 40, bench: 30, deadlift: 60 }).gymGoer, null, "below the estimate it isn't shown: scale, not a verdict");
 });
 
-test("first visit: the target is kilos on the total, and each lift's next rung", () => {
+test("first visit: the targets are each lift's next step, nearest first, not a share of the total", () => {
   const group = L.draftGroup(fvData, finished);
-  const below = L.targetWords(L.draftProfile(finished), group);
-  assert.deepEqual([below.add, below.total, below.title, below.onLadder], [17.5, 222.5, "on your total puts you on the ladder.", false]);
-  assert.deepEqual(below.lifts.map((l) => [l.lift, l.kg, l.words]), [["squat", 85, "ahead of 25 in 100"], ["bench", 45, "ahead of 25 in 100"], ["deadlift", 97.5, "first rung"]]);
+  const words = L.targetWords(L.draftProfile(finished), group); // 70 / 42.5 / 92.5
+  assert.deepEqual(words.lifts.map((l) => [l.lift, l.kg, l.add, l.words]), [
+    ["bench", 45, 2.5, "ahead of 25 in 100"],
+    ["deadlift", 97.5, 5, "onto the ladder"],
+    ["squat", 85, 15, "ahead of 25 in 100"],
+  ]);
+  assert.equal(words.allTop, false);
   const top = L.targetWords({ ...L.draftProfile(finished), squat: 200, bench: 120, deadlift: 220 }, group);
-  assert.deepEqual([top.add, top.title], [0, "You're past every rung"]);
-  assert.ok(top.lifts.every((l) => l.kg === null && l.words === "Top rung"));
+  assert.equal(top.allTop, true);
+});
+
+test("first visit: the Ladder's headline and rungs keep the first visit's plain words", () => {
+  const rungs = [{ percentile: 10, score: 237 }, { percentile: 25, score: 264 }];
+  assert.equal(L.plainPosition(rungs, 250), "ahead of at least 10 in 100");
+  assert.equal(L.plainPosition(rungs, 264), "ahead of at least 25 in 100", "reaching a rung passes it");
+  assert.equal(L.plainPosition(rungs, 200), "not on the ladder yet");
+  assert.equal(L.plainPosition([], 300), "");
+  assert.deepEqual(Object.values(L.RUNG_NAMES), ["Ahead of 10 in 100", "Ahead of 25 in 100", "Ahead of half", "Ahead of 75 in 100", "Ahead of 90 in 100"]);
 });
 
 test("first visit: the answer about meets is kept as the Ladder's experience", () => {

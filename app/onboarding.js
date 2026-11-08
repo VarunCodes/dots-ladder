@@ -16,10 +16,11 @@ let current = "welcome";
 const draft = () => store.getState().draft ?? L.emptyDraft();
 const kg = (n) => `${Number(n.toFixed(1))} kg`;
 const LIFT_TITLES = { squat: "Squat", bench: "Bench press", deadlift: "Deadlift" };
+// What counts for each lift, in one line: the barbell version (the rungs are meet lifts), and what doesn't count.
 const LIFT_WHAT = {
-  squat: "Barbell back squat, with the bar on your back.",
-  bench: "Barbell bench press, lying on a flat bench.",
-  deadlift: "Barbell deadlift, from the floor. Conventional or sumo.",
+  squat: ["Barbell back squat, bar on your back.", "Not a Smith machine or leg press."],
+  bench: ["Barbell bench press, on a flat bench.", "Not dumbbells or a machine."],
+  deadlift: ["Barbell deadlift from the floor, conventional or sumo.", "Not a trap bar."],
 };
 const PLACEHOLDER = { squat: 80, bench: 50, deadlift: 100 };
 
@@ -99,8 +100,64 @@ const card = (title, more, est) => {
   return box;
 };
 
+// --- Telling screen readers, and keeping the result in view --------------------------------
+
+let announceTimer = null;
+
+/** Says a result to screen readers once typing pauses, so they hear the card, not every digit. */
+function announce(text) {
+  clearTimeout(announceTimer);
+  announceTimer = setTimeout(() => {
+    $("onboard-live").textContent = text;
+  }, 700);
+}
+
+/**
+ * Shows what a value gives back under its field: replaced only when the words change, animated only when it first
+ * appears (not on every keystroke), announced after a pause, and scrolled into view above the keyboard.
+ */
+function showResult(out, node) {
+  const text = node ? [...node.children].map((line) => line.textContent.trim()).join(" ") : "";
+  if (out.dataset.text === text) return;
+  const appearing = !out.dataset.text;
+  out.dataset.text = text;
+  if (!node) {
+    out.replaceChildren();
+    clearTimeout(announceTimer);
+    return;
+  }
+  if (!appearing) node.classList.add("still");
+  out.replaceChildren(node);
+  announce(text);
+  keepAboveKeyboard(out);
+}
+
+/**
+ * Scrolls just enough to lift `node` above the on-screen keyboard (--kb, from visualViewport), if it's open. Done by
+ * measurement rather than scrollIntoView, which can't see the keyboard on every phone.
+ */
+function keepAboveKeyboard(node) {
+  const root = document.documentElement;
+  if (!root.classList.contains("kb-open")) return;
+  const kb = parseFloat(getComputedStyle(root).getPropertyValue("--kb")) || 0;
+  const over = node.getBoundingClientRect().bottom - (innerHeight - kb - 12);
+  // At once, not smoothly: a short move that can't race the keyboard's own animation.
+  if (over > 0) window.scrollBy({ top: over, behavior: "instant" });
+}
+
+/** Ties a field to the screen's question and its problem line, so a screen reader hears both with the field. */
+function describe(input, question, problem) {
+  question.id ||= `fv-q-${Math.random().toString(36).slice(2, 8)}`;
+  problem.id ||= `${input.id}-problem`;
+  problem.setAttribute("role", "status");
+  input.setAttribute("aria-describedby", `${question.id} ${problem.id}`);
+}
+
+/** Marks a field as wrong for assistive tech when its problem line is showing. */
+const flag = (input, wrong) => input.setAttribute("aria-invalid", String(Boolean(wrong)));
+
 const groupLine = (group) => {
-  const p = el("p", "fv-group", "Compared with UK ");
+  const p = el("p", "fv-group", "Compared with UK powerlifters: ");
   p.append(el("strong", "", L.groupWords(group)));
   return p;
 };
@@ -108,7 +165,7 @@ const groupLine = (group) => {
 const credit = () => {
   const p = el("p", "fv-credit", "Real results from ");
   const a = Object.assign(el("a", "", "OpenPowerlifting"), { href: "https://www.openpowerlifting.org/" });
-  p.append(a, ", groups of 20+ lifters, no individual lifters.");
+  p.append(a, ", groups of 20 or more UK powerlifters, no individuals named.");
   return p;
 };
 
@@ -148,7 +205,8 @@ const SCREENS = {
     restore.addEventListener("click", () => chooseBackup(note));
     // With answers saved, the resume card has the buttons; otherwise Start does.
     const box = started ? el("div", "fv-actions") : actions("Start", () => go("sex")).box;
-    const privacy = el("p", "fv-private", "Nothing you enter leaves this phone. ");
+    // Counting is on by default, so the first screen says so (what's counted, and that numbers never are).
+    const privacy = el("p", "fv-private", "Nothing you enter leaves this phone. The app counts which screens are used, anonymously, to improve it. ");
     privacy.append(Object.assign(el("a", "", "Privacy"), { href: "privacy.html" }));
     box.append(quick, restore, note, privacy);
     return [...nodes, box];
@@ -167,26 +225,29 @@ const SCREENS = {
 
   bodyweight() {
     const d = draft();
+    const question = heading("What do you weigh?");
     const { wrap, input } = numberField("Bodyweight", { id: "fv-bw", value: d.bodyweight, placeholder: d.sex === "F" ? 63 : 80, enterKey: "go" });
     const problem = el("p", "fv-problem small");
+    describe(input, question, problem);
     const out = el("div", "fv-out");
     const { box, button } = actions("Next", () => go("competed"), { disabled: true });
     const update = () => {
       const bw = input.valueAsNumber;
       const ok = bw >= L.LIMITS.bodyweight[0] && bw <= L.LIMITS.bodyweight[1];
       // Flagged only once two digits are typed, so one digit is never an error.
-      problem.textContent = !ok && input.value.replace(/\D/g, "").length >= 2 ? `Enter a bodyweight from ${L.LIMITS.bodyweight.join(" to ")} kg.` : "";
+      const wrong = !ok && input.value.replace(/\D/g, "").length >= 2;
+      problem.textContent = wrong ? `Enter a bodyweight from ${L.LIMITS.bodyweight.join(" to ")} kg.` : "";
+      flag(input, wrong);
       button.disabled = !ok;
-      out.replaceChildren();
-      if (!ok) return;
+      if (!ok) return showResult(out, null);
       answer(() => ({ bodyweight: bw }));
       const wclass = L.weightClass(d.sex, bw);
-      out.append(card(`You're in the ${wclass.endsWith("+") ? `${wclass.slice(0, -1)}+` : wclass} kg class`, `Lifters from ${L.classRange(d.sex, wclass)}, like at a meet.`));
+      showResult(out, card(`You're in the ${wclass} kg class`, `Lifters from ${L.classRange(d.sex, wclass)}, like at a meet.`));
     };
     input.addEventListener("input", update);
     input.addEventListener("keydown", (e) => e.key === "Enter" && !button.disabled && go("competed"));
     update();
-    return [heading("What do you weigh?"), el("p", "fv-lede", "Heavier lifters tend to lift more, so you're compared with people around your weight."), wrap, problem, out, box];
+    return [question, el("p", "fv-lede", "Heavier lifters tend to lift more, so you're compared with people around your weight."), wrap, problem, out, box];
   },
 
   competed() {
@@ -198,7 +259,7 @@ const SCREENS = {
     const list = el("div", "fv-choices");
     list.append(
       choice("No, never", "You'll be compared with lifters at their first meet: the closest group to you.", d.competed === "never", pick("never")),
-      choice("Once", "Compared with lifters at their second meet.", d.competed === "once", pick("once")),
+      choice("Once", "Your next meet would be your second, so you're compared with lifters at theirs.", d.competed === "once", pick("once")),
       choice("Twice or more", "Compared with lifters with 3 or more meets.", d.competed === "more", pick("more")),
     );
     return [heading("Have you ever competed in powerlifting?"), el("p", "fv-lede", "A powerlifting meet is a competition in squat, bench press and deadlift, with judges."), list];
@@ -272,7 +333,7 @@ const SCREENS = {
     for (const row of words.rows) {
       const div = el("div");
       const dd = el("dd", "", S.formatScore("dots", row.points));
-      dd.append(el("span", "", `+${S.formatScore("dots", row.change)}`));
+      dd.append(el("span", "", `${row.change > 0 ? "+" : "−"}${S.formatScore("dots", Math.abs(row.change))}`));
       div.append(el("dt", "", row.label), dd);
       sum.append(div);
     }
@@ -280,9 +341,9 @@ const SCREENS = {
       heading("Your score"),
       head,
       el("p", "fv-lede", "DOTS turns your total and your bodyweight into one number. Heavier lifters need a bigger total to get the same score, so it measures how strong you are for your size."),
-      el("p", "fv-subhead", "Two ways to raise it"),
+      el("h3", "fv-subhead", "How your score moves"),
       sum,
-      el("p", "fv-note", words.gymGoer),
+      ...(words.gymGoer ? [el("p", "fv-note", words.gymGoer)] : []),
       actions("Next", () => go("target")).box,
     ];
   },
@@ -292,47 +353,26 @@ const SCREENS = {
     const profile = L.draftProfile(d);
     const group = L.draftGroup(rungsData, d);
     const next = actions("Next", () => go("next")).box;
-    if (!group) return [heading("Your next target"), el("p", "fv-lede", "Without enough lifters in your class to compare, every test is about beating your own best."), next];
+    if (!group) return [heading("Your next step"), el("p", "fv-lede", "Without enough powerlifters in your class to compare, every test is about beating your own best."), next];
+    // Each lift's next step, nearest first. The total's target is on the 100 screen; these are separate goals
+    // (each lift's rungs come from its own lifters), so they aren't shown as adding up to it.
     const words = L.targetWords(profile, group);
+    if (words.allTop) return [heading("Past every rung"), el("p", "fv-lede", "Every lift is as high as these numbers go. From here, each test is about beating your own best."), credit(), next];
     const sum = el("dl", "fv-sum");
     for (const row of words.lifts) {
       const div = el("div");
-      const dd = el("dd", "", row.kg == null ? "Top rung" : kg(row.kg));
+      const dd = el("dd", "", row.kg == null ? row.words : kg(row.kg));
       if (row.kg != null) dd.append(el("span", "", `+${kg(row.add)} · ${row.words}`));
       div.append(el("dt", "", LIFT_TITLES[row.lift]), dd);
       sum.append(div);
     }
-    if (!words.add) return [heading(words.title), el("p", "fv-lede", "From here, every test is about beating your own best. Each lift's next rung:"), sum, credit(), next];
-    const number = el("p", "fv-number", `+${Number(words.add.toFixed(1))}`);
-    number.append(el("small", "", "kg"));
-    const statement = el("p", "fv-statement", words.title);
-    return [
-      heading("Your next target"),
-      number,
-      statement,
-      el("p", "fv-lede", `${words.onLadder ? `That's a ${kg(words.total)} total.` : `That's the first rung: a ${kg(words.total)} total.`} Any mix of the three lifts counts. Or lift by lift:`),
-      sum,
-      credit(),
-      next,
-    ];
+    return [heading("Your next steps"), el("p", "fv-lede", "Each lift on its own, nearest first. Beat one and log it."), sum, credit(), next];
   },
 
   next() {
-    // What's waiting inside, each a real feature: Lift balance on the Ladder, the Progress chart, Log test.
-    const points = el("ul", "fv-points");
-    for (const [title, text] of [
-      ["Where to improve", "Your biggest opportunity among the three lifts, and the kilos to its next rung."],
-      ["Your climb", "Every test on one chart (score, lifts or bodyweight), with each rung you pass marked."],
-      ["Quick logging", "A new squat PR or a full test in seconds, with the rungs it climbs shown before you save."],
-    ]) {
-      const li = el("li");
-      li.append(el("strong", "", title), text);
-      points.append(li);
-    }
     return [
-      heading("When you beat it, log it here"),
-      el("p", "fv-lede", "Your ladder is ready. Inside:"),
-      points,
+      heading("Your ladder is ready"),
+      el("p", "fv-lede", "When you lift more, log it on Log test: one lift or all three. Your score and your place on the ladder update straight away."),
       el("p", "small muted", "Your numbers stay on this phone. Back them up any time from Progress."),
       actions("Show my ladder", finish).box,
     ];
@@ -358,17 +398,30 @@ const SCREENS = {
       return row;
     };
     const bw = numberField("Bodyweight", { id: "fv-q-bw", value: d.bodyweight, placeholder: 70 });
-    const lifts = Object.fromEntries(L.LIFTS.map((lift) => [lift, numberField(lift === "bench" ? "Bench" : LIFT_TITLES[lift], { id: `fv-q-${lift}`, value: d.lifts[lift]?.mode === "max" ? d.lifts[lift].kg : null, unit: "" })]));
+    const lifts = Object.fromEntries(L.LIFTS.map((lift) => [lift, numberField(lift === "bench" ? "Bench" : LIFT_TITLES[lift], { id: `fv-q-${lift}`, value: d.lifts[lift]?.mode === "max" ? d.lifts[lift].kg : null, unit: "kg" })]));
     const grid = el("div", "fv-quick-lifts");
     grid.append(...L.LIFTS.map((lift) => lifts[lift].wrap));
+    // What's still needed, said rather than left as a silent disabled button.
+    const needs = el("p", "fv-needs small");
+    needs.id = "fv-q-needs";
+    needs.setAttribute("role", "status");
     const { box, button } = actions("See where I stand", () => go("standing"), { disabled: true });
+    button.setAttribute("aria-describedby", needs.id);
+    box.prepend(needs);
     const update = () => {
       const values = Object.fromEntries(L.LIFTS.map((lift) => [lift, lifts[lift].input.valueAsNumber]));
       const weight = bw.input.valueAsNumber;
       const now = draft();
-      const ok = now.sex && now.competed && weight >= L.LIMITS.bodyweight[0] && weight <= L.LIMITS.bodyweight[1] && L.LIFTS.every((lift) => !L.liftEntryProblem({ kg: values[lift], mode: "max" }));
-      button.disabled = !ok;
-      if (ok) answer(() => ({ via: "quick", mode: "max", bodyweight: weight, lifts: Object.fromEntries(L.LIFTS.map((lift) => [lift, { mode: "max", kg: values[lift], reps: null }])) }));
+      const missing = [
+        !now.sex && "women's or men's",
+        !(weight >= L.LIMITS.bodyweight[0] && weight <= L.LIMITS.bodyweight[1]) && `bodyweight (${L.LIMITS.bodyweight.join(" to ")} kg)`,
+        ...L.LIFTS.filter((lift) => L.liftEntryProblem({ kg: values[lift], mode: "max" })).map((lift) => `${LIFT_TITLES[lift].toLowerCase()} (${L.LIMITS.lift.join(" to ")} kg)`),
+        !now.competed && "meets so far",
+      ].filter(Boolean);
+      for (const [input, wrong] of [[bw.input, bw.input.value !== "" && missing.some((m) => m.startsWith("bodyweight"))], ...L.LIFTS.map((lift) => [lifts[lift].input, lifts[lift].input.value !== "" && missing.some((m) => m.startsWith(LIFT_TITLES[lift].toLowerCase()))])]) flag(input, wrong);
+      needs.textContent = missing.length ? `Still needed: ${missing.join(", ")}.` : "";
+      button.disabled = missing.length > 0;
+      if (!missing.length) answer(() => ({ via: "quick", mode: "max", bodyweight: weight, lifts: Object.fromEntries(L.LIFTS.map((lift) => [lift, { mode: "max", kg: values[lift], reps: null }])) }));
     };
     for (const input of [bw.input, ...L.LIFTS.map((lift) => lifts[lift].input)]) input.addEventListener("input", update);
     const form = el("div", "fv-quick");
@@ -385,8 +438,9 @@ const SCREENS = {
 
 /** What counts for a lift: the barbell version, since the rungs are meet lifts. */
 function what(lift) {
+  const [counts, doesnt] = LIFT_WHAT[lift];
   const p = el("p", "fv-what");
-  p.append(el("strong", "", LIFT_WHAT[lift]), " Dumbbell, Smith machine or leg press numbers aren't comparable.");
+  p.append(el("strong", "", counts), ` ${doesnt}`);
   return p;
 }
 
@@ -397,18 +451,21 @@ function liftScreen(lift) {
   const setMode = entry.mode === "set";
   const nextScreen = L.FIRST_VISIT_STEPS[L.FIRST_VISIT_STEPS.indexOf(lift) + 1];
   const group = L.draftGroup(rungsData, d);
-  const weight = numberField(setMode ? "Weight" : "Max", { id: "fv-kg", value: entry.kg, placeholder: PLACEHOLDER[lift], enterKey: setMode ? "next" : "go" });
+  const question = heading(`Your best ${LIFT_TITLES[lift].toLowerCase()}`);
+  const weight = numberField(setMode ? "Heaviest recent set" : "One-rep max", { id: "fv-kg", value: entry.kg, placeholder: PLACEHOLDER[lift], enterKey: setMode ? "next" : "go" });
   const fields = el("div", "fv-fields");
   fields.append(weight.wrap);
   let reps = null;
   if (setMode) {
-    reps = numberField("Reps", { id: "fv-reps", value: entry.reps ?? 5, unit: "", inputMode: "numeric", enterKey: "go", className: "fv-reps" });
+    // Left empty (with an example), so a set is never saved with reps nobody typed.
+    reps = numberField("Reps", { id: "fv-reps", value: entry.reps, placeholder: 5, unit: "", inputMode: "numeric", enterKey: "go", className: "fv-reps" });
     const times = el("span", "fv-times", "×");
     times.setAttribute("aria-hidden", "true");
     fields.append(times, reps.wrap);
   }
   const problem = el("p", "fv-problem small");
-  problem.setAttribute("role", "status");
+  describe(weight.input, question, problem);
+  if (reps) describe(reps.input, question, problem);
   const out = el("div", "fv-out");
   const nextLabel = lift === "deadlift" ? "See where I stand" : `Next: ${LIFT_TITLES[nextScreen].toLowerCase()}`;
   const { box, button } = actions(nextLabel, () => go(nextScreen), { disabled: true });
@@ -418,15 +475,18 @@ function liftScreen(lift) {
     answerLift(lift, now);
     const issue = L.liftEntryProblem(now);
     // A weight is flagged once it has two digits; reps as soon as they're wrong.
-    const show = issue && (issue !== "kg" || weight.input.value.replace(/\D/g, "").length >= 2);
+    // Empty reps aren't wrong yet, just not done.
+    const typedReps = reps && reps.input.value !== "";
+    const show = issue && (issue === "kg" ? weight.input.value.replace(/\D/g, "").length >= 2 : issue !== "reps" || typedReps);
     problem.textContent = show ? L.LIFT_ENTRY_TEXT[issue] : "";
+    flag(weight.input, show && (issue === "kg" || issue === "estimate"));
+    if (reps) flag(reps.input, show && (issue === "reps" || issue === "too-many-reps"));
     button.disabled = Boolean(issue);
-    out.replaceChildren();
-    if (issue) return;
+    if (issue) return showResult(out, null);
     const max = L.draftMax(draft(), lift);
     const est = L.draftEstimated(draft(), lift) ? `Estimated max: ${kg(max)}, from ${kg(now.kg)} × ${now.reps}` : "";
     const words = group?.lifts[lift]?.length ? L.liftPlaceWords(lift, max, group) : null;
-    out.append(card(words?.title, words?.more, est));
+    showResult(out, card(words?.title, words?.more, est));
   };
   weight.input.addEventListener("input", update);
   reps?.input.addEventListener("input", update);
@@ -440,15 +500,15 @@ function liftScreen(lift) {
   const toggle = el("button", "link-button fv-link", setMode ? "I know my max" : "Don't know your max? Use a set");
   toggle.type = "button";
   toggle.addEventListener("click", () => {
-    answerLift(lift, { mode: setMode ? "max" : "set", reps: entry.reps ?? 5 });
+    answerLift(lift, { mode: setMode ? "max" : "set", reps: entry.reps ?? null });
     show(current);
   });
   update();
+  // Kept short above the field, so the field and what it gives back stay above the keyboard.
   return [
     ...(group ? [groupLine(group)] : []),
-    heading(`Your best ${LIFT_TITLES[lift].toLowerCase()}`),
+    question,
     what(lift),
-    el("p", "fv-lede small", setMode ? "Your heaviest recent set with good form: the weight, and how many reps." : "The heaviest single you've done recently, with good form."),
     fields,
     problem,
     out,
@@ -488,13 +548,16 @@ export function show(screen) {
     track(`first-visit/${screen}`); // once per screen reached, so the counts show where people stop
   }
   // The top bar: Back (not on the welcome screen), the progress bar and, for screen readers, the step.
-  const step = screen === "quick" ? L.FIRST_VISIT_STEPS.indexOf("deadlift") : L.FIRST_VISIT_STEPS.indexOf(screen);
+  // Quick setup is one screen, not step 7 of 11: no bar, and it says what it is.
+  const step = L.FIRST_VISIT_STEPS.indexOf(screen);
   // Hidden by visibility, so the button keeps its place in the top bar's grid.
   $("onboard-back").style.visibility = screen === "welcome" ? "hidden" : "";
-  $("onboard-bar").replaceChildren(...(screen === "welcome" ? [] : L.FIRST_VISIT_STEPS.map((_, i) => el("span", i <= step ? "done" : ""))));
-  $("onboard-count").textContent = step >= 0 ? `Step ${step + 1} of ${L.FIRST_VISIT_STEPS.length}` : "";
+  $("onboard-bar").replaceChildren(...(step < 0 ? [] : L.FIRST_VISIT_STEPS.map((_, i) => el("span", i <= step ? "done" : ""))));
+  $("onboard-count").textContent = step >= 0 ? `Step ${step + 1} of ${L.FIRST_VISIT_STEPS.length}` : screen === "quick" ? "Quick setup, one screen" : "";
   window.scrollTo(0, 0);
-  const focus = body.querySelector("input") ?? body.querySelector("h2");
+  // The first field, so the keypad opens (described by the question, so a screen reader hears that too); on Quick
+  // setup the heading, as its first choices come before any field.
+  const focus = (screen !== "quick" && body.querySelector("input")) || body.querySelector("h2");
   focus?.focus({ preventScroll: true });
 }
 
@@ -506,9 +569,15 @@ export function resetOnboarding() {
 export function setupOnboarding(data) {
   rungsData = data;
   $("onboard-back").addEventListener("click", back);
-  // Keep the pinned button above the on-screen keyboard: how much of the layout the keyboard covers.
+  // How much of the layout the on-screen keyboard covers. While it's open (kb-open) the button stops pinning itself
+  // over the content: it follows the field instead, so the field and what it gives back stay above the keyboard
+  // (the keyboard's own Go key moves on).
   if (window.visualViewport) {
-    const cover = () => document.documentElement.style.setProperty("--kb", `${Math.max(0, innerHeight - visualViewport.height - visualViewport.offsetTop)}px`);
+    const cover = () => {
+      const covered = Math.max(0, innerHeight - visualViewport.height - visualViewport.offsetTop);
+      document.documentElement.style.setProperty("--kb", `${covered}px`);
+      document.documentElement.classList.toggle("kb-open", covered > 120);
+    };
     visualViewport.addEventListener("resize", cover);
     visualViewport.addEventListener("scroll", cover);
   }

@@ -81,7 +81,7 @@ function scenarioWords(scenario) {
 function renderHero(profile, points, rungs) {
   setNumber($("now-score"), S.formatScore(profile.formula, points));
   $("now-unit").textContent = `your ${S.FORMULAS[profile.formula].label}`;
-  $("now-caption").textContent = [`${L.sumLifts(profile)} kg total`, `${profile.bodyweight} kg bodyweight`, L.rungPosition(rungs, points)]
+  $("now-caption").textContent = [`${L.sumLifts(profile)} kg total`, `${profile.bodyweight} kg bodyweight`, L.plainPosition(rungs, points)]
     .filter(Boolean)
     .join(" · ");
 }
@@ -90,11 +90,11 @@ function renderNext(profile, points, group, missing) {
   const { formula } = profile;
   const next = group && L.nextRung(group.rungs, points);
   const kg = next && S.kgToNextRung(formula, { total: L.sumLifts(profile), bw: profile.bodyweight, sex: profile.sex }, next.score);
-  $("next-label").textContent = next ? `Next rung · P${next.percentile}` : "Next rung";
+  $("next-label").textContent = next ? `Next rung · ${L.RUNG_NAMES[next.percentile].toLowerCase()}` : "Next rung";
   $("next-value").textContent = missing
     ? missing
     : !group
-      ? "Not enough lifters in this group to publish rungs."
+      ? "Not enough powerlifters in this group to publish rungs."
       : next
         ? `+${S.formatScore(formula, next.score - points)} ${S.FORMULAS[formula].label} ≈ +${kg} kg on your total`
         : "Top rung reached";
@@ -215,9 +215,11 @@ function renderRow(row, profile) {
   const end = el("span", "row-end");
 
   if (row.kind === "rung") {
-    key.textContent = `P${row.percentile}`;
-    const title = row.state === "next" ? "Next rung" : row.state === "cleared" ? "Cleared" : L.RUNG_NAMES[row.percentile];
-    main.append(el("span", "row-title", title), el("span", "row-sub", `${S.formatRung(formula, row.score)} ${unit}`));
+    // The rung keeps its name in every state (what reaching it means); its state is in the line under it and the end.
+    key.textContent = String(row.percentile);
+    key.setAttribute("aria-hidden", "true");
+    const state = row.state === "next" ? " · your next rung" : row.state === "cleared" ? " · passed" : "";
+    main.append(el("span", "row-title", L.RUNG_NAMES[row.percentile]), el("span", "row-sub", `${S.formatRung(formula, row.score)} ${unit}${state}`));
     if (row.state === "cleared") end.append(icon("icon-check", "Cleared"));
     else end.textContent = signed(row.gap, formula);
   } else if (row.kind === "you") {
@@ -269,8 +271,8 @@ function render() {
   $("group-note").textContent = missing
     ? missing
     : group
-      ? `${group.lifters} lifters in this group.`
-      : `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
+      ? `${group.lifters} UK powerlifters in this group.`
+      : `Not enough powerlifters ${experience === L.EXPERIENCE[2] ? "with 3 or more meets" : `at their ${experience}`} in the ${wclass} kg class to publish rungs.`;
   renderHero(profile, points, group?.rungs ?? []);
   renderMeetPill(d);
   renderNext(profile, points, group, missing);
