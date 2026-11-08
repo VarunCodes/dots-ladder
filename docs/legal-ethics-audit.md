@@ -28,6 +28,7 @@ Use OpenPowerlifting's bulk download, not the federation websites. It is the onl
 - **Training data and gym 1RMs aren't in any official source.** Federations publish meet results only.
 - **Public domain removes the copyright and database-right barrier for OpenPowerlifting's data, not the privacy one.** UK GDPR still applies to personal data taken from it.
 - **AGPL applies only if you reuse OpenPowerlifting's code.** Using only the data carries no such duty.
+- **This app's own code is proprietary** (`LICENSE`: all rights reserved). It reuses no OpenPowerlifting code, the fonts keep the SIL Open Font License, and the public-domain results behind the rungs aren't claimed.
 
 These are powerlifting federations, not bodybuilding bodies; bodybuilding federations publish placings, not lifts.
 

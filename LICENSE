@@ -1,0 +1,12 @@
+Copyright © 2026 Varun Madhukara. All rights reserved.
+
+The source code, documentation, design and images in this repository may not be
+copied, modified, distributed or used, in whole or in part, without written
+permission from the copyright holder. Viewing it on GitHub is permitted.
+
+Exceptions:
+- fonts/: Barlow and Barlow Condensed by the Barlow Project Authors, under the
+  SIL Open Font License 1.1 (see fonts/OFL.txt).
+- data/rungs.json: built from OpenPowerlifting's bulk data, which is in the
+  public domain (https://www.openpowerlifting.org/). The underlying results are
+  not covered by this notice.

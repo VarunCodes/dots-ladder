@@ -83,3 +83,4 @@ Open an issue: choose **Feature idea** or **Bug report**, and fill in the form. 
 - **Fonts:** [Barlow and Barlow Condensed](https://github.com/jpt/barlow) by the Barlow Project Authors, SIL Open Font License 1.1 (`fonts/OFL.txt`).
 - **Icons:** original pictograms drawn for this app; no third-party icons.
 - **Gym-goer estimate:** method and sources in `docs/population-estimates.md`.
+- **Code:** © 2026 Varun Madhukara, all rights reserved; not open source. The fonts and the OpenPowerlifting data keep their own terms. See `LICENSE`.
