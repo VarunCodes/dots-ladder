@@ -835,76 +835,79 @@ test("the typical split is scaled to 100 and says so, or is null without one", (
 
 test("a rung band is compact: below the lowest, between two, above the top", () => {
   assert.equal(L.rungBand(balanceRungs.squat, 110), "Below P10");
-  assert.equal(L.rungBand(balanceRungs.bench, 120), "P75–P90");
-  assert.equal(L.rungBand(balanceRungs.squat, 155), "Above P50");
   assert.equal(L.rungBand(balanceRungs.squat, 120), "P10–P25", "reaching a rung clears it");
   assert.equal(L.rungBand([], 100), "");
 });
 
-test("lift balance names the biggest opportunity, the nearest rung, the strongest lift and every lift at its next rung", () => {
+test("a row's badge says where the lift is in plain words, never a P-code", () => {
+  assert.equal(L.ladderBand(balanceRungs.squat, 110), "Not on the ladder");
+  assert.equal(L.ladderBand(balanceRungs.bench, 120), "Ahead of 75");
+  assert.equal(L.ladderBand(balanceRungs.squat, 155), "Ahead of 50", "past the top rung");
+  assert.equal(L.ladderBand(balanceRungs.squat, 120), "Ahead of 10", "reaching a rung passes it");
+  assert.equal(L.ladderBand([], 100), "");
+});
+
+test("lift balance leads with the lift with most room to grow, then the strongest, then all three at their next step", () => {
   const b = balance(lifter);
-  assert.deepEqual(b.rows.map((r) => [r.lift, r.band, r.opportunity]), [["squat", "Below P10", true], ["bench", "P75–P90", false], ["deadlift", "P10–P25", false]]);
-  assert.equal(b.lines[0].lead, "Squat is your biggest opportunity.");
+  assert.deepEqual(b.rows.map((r) => [r.lift, r.band, r.opportunity]), [["squat", "Not on the ladder", true], ["bench", "Ahead of 75", false], ["deadlift", "Ahead of 10", false]]);
   assert.deepEqual(texts(b), [
-    "Squat is your biggest opportunity. It sits below P10, and its share is 7 points under typical.",
-    "Squat is 10 kg from P10, the closest rung of your three lifts.",
-    "Bench is your strongest lift: P75–P90.",
-    "All three lifts at their next rung (+10, +10 and +12.5 kg) would take your score to P25 (+24.4 DOTS).",
+    "Squat has the most room to grow. It isn't on the ladder yet: 120 kg (+10 kg) puts it ahead of 10 in 100. It's 28% of your total; powerlifters like you average 35%.",
+    "Bench press is your strongest lift: ahead of at least 75 in 100, and 10 kg from ahead of 90 in 100.",
+    "All three at their next step (+10, +10 and +12.5 kg) would put your total ahead of 25 in 100: +24.4 DOTS.",
   ]);
+  assert.ok(!texts(b).join(" ").match(/\bP\d/), "no P-codes");
   assert.equal(b.selected, "squat", "the opportunity is shown first");
 });
 
-test("each lift's detail: where it sits, then its next rung and the one after, with what each does for the score", () => {
+test("each lift's drawer: its share line, then its next two steps as table rows, the total's step named only when it changes", () => {
   const b = balance(lifter);
-  const detail = (lift) => texts({ lines: b.rows.find((r) => r.lift === lift).detail });
-  assert.deepEqual(detail("squat"), [
-    "Squat: below P10, share 7 points under typical.",
-    "+10 kg to P10 (120 kg) would take your score to P25 (+7.5 DOTS).",
-    "+30 kg to P25 (140 kg) would take your score to P25 (+22.5 DOTS).", // the points tell it apart from the line above
+  const row = (lift) => b.rows.find((r) => r.lift === lift);
+  assert.equal(row("squat").detail[0].text, "Your biggest opportunity. Squat is 28% of your total; powerlifters like you average 35%.");
+  assert.deepEqual(row("squat").steps.map((s) => [s.kg, s.add, s.lift, s.total, s.points]), [
+    [120, 10, "Ahead of 10 in 100", "Ahead of 25 in 100", "+7.5 DOTS"],
+    [140, 30, "Ahead of 25 in 100", null, "+22.5 DOTS"], // still the same step for the total: not named again
   ]);
-  assert.deepEqual(detail("bench"), ["Bench: between P75 and P90, share 7 points over typical.", "+10 kg to P90 (130 kg) would take your score to P25 (+7.5 DOTS)."]);
-  assert.equal(detail("deadlift")[1], "+12.5 kg to P25 (172.5 kg) would take your score to P25 (+9.4 DOTS).");
-  const top = balance({ ...lifter, squat: 160 }).rows[0].detail;
-  assert.equal(top.length, 1, "above its top rung: no rungs ahead");
-  assert.match(top[0].text, /^above P50, share /);
-  assert.deepEqual(balance(lifter, { ...balanceRungs, bench: [] }).rows[1].detail, [{ text: "No bench rungs for this group yet." }]);
-  assert.equal(balance(lifter, balanceRungs, null).rows[0].detail[0].text, "below P10.", "no share comparison without a typical split");
+  assert.equal(row("bench").detail[0].text, "Your strongest lift. Bench press is 31% of your total; powerlifters like you average 24%.");
+  assert.equal(row("deadlift").detail[0].text, "Deadlift is ahead of at least 10 in 100.", "within a point of typical: no share line");
+  assert.deepEqual(balance({ ...lifter, squat: 160 }).rows[0].steps, [], "past its top rung: no steps");
+  assert.deepEqual(balance(lifter, { ...balanceRungs, bench: [] }).rows[1].detail, [{ text: "No bench press rungs for this group yet." }]);
+  assert.equal(balance(lifter, balanceRungs, null).rows[0].detail[0].text, "Your biggest opportunity. Squat isn't on the ladder yet.", "no share without a typical split");
 });
 
-test("lift balance can name any lift, and says when the next rung doesn't climb a score rung", () => {
+test("lift balance can name any lift, and only adds points when the total doesn't reach a new step", () => {
   const b = balance({ ...lifter, squat: 125, bench: 100, deadlift: 150 });
-  assert.equal(b.lines[0].lead, "Deadlift is your biggest opportunity.");
-  assert.match(texts(b)[1], /^Deadlift is 2\.5 kg from P10/);
-  assert.equal(texts(b)[2], "Bench is your strongest lift: P25–P50.");
-  assert.match(texts(b)[3], /^All three lifts at their next rung \(\+15, \+5 and \+2\.5 kg\) would add \d+\.\d DOTS\.$/);
-  assert.match(b.rows[2].detail[1].text, /^\+2\.5 kg to P10 \(152\.5 kg\) would add \d+\.\d DOTS\.$/);
+  assert.equal(b.lines[0].lead, "Deadlift has the most room to grow.");
+  assert.equal(texts(b)[1], "Bench press is your strongest lift: ahead of at least 25 in 100, and 5 kg from ahead of half.");
+  assert.match(texts(b)[2], /^All three at their next step \(\+15, \+5 and \+2\.5 kg\) would add \d+\.\d DOTS\.$/);
+  const onLadder = balance({ ...lifter, squat: 160 });
+  assert.equal(texts(onLadder)[0], "Deadlift has the most room to grow. It's ahead of at least 10 in 100; 172.5 kg (+12.5 kg) puts it ahead of 25 in 100. It's 36% of your total; powerlifters like you average 41%.");
 });
 
-test("lift balance: a lower share than typical breaks a tie in rank, else both are named", () => {
-  const tied = { ...lifter, squat: 115, deadlift: 145 }; // both below P10
-  assert.equal(balance(tied).lines[0].lead, "Squat is your biggest opportunity.", "squat's share is further under typical");
+test("lift balance: a lower share than typical breaks a tie, else both are named", () => {
+  const tied = { ...lifter, squat: 115, deadlift: 145 }; // both off the ladder
+  assert.equal(balance(tied).lines[0].lead, "Squat has the most room to grow.", "squat's share is further under typical");
   const even = { lifters: 30, ...L.liftShares(tied), scaled: false };
-  assert.deepEqual(balance(tied, balanceRungs, even).lines[0], { lead: "Squat and deadlift are your biggest opportunities.", text: "Both sit below P10." });
-  assert.deepEqual(balance(tied, balanceRungs, null).lines[0], { lead: "Squat and deadlift are your biggest opportunities.", text: "Both sit below P10." }, "no typical split");
-  assert.equal(balance(lifter, balanceRungs, null).lines[0].text, "It sits below P10.", "no share comparison without one");
+  assert.deepEqual(balance(tied, balanceRungs, even).lines[0], { lead: "Squat and deadlift have the most room to grow.", text: "Neither is on the ladder yet." });
+  assert.deepEqual(balance(tied, balanceRungs, null).lines[0], { lead: "Squat and deadlift have the most room to grow.", text: "Neither is on the ladder yet." }, "no typical split");
+  assert.equal(balance(lifter, balanceRungs, null).lines[0].text, "It isn't on the ladder yet: 120 kg (+10 kg) puts it ahead of 10 in 100.", "no share without one");
 });
 
-test("lift balance: lifts in the same band rank evenly, with no opportunity or strongest line", () => {
+test("lift balance: lifts in the same band are evenly matched, and the closest to its next step is named", () => {
   const b = balance({ ...lifter, squat: 145, bench: 95, deadlift: 187.5 });
-  assert.deepEqual(texts(b)[0], "Your lifts rank evenly. All three sit between P25 and P50.");
+  assert.equal(texts(b)[0], "Your lifts are evenly matched. All three are ahead of at least 25 in 100.");
   assert.ok(b.rows.every((r) => !r.opportunity));
   assert.ok(!texts(b).some((t) => /strongest/.test(t)));
-  assert.match(texts(b)[1], /^Deadlift is 7\.5 kg from P50/);
+  assert.equal(texts(b)[1], "Deadlift is closest to its next step: 7.5 kg to ahead of half.");
   assert.equal(b.selected, "deadlift", "the nearest lift is shown first, with no opportunity");
 });
 
-test("lift balance skips lifts above their top rung or without rungs, and says nothing with one lift to compare", () => {
+test("lift balance skips lifts past their top rung or without rungs, and says nothing with one lift to compare", () => {
   const top = balance({ ...lifter, squat: 160, bench: 135, deadlift: 200 });
-  assert.ok(!texts(top).some((t) => /closest rung/.test(t)), "every lift above its top rung");
+  assert.ok(!texts(top).some((t) => /next step \(/.test(t)), "every lift past its top rung: no all-three line");
   const one = balance(lifter, { squat: balanceRungs.squat, bench: [], deadlift: [] });
   assert.deepEqual(one.lines, []);
   assert.equal(one.selected, "squat", "the only lift with rungs");
-  assert.deepEqual(one.rows.map((r) => r.band), ["Below P10", "", ""]);
+  assert.deepEqual(one.rows.map((r) => r.band), ["Not on the ladder", "", ""]);
 });
 
 // --- First visit -------------------------------------------------------------------

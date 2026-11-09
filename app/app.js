@@ -158,7 +158,7 @@ function renderBalance(d, group) {
   $("balance-typical-label").hidden = $("balance-typical").hidden = !typical;
   if (typical) shareBar($("balance-typical"), typical, "Typical", { short: false, minLabel: 9 });
   $("balance-for").textContent = typical
-    ? `Typical = median split for UK meet lifters: ${group} (${typical.lifters} lifters, OpenPowerlifting).${typical.scaled ? " Scaled to 100%." : ""}`
+    ? `Typical: the middle powerlifter's split, from ${typical.lifters} UK powerlifters (${group}, OpenPowerlifting).${typical.scaled ? " Scaled to 100%." : ""}`
     : `No typical split for ${group} yet.`;
   $("balance-callout").hidden = !lines.length;
   $("balance-lines").replaceChildren(...lines.map(balanceLine));
@@ -190,12 +190,43 @@ function renderBalance(d, group) {
         detail.id = "balance-detail";
         button.setAttribute("aria-controls", detail.id);
         detail.append(...row.detail.map(balanceLine));
+        if (row.steps.length) detail.append(stepsTable(row));
         li.append(detail);
       }
       return li;
     }),
   );
   $("balance-pick").hidden = !shown;
+}
+
+/**
+ * A lift's next steps as a table: the weight, where the lift would be, and what it does for your total. The
+ * total's column names a step only when it changes, so the lift's step and the total's can't be confused.
+ */
+function stepsTable(row) {
+  const table = el("table", "balance-steps");
+  const caption = el("caption", "", "Its next steps, and what each does for your total");
+  const head = el("thead");
+  const headRow = el("tr");
+  for (const [text, cls] of [[L.LIFT_NAMES[row.lift], ""], ["The lift", ""], ["Your total", "end"]]) {
+    const th = el("th", cls, text);
+    th.scope = "col";
+    headRow.append(th);
+  }
+  head.append(headRow);
+  const body = el("tbody");
+  for (const step of row.steps) {
+    const tr = el("tr");
+    const kg = el("td");
+    kg.append(el("strong", "", `${Number(step.kg.toFixed(1))} kg`), el("span", "balance-add", `+${Number(step.add.toFixed(1))}`));
+    const total = el("td", "end");
+    if (step.total) total.append(el("span", "balance-total-step", step.total));
+    total.append(el("span", "muted", step.points));
+    tr.append(kg, el("td", "", step.lift), total);
+    body.append(tr);
+  }
+  table.append(caption, head, body);
+  return table;
 }
 
 /** A line of Lift balance's text: an optional bold lead, then the rest. */
