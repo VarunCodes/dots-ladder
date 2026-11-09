@@ -152,37 +152,53 @@ function shareBar(bar, shares, who, { opportunity = [], short = true, minLabel =
 let balanceLift = null;
 
 function renderBalance(d, group) {
-  const { shares, typical, rows, lines, selected } = d.liftBalance;
+  const { shares, typical, rows, lines, hero, selected } = d.liftBalance;
   const opportunity = rows.filter((r) => r.opportunity).map((r) => r.lift);
+  $("balance-against").textContent = `Your three lifts against UK powerlifters: ${group}.`;
   shareBar($("balance-you"), shares, "You", { opportunity });
   $("balance-typical-label").hidden = $("balance-typical").hidden = !typical;
   if (typical) shareBar($("balance-typical"), typical, "Typical", { short: false, minLabel: 9 });
   $("balance-for").textContent = typical
-    ? `Typical: the middle powerlifter's split, from ${typical.lifters} UK powerlifters (${group}, OpenPowerlifting).${typical.scaled ? " Scaled to 100%." : ""}`
+    ? `Typical: the middle powerlifter's split, from ${typical.lifters} UK powerlifters (OpenPowerlifting).${typical.scaled ? " Scaled to 100%." : ""}`
     : `No typical split for ${group} yet.`;
-  $("balance-callout").hidden = !lines.length;
-  $("balance-lines").replaceChildren(...lines.map(balanceLine));
 
-  // Only a lift with rungs can be picked; a pick that no longer has them falls back to the default.
+  // The lead gets the big number when there's one lift to point at; the other lines follow as a short list.
+  $("balance-hero").hidden = !hero;
+  if (hero) {
+    $("balance-hero-title").textContent = hero.title;
+    $("balance-hero-add").textContent = hero.add;
+    $("balance-hero-caption").textContent = hero.caption;
+    $("balance-hero-note").textContent = hero.note;
+  }
+  $("balance-lines").replaceChildren(...(hero ? lines.slice(1) : lines).map((line) => {
+    const li = el("li");
+    if (line.lead) li.append(el("strong", "", line.lead), " ");
+    li.append(line.text);
+    return li;
+  }));
+  $("balance-lines").hidden = !(hero ? lines.length - 1 : lines.length);
+
+  // Only a lift with rungs can be opened; tapping the open one closes it ("none"), and a pick that no longer has
+  // rungs falls back to the default (the lift with most room to grow).
   const pickable = rows.filter((r) => r.band);
-  const shown = pickable.find((r) => r.lift === balanceLift) ?? pickable.find((r) => r.lift === selected) ?? null;
+  const shown = balanceLift === "none" ? null : pickable.find((r) => r.lift === balanceLift) ?? pickable.find((r) => r.lift === selected) ?? null;
   $("balance-rows").replaceChildren(
     ...rows.map((row) => {
+      const open = row === shown;
       const button = el("button", "balance-row");
       button.type = "button";
       button.disabled = !row.band;
-      button.setAttribute("aria-expanded", String(row === shown));
-      button.append(
-        el("span", "balance-name", L.LIFT_NAMES[row.lift]),
-        el("span", "balance-kg", `${row.kg} kg`),
-        el("span", `balance-band${row.opportunity ? " opportunity" : ""}`, row.band || "No rungs"),
-      );
+      button.setAttribute("aria-expanded", String(open));
+      const name = el("span", "balance-name-kg");
+      name.append(el("span", "balance-name", L.LIFT_NAMES[row.lift]), el("span", "balance-kg", `${row.kg} kg`));
+      button.append(name, el("span", `balance-band${row.opportunity ? " opportunity" : ""}`, row.band || "No rungs"));
+      if (row.band) button.append(chevron());
       button.addEventListener("click", () => {
-        balanceLift = row.lift;
+        balanceLift = open ? "none" : row.lift;
         renderBalance(d, group);
         $("balance-rows").querySelectorAll("button")[rows.indexOf(row)].focus();
       });
-      const li = el("li");
+      const li = el("li", open ? "open" : "");
       li.append(button);
       // The picked lift's detail opens right under its row.
       if (row === shown) {
@@ -197,6 +213,18 @@ function renderBalance(d, group) {
     }),
   );
   $("balance-pick").hidden = !shown;
+}
+
+/** The chevron on a Lift balance row: down when closed, turned up when open (by CSS, from aria-expanded). */
+function chevron() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "balance-chevron");
+  svg.setAttribute("viewBox", "0 0 20 20");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M6 8l4 4 4-4");
+  svg.append(path);
+  return svg;
 }
 
 /**

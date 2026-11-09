@@ -839,6 +839,19 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
   };
 
   const lines = [];
+  // The lead as parts, for the card's big number: one lift with most room to grow and a step ahead of it.
+  let hero = null;
+  if (!even && opportunity.length === 1 && next(opportunity[0])) {
+    const [lift] = opportunity;
+    const n = next(lift);
+    hero = {
+      lift,
+      title: `${LIFT_NAMES[lift]} has the most room to grow`,
+      add: `+${kgText(n.score - profile[lift])} kg`,
+      caption: `puts it ahead of ${n.percentile} in 100 (${kgText(n.score)} kg)`,
+      note: [level(lift) ? `It's ${where(lift)} now.` : "It isn't on the ladder yet.", shareLine(lift)].filter(Boolean).join(" "),
+    };
+  }
   if (even) {
     const all = ranked.length === 3 ? "All three" : "Both";
     const text = level(ranked[0]) ? `${all} are ${where(ranked[0])}.` : `${ranked.length === 3 ? "None of the three is" : "Neither is"} on the ladder yet.`;
@@ -923,7 +936,7 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
   // The lift shown first: the opportunity, else (ranking evenly) the nearest rung, else the first with rungs.
   const selected = opportunity[0] ?? nearest?.lift ?? ranked[0] ?? null;
   const rows = LIFTS.map((lift) => ({ lift, kg: profile[lift], band: ladderBand(rungsOf[lift], profile[lift]), opportunity: opportunity.includes(lift), detail: detail(lift), steps: steps(lift) }));
-  return { shares, typical, rows, lines, selected };
+  return { shares, typical, rows, lines, hero, selected };
 }
 
 // --- First visit: one question per screen ------------------------------------------------

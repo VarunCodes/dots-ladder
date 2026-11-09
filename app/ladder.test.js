@@ -859,6 +859,19 @@ test("lift balance leads with the lift with most room to grow, then the stronges
   assert.equal(b.selected, "squat", "the opportunity is shown first");
 });
 
+test("lift balance gives the lead as parts for the card's big number, only when one lift has a step ahead", () => {
+  assert.deepEqual(balance(lifter).hero, {
+    lift: "squat",
+    title: "Squat has the most room to grow",
+    add: "+10 kg",
+    caption: "puts it ahead of 10 in 100 (120 kg)",
+    note: "It isn't on the ladder yet. It's 28% of your total; powerlifters like you average 35%.",
+  });
+  assert.equal(balance({ ...lifter, squat: 145, bench: 95, deadlift: 187.5 }).hero, null, "evenly matched");
+  const tied = { ...lifter, squat: 115, deadlift: 145 };
+  assert.equal(balance(tied, balanceRungs, { lifters: 30, ...L.liftShares(tied), scaled: false }).hero, null, "two lifts named");
+});
+
 test("each lift's drawer: its share line, then its next two steps as table rows, the total's step named only when it changes", () => {
   const b = balance(lifter);
   const row = (lift) => b.rows.find((r) => r.lift === lift);
