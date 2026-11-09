@@ -81,7 +81,7 @@ function scenarioWords(scenario) {
 function renderHero(profile, points, rungs) {
   setNumber($("now-score"), S.formatScore(profile.formula, points));
   $("now-unit").textContent = `your ${S.FORMULAS[profile.formula].label}`;
-  $("now-caption").textContent = [`${L.sumLifts(profile)} kg total`, `${profile.bodyweight} kg bodyweight`, L.rungPosition(rungs, points)]
+  $("now-caption").textContent = [`${L.sumLifts(profile)} kg total`, `${profile.bodyweight} kg bodyweight`, L.plainPosition(rungs, points)]
     .filter(Boolean)
     .join(" · ");
 }
@@ -90,11 +90,11 @@ function renderNext(profile, points, group, missing) {
   const { formula } = profile;
   const next = group && L.nextRung(group.rungs, points);
   const kg = next && S.kgToNextRung(formula, { total: L.sumLifts(profile), bw: profile.bodyweight, sex: profile.sex }, next.score);
-  $("next-label").textContent = next ? `Next rung · P${next.percentile}` : "Next rung";
+  $("next-label").textContent = next ? `Next rung · ${L.RUNG_NAMES[next.percentile].toLowerCase()}` : "Next rung";
   $("next-value").textContent = missing
     ? missing
     : !group
-      ? "Not enough lifters in this group to publish rungs."
+      ? "Not enough powerlifters in this group to publish rungs."
       : next
         ? `+${S.formatScore(formula, next.score - points)} ${S.FORMULAS[formula].label} ≈ +${kg} kg on your total`
         : "Top rung reached";
@@ -152,37 +152,53 @@ function shareBar(bar, shares, who, { opportunity = [], short = true, minLabel =
 let balanceLift = null;
 
 function renderBalance(d, group) {
-  const { shares, typical, rows, lines, selected } = d.liftBalance;
+  const { shares, typical, rows, lines, hero, selected } = d.liftBalance;
   const opportunity = rows.filter((r) => r.opportunity).map((r) => r.lift);
+  $("balance-against").textContent = `Your three lifts against UK powerlifters: ${group}.`;
   shareBar($("balance-you"), shares, "You", { opportunity });
   $("balance-typical-label").hidden = $("balance-typical").hidden = !typical;
   if (typical) shareBar($("balance-typical"), typical, "Typical", { short: false, minLabel: 9 });
   $("balance-for").textContent = typical
-    ? `Typical = median split for UK meet lifters: ${group} (${typical.lifters} lifters, OpenPowerlifting).${typical.scaled ? " Scaled to 100%." : ""}`
+    ? `Typical: the middle powerlifter's split, from ${typical.lifters} UK powerlifters (OpenPowerlifting).${typical.scaled ? " Scaled to 100%." : ""}`
     : `No typical split for ${group} yet.`;
-  $("balance-callout").hidden = !lines.length;
-  $("balance-lines").replaceChildren(...lines.map(balanceLine));
 
-  // Only a lift with rungs can be picked; a pick that no longer has them falls back to the default.
+  // The lead gets the big number when there's one lift to point at; the other lines follow as a short list.
+  $("balance-hero").hidden = !hero;
+  if (hero) {
+    $("balance-hero-title").textContent = hero.title;
+    $("balance-hero-add").textContent = hero.add;
+    $("balance-hero-caption").textContent = hero.caption;
+    $("balance-hero-note").textContent = hero.note;
+  }
+  $("balance-lines").replaceChildren(...(hero ? lines.slice(1) : lines).map((line) => {
+    const li = el("li");
+    if (line.lead) li.append(el("strong", "", line.lead), " ");
+    li.append(line.text);
+    return li;
+  }));
+  $("balance-lines").hidden = !(hero ? lines.length - 1 : lines.length);
+
+  // Only a lift with rungs can be opened; tapping the open one closes it ("none"), and a pick that no longer has
+  // rungs falls back to the default (the lift with most room to grow).
   const pickable = rows.filter((r) => r.band);
-  const shown = pickable.find((r) => r.lift === balanceLift) ?? pickable.find((r) => r.lift === selected) ?? null;
+  const shown = balanceLift === "none" ? null : pickable.find((r) => r.lift === balanceLift) ?? pickable.find((r) => r.lift === selected) ?? null;
   $("balance-rows").replaceChildren(
     ...rows.map((row) => {
+      const open = row === shown;
       const button = el("button", "balance-row");
       button.type = "button";
       button.disabled = !row.band;
-      button.setAttribute("aria-expanded", String(row === shown));
-      button.append(
-        el("span", "balance-name", L.LIFT_NAMES[row.lift]),
-        el("span", "balance-kg", `${row.kg} kg`),
-        el("span", `balance-band${row.opportunity ? " opportunity" : ""}`, row.band || "No rungs"),
-      );
+      button.setAttribute("aria-expanded", String(open));
+      const name = el("span", "balance-name-kg");
+      name.append(el("span", "balance-name", L.LIFT_NAMES[row.lift]), el("span", "balance-kg", `${row.kg} kg`));
+      button.append(name, el("span", `balance-band${row.opportunity ? " opportunity" : ""}`, row.band || "No rungs"));
+      if (row.band) button.append(chevron());
       button.addEventListener("click", () => {
-        balanceLift = row.lift;
+        balanceLift = open ? "none" : row.lift;
         renderBalance(d, group);
         $("balance-rows").querySelectorAll("button")[rows.indexOf(row)].focus();
       });
-      const li = el("li");
+      const li = el("li", open ? "open" : "");
       li.append(button);
       // The picked lift's detail opens right under its row.
       if (row === shown) {
@@ -190,12 +206,55 @@ function renderBalance(d, group) {
         detail.id = "balance-detail";
         button.setAttribute("aria-controls", detail.id);
         detail.append(...row.detail.map(balanceLine));
+        if (row.steps.length) detail.append(stepsTable(row));
         li.append(detail);
       }
       return li;
     }),
   );
   $("balance-pick").hidden = !shown;
+}
+
+/** The chevron on a Lift balance row: down when closed, turned up when open (by CSS, from aria-expanded). */
+function chevron() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "balance-chevron");
+  svg.setAttribute("viewBox", "0 0 20 20");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M6 8l4 4 4-4");
+  svg.append(path);
+  return svg;
+}
+
+/**
+ * A lift's next steps as a table: the weight, where the lift would be, and what it does for your total. The
+ * total's column names a step only when it changes, so the lift's step and the total's can't be confused.
+ */
+function stepsTable(row) {
+  const table = el("table", "balance-steps");
+  const caption = el("caption", "", "Its next steps, and what each does for your total");
+  const head = el("thead");
+  const headRow = el("tr");
+  for (const [text, cls] of [[L.LIFT_NAMES[row.lift], ""], ["The lift", ""], ["Your total", "end"]]) {
+    const th = el("th", cls, text);
+    th.scope = "col";
+    headRow.append(th);
+  }
+  head.append(headRow);
+  const body = el("tbody");
+  for (const step of row.steps) {
+    const tr = el("tr");
+    const kg = el("td");
+    kg.append(el("strong", "", `${Number(step.kg.toFixed(1))} kg`), el("span", "balance-add", `+${Number(step.add.toFixed(1))}`));
+    const total = el("td", "end");
+    if (step.total) total.append(el("span", "balance-total-step", step.total));
+    total.append(el("span", "muted", step.points));
+    tr.append(kg, el("td", "", step.lift), total);
+    body.append(tr);
+  }
+  table.append(caption, head, body);
+  return table;
 }
 
 /** A line of Lift balance's text: an optional bold lead, then the rest. */
@@ -215,9 +274,11 @@ function renderRow(row, profile) {
   const end = el("span", "row-end");
 
   if (row.kind === "rung") {
-    key.textContent = `P${row.percentile}`;
-    const title = row.state === "next" ? "Next rung" : row.state === "cleared" ? "Cleared" : L.RUNG_NAMES[row.percentile];
-    main.append(el("span", "row-title", title), el("span", "row-sub", `${S.formatRung(formula, row.score)} ${unit}`));
+    // The rung keeps its name in every state (what reaching it means); its state is in the line under it and the end.
+    key.textContent = String(row.percentile);
+    key.setAttribute("aria-hidden", "true");
+    const state = row.state === "next" ? " · your next rung" : row.state === "cleared" ? " · passed" : "";
+    main.append(el("span", "row-title", L.RUNG_NAMES[row.percentile]), el("span", "row-sub", `${S.formatRung(formula, row.score)} ${unit}${state}`));
     if (row.state === "cleared") end.append(icon("icon-check", "Cleared"));
     else end.textContent = signed(row.gap, formula);
   } else if (row.kind === "you") {
@@ -269,8 +330,8 @@ function render() {
   $("group-note").textContent = missing
     ? missing
     : group
-      ? `${group.lifters} lifters in this group.`
-      : `Not enough ${experience} lifters in the ${wclass} kg class to publish rungs.`;
+      ? `${group.lifters} UK powerlifters in this group.`
+      : `Not enough powerlifters ${experience === L.EXPERIENCE[2] ? "with 3 or more meets" : `at their ${experience}`} in the ${wclass} kg class to publish rungs.`;
   renderHero(profile, points, group?.rungs ?? []);
   renderMeetPill(d);
   renderNext(profile, points, group, missing);

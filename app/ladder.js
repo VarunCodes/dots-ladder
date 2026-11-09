@@ -79,6 +79,16 @@ export function savedText({ prLifts, cleared }) {
   return ["Saved", lifts && `PR on ${lifts}`, cleared && `Cleared P${cleared.percentile}`].filter(Boolean).join(" · ");
 }
 
+/**
+ * Where a score sits, in the plain words the first visit uses, for the Ladder's headline: "ahead of at least 25 in
+ * 100", "not on the ladder yet", or "" without rungs. Reaching a rung's score clears it.
+ */
+export function plainPosition(rungs, points) {
+  if (!rungs.length) return "";
+  const cleared = rungs.findLast((r) => r.score <= points);
+  return cleared ? `ahead of at least ${cleared.percentile} in 100` : "not on the ladder yet";
+}
+
 /** First rung strictly above the score, or null if every rung is beaten. */
 export function nextRung(rungs, points) {
   return rungs.find((r) => r.score > points) ?? null;
@@ -737,7 +747,7 @@ export function canSaveEvents(events) {
 
 // --- Lift balance: your split against the typical one, and what stands out --------------
 
-export const LIFT_NAMES = { squat: "Squat", bench: "Bench", deadlift: "Deadlift" };
+export const LIFT_NAMES = { squat: "Squat", bench: "Bench press", deadlift: "Deadlift" };
 
 /** Each lift's share of your total, in %. */
 export function liftShares(lifts) {
@@ -766,6 +776,13 @@ export function rungBand(rungs, value) {
   return cleared ? `Above P${cleared.percentile}` : "";
 }
 
+/** A row's badge, in the first visit's words: "Not on the ladder", "Ahead of 25", "Ahead of 90", or "" without rungs. */
+export function ladderBand(rungs, value) {
+  if (!rungs.length) return "";
+  const cleared = rungs.findLast((r) => r.score <= value);
+  return cleared ? `Ahead of ${cleared.percentile}` : "Not on the ladder";
+}
+
 const kgText = (kg) => `${Number(kg.toFixed(1))}`;
 const listed = (words) => (words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words.at(-1)}` : words[0]);
 const named = (lifts) => {
@@ -775,16 +792,16 @@ const named = (lifts) => {
 
 /**
  * Lift balance for the Ladder: your shares, the typical split (or null), a row per lift ({ lift, kg, band,
- * opportunity, detail }), the lift to show first (`selected`), and up to four summary lines of facts from the
- * rungs, the first with a bold `lead`:
- *   1. your biggest opportunity: the lowest-ranked lift among its own rungs (a lower share than typical breaks a
- *      tie), or "Your lifts rank evenly" when every lift sits in the same band;
- *   2. the lift nearest its next rung, in kg;
- *   3. your strongest lift (not when they rank evenly);
- *   4. what every lift at its next rung would do for your score.
- * A row's `detail` is that lift's own lines: where it sits (and its share against typical), then its next rung
- * and the one after, in kg, each with what it would do for your score.
- * `liftRungs(lift)` gives a lift's rungs in kg; `scoreRungs` are the score rungs for the same group.
+ * opportunity, detail, steps }), the lift to show first (`selected`), and up to four summary lines, each with a bold
+ * `lead`, in plain words (never P-codes):
+ *   1. the lift with the most room to grow: the lowest-ranked among its own rungs (a lower share than typical breaks
+ *      a tie), with the kilos to its next step and its share against typical; or "evenly matched";
+ *   2. your strongest lift, and the kilos to its next step;
+ *   3. the lift closest to its next step, when it isn't one of those;
+ *   4. what every lift at its next step would do for your total.
+ * A row's `detail` is its share line; `steps` are its next two rungs as table rows ({ kg, add, lift, total,
+ * points }), where `total` names the total's step only when it changes, so the lift's step and the total's can't be
+ * confused. `liftRungs(lift)` gives a lift's rungs in kg; `scoreRungs` are the score rungs for the same group.
  */
 export function liftBalance(profile, liftRungs, typical, scoreRungs) {
   const shares = liftShares(profile);
@@ -792,12 +809,14 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
   const ranked = LIFTS.filter((lift) => rungsOf[lift].length);
   // A lift's rank: the highest rung it has cleared (0 below them all).
   const level = (lift) => rungsOf[lift].findLast((r) => r.score <= profile[lift])?.percentile ?? 0;
-  const band = (lift) => rungBand(rungsOf[lift], profile[lift]);
+  const next = (lift) => nextRung(rungsOf[lift], profile[lift]);
   const gap = (lift) => (typical ? shares[lift] - typical[lift] : 0);
+  // Where a lift is, mid-sentence: "not on the ladder yet" or "ahead of at least 25 in 100".
+  const where = (lift) => (level(lift) ? `ahead of at least ${level(lift)} in 100` : "not on the ladder yet");
 
   let opportunity = [];
   let strongest = [];
-  const even = ranked.length > 1 && ranked.every((lift) => band(lift) === band(ranked[0]));
+  const even = ranked.length > 1 && ranked.every((lift) => rungBand(rungsOf[lift], profile[lift]) === rungBand(rungsOf[ranked[0]], profile[ranked[0]]));
   if (ranked.length > 1 && !even) {
     const low = Math.min(...ranked.map(level));
     const high = Math.max(...ranked.map(level));
@@ -808,78 +827,116 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
     if (high > low) strongest = ranked.filter((lift) => level(lift) === high);
   }
 
+  // "It's 23% of your total; powerlifters like you average 35%." (nothing when it's within a point of typical).
+  const shareLine = (lift, subject = "It") => {
+    if (!typical || Math.abs(gap(lift)) < 1) return "";
+    return `${subject === "It" ? "It's" : `${subject} is`} ${Math.round(shares[lift])}% of your total; powerlifters like you average ${Math.round(typical[lift])}%.`;
+  };
+  // "130 kg (+50 kg) puts it ahead of 10 in 100."
+  const stepLine = (lift) => {
+    const n = next(lift);
+    return n ? `${kgText(n.score)} kg (+${kgText(n.score - profile[lift])} kg) puts it ahead of ${n.percentile} in 100.` : "";
+  };
+
   const lines = [];
+  // The lead as parts, for the card's big number: one lift with most room to grow and a step ahead of it.
+  let hero = null;
+  if (!even && opportunity.length === 1 && next(opportunity[0])) {
+    const [lift] = opportunity;
+    const n = next(lift);
+    hero = {
+      lift,
+      title: `${LIFT_NAMES[lift]} has the most room to grow`,
+      add: `+${kgText(n.score - profile[lift])} kg`,
+      caption: `puts it ahead of ${n.percentile} in 100 (${kgText(n.score)} kg)`,
+      note: [level(lift) ? `It's ${where(lift)} now.` : "It isn't on the ladder yet.", shareLine(lift)].filter(Boolean).join(" "),
+    };
+  }
   if (even) {
     const all = ranked.length === 3 ? "All three" : "Both";
-    lines.push({ lead: "Your lifts rank evenly.", text: `${all} sit ${rungPosition(rungsOf[ranked[0]], profile[ranked[0]])}.` });
+    const text = level(ranked[0]) ? `${all} are ${where(ranked[0])}.` : `${ranked.length === 3 ? "None of the three is" : "Neither is"} on the ladder yet.`;
+    lines.push({ lead: "Your lifts are evenly matched.", text });
   } else if (opportunity.length === 1) {
     const [lift] = opportunity;
-    const points = Math.round(Math.abs(gap(lift)));
-    const share = !typical ? "" : points < 1 ? ", and its share is close to typical" : `, and its share is ${points} point${points === 1 ? "" : "s"} ${gap(lift) < 0 ? "under" : "over"} typical`;
-    lines.push({ lead: `${LIFT_NAMES[lift]} is your biggest opportunity.`, text: `It sits ${rungPosition(rungsOf[lift], profile[lift])}${share}.` });
+    // "It isn't on the ladder yet: 130 kg (+50 kg) puts it ahead of 10 in 100." or "It's ahead of at least 10 in 100;
+    // 172.5 kg (+12.5 kg) puts it ahead of 25 in 100."
+    const step = stepLine(lift);
+    const text = level(lift)
+      ? [step ? `It's ${where(lift)}; ${step}` : `It's ${where(lift)}.`]
+      : [`It isn't on the ladder yet${step ? `: ${step}` : "."}`];
+    lines.push({ lead: `${LIFT_NAMES[lift]} has the most room to grow.`, text: [...text, shareLine(lift)].filter(Boolean).join(" ") });
   } else if (opportunity.length > 1) {
-    const where = opportunity.map((lift) => rungPosition(rungsOf[lift], profile[lift]));
-    const same = where.every((w) => w === where[0]);
+    const places = opportunity.map(where);
+    const same = places.every((p) => p === places[0]);
     lines.push({
-      lead: `${named(opportunity)} are your biggest opportunities.`,
-      text: same ? `${opportunity.length === 2 ? "Both" : "All"} sit ${where[0]}.` : `They sit ${listed(where)}.`,
+      lead: `${named(opportunity)} have the most room to grow.`,
+      text: !same ? `They're ${listed(places)}.` : level(opportunity[0]) ? `${opportunity.length === 2 ? "Both" : "All three"} are ${places[0]}.` : `${opportunity.length === 2 ? "Neither is" : "None of them is"} on the ladder yet.`,
     });
-  }
-
-  // The lift nearest its next rung (the opportunity first in a tie, then squat, bench, deadlift).
-  const ahead = ranked
-    .map((lift) => ({ lift, next: nextRung(rungsOf[lift], profile[lift]) }))
-    .filter(({ next }) => next)
-    .map((a) => ({ ...a, kg: a.next.score - profile[a.lift] }));
-  const nearest = ranked.length > 1 && ahead.length
-    ? ahead.reduce((best, a) => (a.kg < best.kg - 1e-9 || (Math.abs(a.kg - best.kg) < 1e-9 && opportunity.includes(a.lift) && !opportunity.includes(best.lift)) ? a : best))
-    : null;
-  if (nearest) {
-    const of = ranked.length === 3 ? "your three lifts" : "your lifts";
-    lines.push({ text: `${LIFT_NAMES[nearest.lift]} is ${kgText(nearest.kg)} kg from P${nearest.next.percentile}, the closest rung of ${of}.` });
   }
 
   if (strongest.length) {
     const plural = strongest.length > 1;
-    lines.push({ text: `${named(strongest)} ${plural ? "are your strongest lifts" : "is your strongest lift"}: ${band(strongest[0])}.` });
+    const n = !plural && next(strongest[0]);
+    const to = n ? `, and ${kgText(n.score - profile[strongest[0]])} kg from ${RUNG_NAMES[n.percentile].toLowerCase()}` : "";
+    lines.push({ lead: `${named(strongest)} ${plural ? "are your strongest lifts:" : "is your strongest lift:"}`, text: `${where(strongest[0])}${to}.` });
   }
 
-  // What lifting more does for your score: "take your score to P25 (+12.3 DOTS)", or just the points when no rung
-  // is passed. The points tell apart two lines that reach the same rung.
+  // The lift nearest its next rung (the opportunity first in a tie, then squat, bench, deadlift).
+  const ahead = ranked
+    .map((lift) => ({ lift, next: next(lift) }))
+    .filter((a) => a.next)
+    .map((a) => ({ ...a, kg: a.next.score - profile[a.lift] }));
+  const nearest = ranked.length > 1 && ahead.length
+    ? ahead.reduce((best, a) => (a.kg < best.kg - 1e-9 || (Math.abs(a.kg - best.kg) < 1e-9 && opportunity.includes(a.lift) && !opportunity.includes(best.lift)) ? a : best))
+    : null;
+  // Said only when it adds something: the lead and the strongest line already give their own next step.
+  if (nearest && !opportunity.includes(nearest.lift) && !strongest.includes(nearest.lift)) {
+    lines.push({ lead: `${LIFT_NAMES[nearest.lift]} is closest to its next step:`, text: `${kgText(nearest.kg)} kg to ${RUNG_NAMES[nearest.next.percentile].toLowerCase()}.` });
+  }
+
+  // What lifting more does for your total: the step it reaches (named only when it's a new one) and the points.
   const now = profileScore(profile);
-  const scoreEffect = (lifts) => {
-    const then = profileScore({ ...profile, ...lifts });
-    const points = `${formatScore(profile.formula, then - now)} ${FORMULAS[profile.formula].label}`;
-    if (rungsClimbed(scoreRungs, now, then) > 0) return `take your score to P${scoreRungs.findLast((r) => r.score <= then).percentile} (+${points})`;
-    return `add ${points}`;
+  const before = scoreRungs.findLast((r) => r.score <= now);
+  const unit = FORMULAS[profile.formula].label;
+  const totalStep = (then, after = before) => {
+    const reached = scoreRungs.findLast((r) => r.score <= then);
+    if (!reached || reached.percentile === after?.percentile) return null;
+    return !before && reached === scoreRungs[0] ? "On the ladder" : `Ahead of ${reached.percentile} in 100`;
   };
+  const points = (then) => `+${formatScore(profile.formula, then - now)} ${unit}`;
 
   // Every lift with a rung ahead, at its next rung together (only when two or more have one).
   if (ahead.length > 1) {
-    const who = ahead.length === 3 ? "All three lifts" : named(ahead.map((a) => a.lift));
+    const who = ahead.length === 3 ? "All three" : named(ahead.map((a) => a.lift));
     const kgs = listed(ahead.map((a) => `+${kgText(a.kg)}`));
-    const at = Object.fromEntries(ahead.map((a) => [a.lift, a.next.score]));
-    lines.push({ text: `${who} at their next rung (${kgs} kg) would ${scoreEffect(at)}.` });
+    const then = profileScore({ ...profile, ...Object.fromEntries(ahead.map((a) => [a.lift, a.next.score])) });
+    const step = totalStep(then);
+    const effect = step ? `put your total ${step === "On the ladder" ? "on the ladder" : step.toLowerCase()}: ${points(then)}` : `add ${points(then).slice(1)}`;
+    lines.push({ lead: `${who} at their next step`, text: `(${kgs} kg) would ${effect}.` });
   }
 
-  // Each lift's own detail, shown when it's selected: where it sits, then its next rung and the one after, each
-  // with what it does for your score.
+  // Each lift's own drawer: its share line, then its next two rungs as table rows.
   const detail = (lift) => {
-    const rungs = rungsOf[lift];
-    if (!rungs.length) return [{ text: `No ${LIFT_NAMES[lift].toLowerCase()} rungs for this group yet.` }];
-    const points = Math.round(Math.abs(gap(lift)));
-    const share = !typical ? "" : points < 1 ? ", share close to typical" : `, share ${points} point${points === 1 ? "" : "s"} ${gap(lift) < 0 ? "under" : "over"} typical`;
-    const out = [{ lead: `${LIFT_NAMES[lift]}:`, text: `${rungPosition(rungs, profile[lift])}${share}.` }];
-    for (const rung of rungs.filter((r) => r.score > profile[lift]).slice(0, 2)) {
-      out.push({ text: `+${kgText(rung.score - profile[lift])} kg to P${rung.percentile} (${kgText(rung.score)} kg) would ${scoreEffect({ [lift]: rung.score })}.` });
-    }
-    return out;
+    if (!rungsOf[lift].length) return [{ text: `No ${LIFT_NAMES[lift].toLowerCase()} rungs for this group yet.` }];
+    const head = opportunity.includes(lift) ? "Your biggest opportunity." : strongest.includes(lift) ? "Your strongest lift." : "";
+    const position = level(lift) ? `${LIFT_NAMES[lift]} is ${where(lift)}.` : `${LIFT_NAMES[lift]} isn't on the ladder yet.`;
+    const text = [head, shareLine(lift, LIFT_NAMES[lift]) || position].filter(Boolean).join(" ");
+    return [{ text }];
+  };
+  const steps = (lift) => {
+    let after = before;
+    return rungsOf[lift].filter((r) => r.score > profile[lift]).slice(0, 2).map((rung) => {
+      const then = profileScore({ ...profile, [lift]: rung.score });
+      const total = totalStep(then, after);
+      if (total) after = scoreRungs.findLast((r) => r.score <= then);
+      return { kg: rung.score, add: rung.score - profile[lift], lift: `Ahead of ${rung.percentile} in 100`, total, points: points(then) };
+    });
   };
 
   // The lift shown first: the opportunity, else (ranking evenly) the nearest rung, else the first with rungs.
   const selected = opportunity[0] ?? nearest?.lift ?? ranked[0] ?? null;
-  const rows = LIFTS.map((lift) => ({ lift, kg: profile[lift], band: band(lift), opportunity: opportunity.includes(lift), detail: detail(lift) }));
-  return { shares, typical, rows, lines, selected };
+  const rows = LIFTS.map((lift) => ({ lift, kg: profile[lift], band: ladderBand(rungsOf[lift], profile[lift]), opportunity: opportunity.includes(lift), detail: detail(lift), steps: steps(lift) }));
+  return { shares, typical, rows, lines, hero, selected };
 }
 
 // --- First visit: one question per screen ------------------------------------------------
@@ -1046,23 +1103,40 @@ export function placeOn(rungs, value) {
 
 const kgWords = (n) => `${Number(n.toFixed(1))} kg`;
 
+const liftName = (lift) => (lift === "bench" ? "bench press" : lift);
+
 /**
- * A lift's card once it's typed, in ladder words: below the first rung, the kilos that put it on the ladder;
- * on it, where it would place at a meet and the next rung. { title, more }.
+ * A lift's card once it's typed. The ladder hasn't been shown yet, so it's said as a share of the group, never as
+ * rungs: "Your squat is ahead of at least 10 in 100." and the kilos to the next step, or below them all, the kilos
+ * that put it ahead of the first share. { title, more }.
  */
 export function liftPlaceWords(lift, max, group) {
-  const name = lift === "bench" ? "bench press" : lift;
+  const name = liftName(lift);
   const { passed, next } = placeOn(group.lifts[lift], max);
-  if (!passed && next) return { title: `+${kgWords(next.score - max)} puts your ${name} on the ladder`, more: `That's the first rung: ${kgWords(next.score)}, against ${groupWords(group)}.` };
-  const title = `At a meet, your ${name} would place ahead of at least ${passed} in 100`;
-  const who = groupWords(group);
-  return { title, more: `${who[0].toUpperCase()}${who.slice(1)}.${next ? ` Next rung: ${kgWords(next.score)}, ahead of ${next.percentile}.` : " That's the top rung."}` };
+  if (!passed && next) return { title: `+${kgWords(next.score - max)} puts your ${name} ahead of ${next.percentile} in 100`, more: `That's a ${kgWords(next.score)} ${name}.` };
+  return {
+    title: `Your ${name} is ahead of at least ${passed} in 100`,
+    more: next ? `${kgWords(next.score)} puts it ahead of ${next.percentile}.` : "That's as high as these numbers go.",
+  };
 }
 
 /**
- * The 100 screen, for your total: { title, more, key, label, filled, outlined }. Below the first rung: the kilos
- * onto the ladder and the first rung named, with its lifters outlined; on the ladder: where you'd place at a meet
- * and the kilos to the next rung.
+ * The lift that's best news below the ladder: one already ahead of a share of the group (the highest), else the
+ * one closest to the first rung. { lift, passed, add }.
+ */
+export function bestLift(profile, group) {
+  const places = LIFTS.filter((lift) => group.lifts[lift]?.length).map((lift) => {
+    const { passed, next } = placeOn(group.lifts[lift], profile[lift]);
+    return { lift, passed, add: next ? next.score - profile[lift] : 0 };
+  });
+  const ahead = places.filter((p) => p.passed).sort((x, y) => y.passed - x.passed)[0];
+  return ahead ?? places.sort((x, y) => x.add - y.add)[0] ?? null;
+}
+
+/**
+ * The 100 screen: { title, more, key, label, filled, outlined }. On the ladder: where your total would place at a
+ * meet and the kilos to the next rung. Below it, the best news leads (a lift already ahead of some, or the one
+ * closest), then the kilos that put your total on the ladder, with the first rung's lifters outlined.
  */
 export function standingWords(profile, group) {
   const total = sumLifts(profile);
@@ -1071,9 +1145,16 @@ export function standingWords(profile, group) {
   const { passed, next } = placeOn(group.rungs, points);
   const add = next ? Math.max(2.5, kgToNextRung("dots", lifts, next.score)) : 0;
   if (!passed) {
+    const best = bestLift(profile, group);
+    const name = best && liftName(best.lift);
+    const lead = !best
+      ? `+${kgWords(add)} on your total puts you on the ladder.`
+      : best.passed
+        ? `Your ${name} is already ahead of at least ${best.passed} in 100.`
+        : `Your ${name} is closest: +${kgWords(best.add)} puts it on the ladder.`;
     return {
-      title: `+${kgWords(add)} on your total puts you on the ladder.`,
-      more: `That's the first rung: a ${kgWords(total + add)} total. The ${next.percentile} outlined dots are the lifters you'd pass.`,
+      title: lead,
+      more: `${best ? `On your total, +${kgWords(add)} puts you on the ladder: a ${kgWords(total + add)} total.` : `That's a ${kgWords(total + add)} total.`} The ${next.percentile} outlined dots are the lifters you'd pass.`,
       key: ["The first rung"],
       label: `100 dots, none filled; ${next.percentile} outlined, the first rung.`,
       filled: 0,
@@ -1082,7 +1163,7 @@ export function standingWords(profile, group) {
   }
   return {
     title: `At a meet, you'd place ahead of at least ${passed} of these 100 lifters.`,
-    more: next ? `Next rung: +${kgWords(add)} on your total to pass ${next.percentile}.` : "That's the top rung.",
+    more: next ? `+${kgWords(add)} on your total puts you ahead of ${next.percentile}.` : "That's the top rung.",
     key: next ? ["You're ahead", "Your next rung"] : ["You're ahead"],
     label: `100 dots, ${passed} filled${next ? `, up to ${next.percentile} outlined as your next rung` : ""}.`,
     filled: passed,
@@ -1090,39 +1171,44 @@ export function standingWords(profile, group) {
   };
 }
 
-/** The score screen: the score, and two ways to raise it with your own numbers (the second left out at DOTS's lightest). */
+/**
+ * The score screen: the score, and how it moves with your own numbers: 5 kg more on the total raises it, and the
+ * same total at 2 kg heavier lowers it, which shows what bodyweight does without suggesting anyone cut weight.
+ * The gym-goer estimate shows only when you're at or above it: it's there for scale, not as a verdict.
+ */
 export function scoreWords(profile) {
   const total = sumLifts(profile);
   const { sex, bodyweight } = profile;
   const now = score("dots", { total, bw: bodyweight, sex });
-  const lighter = Math.max(FORMULAS.dots.lightest(sex), bodyweight - 2);
-  const rows = [{ label: "Lift 5 kg more in total", points: score("dots", { total: total + 5, bw: bodyweight, sex }) }];
-  if (lighter < bodyweight) rows.push({ label: `Lift the same at ${kgWords(lighter)}`, points: score("dots", { total, bw: lighter, sex }) });
+  const heavier = bodyweight + 2;
+  const rows = [
+    { label: "5 kg more on your total", points: score("dots", { total: total + 5, bw: bodyweight, sex }) },
+    { label: `The same total at ${kgWords(heavier)} bodyweight`, points: score("dots", { total, bw: heavier, sex }) },
+  ].filter((row) => Math.abs(row.points - now) >= 0.05);
+  const estimate = GYM_GOER_ESTIMATE[sex];
   return {
     points: now,
     from: `From a ${kgWords(total)} total at ${kgWords(bodyweight)} bodyweight.`,
     rows: rows.map((row) => ({ ...row, change: row.points - now })),
     // The app's one estimate, always named by sex so nobody reads the other one's figure as theirs.
-    gymGoer: `For comparison, ${sex === "F" ? "a woman" : "a man"} who trains at the gym regularly scores about ${GYM_GOER_ESTIMATE[sex]}. That one's an estimate; everything else here comes from real meets.`,
+    gymGoer: now >= estimate
+      ? `You're above ${sex === "F" ? "a woman" : "a man"} who trains at the gym regularly, who scores about ${estimate}. That's an estimate; everything else here comes from real meets.`
+      : null,
   };
 }
 
 /**
- * The target screen: { add (kg on your total, 0 past every rung), total (the total it makes), title, lifts }, where
- * lifts are each lift's next rung ({ lift, kg, add, words }, or kg null at the top).
+ * The target screen: each lift's next step, nearest first ({ lift, kg, add, words }, or kg null past its top).
+ * Each lift's rungs come from its own lifters, so they're separate goals: they don't add up to the total's target,
+ * which the 100 screen gives.
  */
 export function targetWords(profile, group) {
-  const total = sumLifts(profile);
-  const lifts = { total, bw: profile.bodyweight, sex: profile.sex };
-  const { passed, next } = placeOn(group.rungs, score("dots", lifts));
-  const add = next ? Math.max(2.5, kgToNextRung("dots", lifts, next.score)) : 0;
-  const perLift = LIFTS.map((lift) => {
-    const place = placeOn(group.lifts[lift], profile[lift]);
-    if (!place.next) return { lift, kg: null, add: 0, words: "Top rung" };
-    return { lift, kg: place.next.score, add: place.next.score - profile[lift], words: place.passed ? `ahead of ${place.next.percentile} in 100` : "first rung" };
-  });
-  const title = !next ? "You're past every rung" : passed ? `on your total puts you ahead of ${next.percentile} in 100.` : "on your total puts you on the ladder.";
-  return { add, total: total + add, title, onLadder: Boolean(passed), lifts: perLift };
+  const lifts = LIFTS.map((lift) => {
+    const place = placeOn(group.lifts[lift] ?? [], profile[lift]);
+    if (!place.next) return { lift, kg: null, add: Infinity, words: "As high as the rungs go" };
+    return { lift, kg: place.next.score, add: place.next.score - profile[lift], words: place.passed ? `ahead of ${place.next.percentile} in 100` : "onto the ladder" };
+  }).sort((x, y) => x.add - y.add);
+  return { lifts, allTop: lifts.every((l) => l.kg == null) };
 }
 
 // --- Reference marker: an estimate, not data ---------------------------------------
@@ -1140,7 +1226,8 @@ export function referenceMarker(sex, formula) {
 
 // --- The ladder as rows: rungs, you, your events and the gym-goer estimate -----------
 
-export const RUNG_NAMES = { 10: "Bottom 10%", 25: "Lower quartile", 50: "Median lifter", 75: "Upper quartile", 90: "Top 10%" };
+// Each rung named by what reaching it means, in the first visit's words (never "Bottom 10%", which reads as being in it).
+export const RUNG_NAMES = { 10: "Ahead of 10 in 100", 25: "Ahead of 25 in 100", 50: "Ahead of half", 75: "Ahead of 75 in 100", 90: "Ahead of 90 in 100" };
 
 /**
  * Every row on the ladder, highest score first, all in one formula. Rungs carry their state: "next" (the first

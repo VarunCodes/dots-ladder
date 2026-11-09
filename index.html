@@ -50,6 +50,8 @@
           <div id="onboard-bar" class="fv-bar" aria-hidden="true"></div>
         </div>
         <p id="onboard-count" class="visually-hidden" aria-live="polite"></p>
+        <!-- What a typed value gives back, said once typing pauses (onboarding.js announce). -->
+        <p id="onboard-live" class="visually-hidden" aria-live="polite"></p>
         <div id="onboard-screen" class="fv-screen"></div>
       </section>
 
@@ -125,22 +127,28 @@
         </section>
 
         <section class="card balance" aria-labelledby="balance-heading">
-          <div class="card-head">
-            <p class="eyebrow">Share of your total</p>
+          <div class="balance-head">
             <h2 id="balance-heading">Lift balance</h2>
+            <p id="balance-against" class="muted small"></p>
           </div>
-          <div class="balance-bars">
-            <p class="balance-who">You</p>
-            <div id="balance-you" class="balance-bar" role="img"></div>
-            <p id="balance-typical-label" class="balance-who muted">Typical</p>
-            <div id="balance-typical" class="balance-bar typical" role="img"></div>
+          <!-- The lift with most room to grow, its kilos big: the card's one next action. -->
+          <div id="balance-hero" class="balance-hero" hidden>
+            <p id="balance-hero-title" class="balance-hero-title"></p>
+            <p class="balance-hero-step"><span id="balance-hero-add" class="balance-hero-add"></span> <span id="balance-hero-caption" class="balance-hero-caption"></span></p>
+            <p id="balance-hero-note" class="balance-hero-note"></p>
           </div>
-          <p id="balance-for" class="muted small"></p>
-          <div id="balance-callout" class="balance-callout">
-            <svg class="balance-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
-            <div id="balance-lines" class="balance-lines"></div>
+          <div class="balance-split">
+            <p class="balance-split-title">How your total splits</p>
+            <div class="balance-bars">
+              <p class="balance-who">You</p>
+              <div id="balance-you" class="balance-bar" role="img"></div>
+              <p id="balance-typical-label" class="balance-who muted">Typical</p>
+              <div id="balance-typical" class="balance-bar typical" role="img"></div>
+            </div>
+            <p id="balance-for" class="muted small"></p>
           </div>
-          <p id="balance-pick" class="balance-pick muted small">Tap a lift to see its next rungs.</p>
+          <ul id="balance-lines" class="balance-lines"></ul>
+          <p id="balance-pick" class="balance-pick muted small">Each lift on its own. Open one for its next steps.</p>
           <ul id="balance-rows" class="balance-rows" aria-label="Your lifts"></ul>
         </section>
       </div>
