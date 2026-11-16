@@ -3,8 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="theme-color" content="#111214">
   <title>Privacy · DOTS Ladder</title>
+  <meta name="description" content="What DOTS Ladder keeps and what it sends: your numbers stay in your browser on your phone, and only anonymous usage counts leave it.">
+  <meta name="apple-mobile-web-app-title" content="DOTS Ladder">
+  <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="app/style.css">
 </head>
 <body>
@@ -23,19 +29,19 @@
     <h2>Anonymous usage counts</h2>
     <p>To help improve the app, and see which parts are used and which need work, it counts what happens, never what you type. For example: "reached the bench press screen", "finished the first visit", "logged a test", "opened Progress".</p>
     <ul>
-      <li>Counts go to <a href="https://www.goatcounter.com/">GoatCounter</a>, a privacy-friendly analytics service. Each count is the event's name only: no lifts, bodyweight, sex, class, dates or IDs.</li>
-      <li>GoatCounter sets no cookies and doesn't store your IP address. Like any web request, it sees your browser type and a rough location (country). See <a href="https://www.goatcounter.com/help/privacy">GoatCounter's privacy policy</a>.</li>
+      <li>Counts go to <a href="https://www.goatcounter.com/" rel="noreferrer">GoatCounter</a>, a privacy-friendly analytics service. Each count is the event's name only: no lifts, bodyweight, sex, class, dates or IDs.</li>
+      <li>GoatCounter sets no cookies and doesn't store your IP address. Like any web request, it sees your browser type and a rough location (country). See <a href="https://www.goatcounter.com/help/privacy" rel="noreferrer">GoatCounter's privacy policy</a>.</li>
       <li>Nothing is counted if you switch off <strong>Share anonymous usage counts</strong> under Your data, or if your browser sends Global Privacy Control or Do Not Track.</li>
     </ul>
 
     <h2>The benchmarks</h2>
-    <p>The rungs come from <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a>'s public-domain meet results: UK raw full-power results from 2024, as anonymous percentiles of groups of 20 or more adult lifters. No individual lifter's results are shown or stored in the app.</p>
+    <p>The rungs come from <a href="https://www.openpowerlifting.org/" rel="noreferrer">OpenPowerlifting</a>'s public-domain meet results: UK raw full-power results from 2024, as anonymous percentiles of groups of 20 or more adult lifters. No individual lifter's results are shown or stored in the app.</p>
 
     <h2>Hosting</h2>
-    <p>The site is served by GitHub Pages. Like any web host, GitHub may log requests (including IP addresses) to run its service; see <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>. The app loads nothing from any other site.</p>
+    <p>The site is served by GitHub Pages. Like any web host, GitHub may log requests (including IP addresses) to run its service; see <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noreferrer">GitHub's privacy statement</a>. The app loads nothing from any other site.</p>
 
     <h2>Questions</h2>
-    <p>Open an issue on the app's <a href="https://github.com/VarunCodes/dots-ladder/issues">GitHub page</a>.</p>
+    <p>Open an issue on the app's <a href="https://github.com/VarunCodes/dots-ladder/issues" rel="noreferrer">GitHub page</a>.</p>
   </main>
 </body>
 </html>

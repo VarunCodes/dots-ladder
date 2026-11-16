@@ -47,7 +47,47 @@ test("manifest icons exist, match their declared sizes and include a maskable on
 
 test("index.html links the manifest and registers the service worker", () => {
   assert.match(indexHtml, /<link rel="manifest" href="manifest\.webmanifest">/);
-  assert.match(indexHtml, /serviceWorker\.register\("sw\.js"\)/);
+  assert.match(indexHtml, /<script src="app\/register-sw\.js" defer><\/script>/);
+  assert.match(read("app/register-sw.js").toString(), /serviceWorker\.register\("sw\.js"\)/);
+});
+
+test("manifest screenshots and shortcuts point at real files, with relative paths", () => {
+  assert.ok(manifest.id, "manifest needs an id, so installs stay the same app if start_url changes");
+  for (const shot of manifest.screenshots) {
+    assert.ok(isRelative(shot.src), `${shot.src} must be a relative path`);
+    assert.equal(pngSize(shot.src), shot.sizes, `${shot.src} size`);
+    assert.ok(shot.label, `${shot.src} needs a label`);
+  }
+  for (const shortcut of manifest.shortcuts) {
+    assert.ok(isRelative(shortcut.url), `${shortcut.url} must be a relative path`);
+    for (const icon of shortcut.icons ?? []) assert.equal(pngSize(icon.src), icon.sizes, `${icon.src} size`);
+  }
+});
+
+// The Content-Security-Policy blocks inline scripts and styles, and every site but GoatCounter.
+test("index.html has no inline scripts or styles, and its policy lets the usage counts through", async () => {
+  assert.doesNotMatch(indexHtml, /<script(?![^>]*\bsrc=)[^>]*>/, "inline <script>: move it to a file");
+  assert.doesNotMatch(indexHtml, /\sstyle="/, "inline style attribute: move it to style.css");
+  assert.doesNotMatch(indexHtml, /<style\b/, "inline <style>: move it to style.css");
+  const policy = indexHtml.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)?.[1];
+  assert.ok(policy, "no Content-Security-Policy");
+  const { COUNT_URL } = await import("./track.js");
+  assert.match(policy, new RegExp(`connect-src 'self' ${new URL(COUNT_URL).origin.replace(/\./g, "\\.")}[;\\s]`));
+  assert.match(policy, /script-src 'self'[;\s]/);
+});
+
+test("link previews use the 1200 × 630 image that ships with the site", () => {
+  const image = indexHtml.match(/property="og:image" content="https:\/\/dotsladder\.app\/([^"]+)"/)?.[1];
+  assert.ok(image, "og:image must be an absolute dotsladder.app URL");
+  assert.equal(pngSize(image), "1200x630");
+  assert.match(indexHtml, /property="og:image:alt" content="[^"]+"/);
+});
+
+test("the site's root files exist: 404 page, robots.txt and a sitemap listing both pages", () => {
+  assert.ok(existsSync(new URL("404.html", root)));
+  assert.match(read("robots.txt").toString(), /^Sitemap: https:\/\/dotsladder\.app\/sitemap\.xml$/m);
+  const sitemap = read("sitemap.xml").toString();
+  for (const page of ["", "privacy.html"]) assert.ok(sitemap.includes(`<loc>https://dotsladder.app/${page}</loc>`), `sitemap misses /${page}`);
 });
 
 test("every file the service worker caches exists", () => {

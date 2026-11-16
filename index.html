@@ -3,22 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Only this site's own files, plus GoatCounter for the anonymous counts (app/track.js); no inline scripts or styles. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self' https://dotsladder.goatcounter.com; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>DOTS Ladder</title>
-  <meta name="description" content="Tracking my powerlifting DOTS score against anonymous UK meet benchmarks.">
+  <meta name="description" content="See how your squat, bench press and deadlift compare with UK powerlifters at real meets, and what it takes to move up. Your numbers stay on your phone.">
   <meta name="theme-color" content="#111214">
+  <!-- Link previews (WhatsApp, Discord, iMessage…) need absolute URLs, so these are the one exception to relative paths. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="DOTS Ladder">
+  <meta property="og:title" content="DOTS Ladder">
+  <meta property="og:description" content="How do your squat, bench press and deadlift compare with UK powerlifters at real meets? Your numbers stay on your phone.">
+  <meta property="og:url" content="https://dotsladder.app/">
+  <meta property="og:image" content="https://dotsladder.app/images/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="DOTS Ladder: a ladder with rungs from ahead of 10 in 100 to ahead of 90 in 100 UK powerlifters.">
+  <meta property="og:locale" content="en_GB">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="apple-mobile-web-app-title" content="DOTS Ladder">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="preload" href="fonts/barlow-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/barlow-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="app/style.css">
   <script type="module" src="app/app.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
-  </script>
+  <script src="app/register-sw.js" defer></script>
 </head>
 <body>
+  <noscript>
+    <p class="noscript">DOTS Ladder needs JavaScript to work. Turn it on for this site, or open it in another browser. Everything you enter stays on your phone: see <a href="privacy.html">Privacy</a>.</p>
+  </noscript>
   <!-- Original pictograms (no licence needed): squat and deadlift front-on, bench side-on, and the sex symbols. -->
-  <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <svg class="sprite" width="0" height="0" aria-hidden="true">
     <defs>
       <symbol id="icon-squat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="3.5999999999999996" width="2.4" height="8" rx="0.8" fill="currentColor" stroke="none"/><rect x="19" y="3.5999999999999996" width="2.4" height="8" rx="0.8" fill="currentColor" stroke="none"/><path d="M5 7.6 H19"/><circle cx="12" cy="4.4" r="1.8" fill="currentColor" stroke="none"/><path d="M12 7.6 V13.4 M12 13.4 L7.6 15.6 L8.6 21 M12 13.4 L16.4 15.6 L15.4 21 M3 21 H21"/></symbol>
       <symbol id="icon-bench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="5.2" r="3.4"/><circle cx="10" cy="5.2" r="0.6" fill="currentColor"/><circle cx="4.6" cy="12.4" r="1.8" fill="currentColor" stroke="none"/><path d="M10 8.6 V13 M6.8 13 H14.4 L18 14.4 V21 M3.5 15.6 H15 M5.5 15.6 V21 M13 15.6 V21 M3 21 H21"/></symbol>
@@ -32,7 +50,7 @@
       <symbol id="icon-tab-ladder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 3v18M17 3v18M7 7h10M7 12h10M7 17h10"/></symbol>
       <symbol id="icon-tab-log" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
       <symbol id="icon-tab-ladder-fill" viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="2" width="3" height="20" rx="1.5"/><rect x="15.5" y="2" width="3" height="20" rx="1.5"/><rect x="8" y="5.5" width="8" height="3"/><rect x="8" y="10.5" width="8" height="3"/><rect x="8" y="15.5" width="8" height="3"/></symbol>
-      <symbol id="icon-tab-log-fill" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 7.5v9M7.5 12h9" fill="none" style="stroke: var(--bg)" stroke-width="2.2" stroke-linecap="round"/></symbol>
+      <symbol id="icon-tab-log-fill" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 7.5v9M7.5 12h9" class="tab-log-cross" fill="none" stroke-width="2.2" stroke-linecap="round"/></symbol>
       <symbol id="icon-tab-progress-fill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8V21H3z" fill="currentColor" stroke="none" opacity="0.35"/><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
       <symbol id="icon-tab-meet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V3.5"/><path d="M5 4h12.5l-2.5 4.5 2.5 4.5H5"/></symbol>
       <symbol id="icon-tab-meet-fill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V3.5"/><path d="M5 4h12.5l-2.5 4.5 2.5 4.5H5z" fill="currentColor"/></symbol>
@@ -349,7 +367,7 @@
       <div id="meet-cards" class="meet-cards"></div>
     </section>
 
-    <p id="error" class="error" hidden></p>
+    <div id="error" class="error" role="alert" hidden></div>
   </main>
   <!-- Toasts (popup.js) drop in here, above every screen; dialogs are added to the body as they open. -->
   <div id="toasts" class="toast-region" role="status"></div>
@@ -357,7 +375,7 @@
   <input id="data-file" type="file" accept=".json,application/json" hidden>
 
   <footer class="muted small">
-    <p>Anonymous percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters shown. Data: <a href="https://www.openpowerlifting.org/">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>. <a href="privacy.html">Privacy</a></p>
+    <p>Anonymous percentiles of UK raw full-power results, from groups of 20+ lifters. No individual lifters shown. Data: <a href="https://www.openpowerlifting.org/" rel="noreferrer">OpenPowerlifting</a> (public domain)<span id="snapshot"></span>. <a href="privacy.html">Privacy</a></p>
   </footer>
 
   <nav id="tabbar" class="tabbar" aria-label="Main" hidden>

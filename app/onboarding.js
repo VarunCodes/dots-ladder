@@ -164,7 +164,7 @@ const groupLine = (group) => {
 
 const credit = () => {
   const p = el("p", "fv-credit", "Real results from ");
-  const a = Object.assign(el("a", "", "OpenPowerlifting"), { href: "https://www.openpowerlifting.org/" });
+  const a = Object.assign(el("a", "", "OpenPowerlifting"), { href: "https://www.openpowerlifting.org/", rel: "noreferrer" });
   p.append(a, ", groups of 20 or more UK powerlifters, no individuals named.");
   return p;
 };
