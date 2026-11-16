@@ -434,8 +434,14 @@ try {
   window.addEventListener("hashchange", route);
   route();
 } catch (error) {
+  // The detail is for whoever is debugging (a file opened straight from disk needs a local server); the lifter
+  // gets plain words and a way to try again.
+  console.error("Couldn't load the data:", error);
   track("error/data-load");
+  const retry = el("button", "button", "Try again");
+  retry.type = "button";
+  retry.addEventListener("click", () => location.reload());
+  $("error").replaceChildren(el("span", "", "Couldn't load the UK meet data. Check your connection and try again."), retry);
   $("error").hidden = false;
-  $("error").textContent = `Couldn't load the data (${error.message}). If you opened the file directly, serve the folder instead: python3 -m http.server`;
   $("now-caption").textContent = "";
 }

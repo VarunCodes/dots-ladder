@@ -1,6 +1,6 @@
 // Service worker: network-first for every file, so the page is always the latest
 // deploy when online and the last copy seen when offline.
-const CACHE = "dots-ladder-v1";
+const CACHE = "dots-ladder-v2";
 
 // Everything the page needs to open offline. Paths are relative to this file.
 const PRECACHE = [
@@ -9,6 +9,7 @@ const PRECACHE = [
   "privacy.html",
   "manifest.webmanifest",
   "app/app.js",
+  "app/register-sw.js",
   "app/calculator.js",
   "app/dom.js",
   "app/events.js",
@@ -35,6 +36,8 @@ const PRECACHE = [
   "fonts/barlow-condensed-500.woff2",
   "fonts/barlow-condensed-600.woff2",
   "fonts/barlow-condensed-700.woff2",
+  "icons/favicon-32.png",
+  "icons/apple-touch-icon.png",
   "icons/icon-192.png",
   "icons/icon-512.png",
   "icons/icon-maskable-512.png",
