@@ -484,6 +484,16 @@ a:hover { color: var(--accent-hover); }
 .fv-sum dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .fv-sum dd span { display: block; font-size: 0.8125rem; font-weight: 400; color: var(--muted); }
 /* The labelled estimate and other asides: dashed and italic, like the gym-goer row on the Ladder, never a rung. */
+/* What the app does (welcome) and what to do next (last screen): one line each, with its tab's icon. */
+.fv-features { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.fv-features li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; align-items: start; }
+.fv-feature-icon { width: 24px; height: 24px; color: var(--accent); fill: none; stroke: currentColor; }
+.fv-features p { margin: 0; color: var(--text-2); line-height: 1.4; }
+.fv-features strong { color: var(--text); font-weight: 600; }
+/* A pointer to the full feature, outlined in the accent like Lift balance's hero. */
+.fv-callout { margin: 0; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 12px; color: var(--text-2); line-height: 1.4; }
+.fv-callout strong { color: var(--text); font-weight: 600; }
+.fv-mode .fv-chip[aria-pressed="true"]::before { content: none; }
 .fv-note { padding: 10px 12px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 0.875rem; font-style: italic; line-height: 1.4; }
 .fv-credit { font-size: 0.75rem; color: var(--muted); }
 /* What's inside the app, on the last screen: a short list, each a feature and what it does for you. */
