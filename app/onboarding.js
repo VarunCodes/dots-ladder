@@ -400,10 +400,11 @@ const SCREENS = {
 
   quick() {
     const d = draft();
-    const pickRow = (label, options, key) => {
+    // A row of chips, optionally under a visible question that names the group.
+    const pickRow = (label, options, key, question) => {
       const row = el("div", "fv-chips");
       row.setAttribute("role", "group");
-      row.setAttribute("aria-label", label);
+      row.setAttribute("aria-label", question ?? label);
       for (const [value, text] of options) {
         const chip = el("button", "fv-chip", text);
         chip.type = "button";
@@ -415,7 +416,10 @@ const SCREENS = {
         });
         row.append(chip);
       }
-      return row;
+      if (!question) return row;
+      const wrap = el("div", "fv-ask-group");
+      wrap.append(el("p", "fv-ask", question), row);
+      return wrap;
     };
     const bw = numberField("Bodyweight", { id: "fv-q-bw", value: d.bodyweight, placeholder: 70 });
     const lifts = Object.fromEntries(L.LIFTS.map((lift) => [lift, numberField(lift === "bench" ? "Bench" : LIFT_TITLES[lift], { id: `fv-q-${lift}`, value: d.lifts[lift]?.mode === "max" ? d.lifts[lift].kg : null, unit: "kg" })]));
@@ -449,7 +453,7 @@ const SCREENS = {
       pickRow("Category", [["F", "Women"], ["M", "Men"]], "sex"),
       bw.wrap,
       grid,
-      pickRow("Meets so far", [["never", "No meets yet"], ["once", "1 meet"], ["more", "2+ meets"]], "competed"),
+      pickRow("Meets so far", [["never", "No meets yet"], ["once", "1 meet"], ["more", "2+ meets"]], "competed", "Have you participated in a powerlifting meet before?"),
     );
     queueMicrotask(update);
     return [heading("Quick setup"), el("p", "fv-lede", "Your tested maxes, in kg."), form, box];

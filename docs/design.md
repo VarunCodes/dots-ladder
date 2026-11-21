@@ -92,7 +92,7 @@ One question per screen, then where you stand (#57; tested as a prototype with a
 7. **"Your next steps"**: "Each lift's next step, nearest first." and each lift's next rung, with the kilos to it and where it puts that lift ("+7.5 kg · ahead of 50 in 100"). Then a card outlined in `--accent`: "View your full plan on the Ladder page under **Lift balance**." Past every rung: "Past the top of the ladder". Without rungs: "Your next step", about beating your own best.
 8. **"Your ladder is ready"**: three reminders, one line each with its tab's icon: **Log test** when you lift more: a new max or a set, one lift or all three · **Add past tests** with their dates, and Progress shows your trend · **Lift balance,** on the Ladder, shows what to work on next. Then "Your numbers stay on this phone. Back them up any time from Progress." **Show my ladder** saves the first record (dated today, with the sets behind any estimates), the experience, and clears the draft.
 
-**Quick setup** (from the welcome screen): one form for lifters who know their numbers: Women | Men chips, bodyweight, squat, bench and deadlift maxes side by side, and No meets yet | 1 meet | 2+ meets. "See where I stand" goes to the 100, and Back from there returns to the form.
+**Quick setup** (from the welcome screen): one form for lifters who know their numbers: Women | Men chips, bodyweight, squat, bench and deadlift maxes side by side, and "Have you participated in a powerlifting meet before?" over No meets yet | 1 meet | 2+ meets. "See where I stand" goes to the 100, and Back from there returns to the form.
 
 A group without rungs says "Not enough lifters to compare yet", and the score and target still show.
 

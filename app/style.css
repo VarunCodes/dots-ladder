@@ -514,6 +514,8 @@ a:hover { color: var(--accent-hover); }
 /* Three across while they fit; they wrap (in rem, so larger text wraps sooner) rather than clip. */
 .fv-quick-lifts { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: 8px; }
 .fv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.fv-ask-group { display: flex; flex-direction: column; gap: 6px; }
+.fv-ask { margin: 0; font-size: 0.875rem; color: var(--muted); }
 .fv-chip { min-height: 44px; padding: 8px 14px; border: 1px solid var(--outline); border-radius: 22px; background: var(--surface); color: var(--text); font: inherit; font-size: 0.9375rem; cursor: pointer; }
 .fv-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 /* The choice shows as a tick too, never by colour alone. */
