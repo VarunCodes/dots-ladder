@@ -969,24 +969,26 @@ test("first visit: a lift is a max, or a set of up to 10 reps whose estimate rou
 test("first visit: a screen shows only once its answers are in, and a draft picks up at the first one missing", () => {
   const draft = { ...L.emptyDraft(), sex: "F", bodyweight: 63 };
   assert.equal(L.canShow(draft, "competed"), true);
-  assert.equal(L.canShow(draft, "max-known"), false, "meets not answered yet");
+  assert.equal(L.canShow(draft, "squat"), false, "meets not answered yet");
+  assert.equal(L.canShow({ ...draft, competed: "never" }, "squat"), true, "no max-or-set question: the lifts come straight after");
+  assert.equal(L.canShow(draft, "max-known"), false, "no longer a screen");
   assert.equal(L.canShow(finished, "standing"), true);
   assert.equal(L.canShow(finished, "settings"), false, "not a screen");
   assert.equal(L.canShow({}, "welcome"), true);
   assert.equal(L.firstMissing(L.emptyDraft()), "sex");
   assert.equal(L.firstMissing(draft), "competed");
-  assert.equal(L.firstMissing({ ...draft, competed: "never" }), "max-known");
+  assert.equal(L.firstMissing({ ...draft, competed: "never" }), "squat");
   assert.equal(L.firstMissing({ ...finished, lifts: { ...finished.lifts, bench: lift(null, "set", 8) } }), "bench");
   assert.equal(L.firstMissing(finished), "standing");
 });
 
 test("first visit: Back goes one screen back, and from the results to quick setup when that's how they came", () => {
   assert.equal(L.previousScreen(finished, "sex"), "welcome");
-  assert.equal(L.previousScreen(finished, "squat"), "max-known");
+  assert.equal(L.previousScreen(finished, "squat"), "competed");
   assert.equal(L.previousScreen(finished, "standing"), "deadlift");
   assert.equal(L.previousScreen({ ...finished, via: "quick" }, "standing"), "quick");
   assert.equal(L.previousScreen(finished, "quick"), "welcome");
-  assert.deepEqual(L.FIRST_VISIT_STEPS, ["sex", "bodyweight", "competed", "max-known", "squat", "bench", "deadlift", "standing", "score", "target", "next"]);
+  assert.deepEqual(L.FIRST_VISIT_STEPS, ["sex", "bodyweight", "competed", "squat", "bench", "deadlift", "standing", "score", "target", "next"]);
 });
 
 test("first visit: the first record holds all four values, with the sets behind any estimates", () => {

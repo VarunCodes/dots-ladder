@@ -949,7 +949,7 @@ export function liftBalance(profile, liftRungs, typical, scoreRungs) {
 //          lifts: { squat: { mode, kg, reps } } }, each null until answered.
 
 /** The screens in order; the progress bar counts these. "welcome" comes before them and "quick" stands in for 1-7. */
-export const FIRST_VISIT_STEPS = ["sex", "bodyweight", "competed", "max-known", ...LIFTS, "standing", "score", "target", "next"];
+export const FIRST_VISIT_STEPS = ["sex", "bodyweight", "competed", ...LIFTS, "standing", "score", "target", "next"];
 export const FIRST_VISIT_SCREENS = ["welcome", "quick", ...FIRST_VISIT_STEPS];
 export const COMPETED = { never: EXPERIENCE[0], once: EXPERIENCE[1], more: EXPERIENCE[2] };
 const ENTRY_MODES = ["max", "set"];
@@ -1017,10 +1017,9 @@ export const draftEstimated = (draft, lift) => draft?.lifts?.[lift]?.mode === "s
 const NEEDS = {
   bodyweight: ["sex"],
   competed: ["sex", "bodyweight"],
-  "max-known": ["sex", "bodyweight", "competed"],
-  squat: ["sex", "bodyweight", "competed", "mode"],
-  bench: ["sex", "bodyweight", "competed", "mode", "squat"],
-  deadlift: ["sex", "bodyweight", "competed", "mode", "squat", "bench"],
+  squat: ["sex", "bodyweight", "competed"],
+  bench: ["sex", "bodyweight", "competed", "squat"],
+  deadlift: ["sex", "bodyweight", "competed", "squat", "bench"],
   standing: ["sex", "bodyweight", "competed", ...LIFTS],
   score: ["sex", "bodyweight", "competed", ...LIFTS],
   target: ["sex", "bodyweight", "competed", ...LIFTS],
@@ -1036,7 +1035,7 @@ export function canShow(draft, screen) {
 
 /** The first screen still waiting for an answer ("standing" once everything's in), for picking up a draft. */
 export function firstMissing(draft) {
-  const order = [["sex", "sex"], ["bodyweight", "bodyweight"], ["competed", "competed"], ["mode", "max-known"], ...LIFTS.map((l) => [l, l])];
+  const order = [["sex", "sex"], ["bodyweight", "bodyweight"], ["competed", "competed"], ...LIFTS.map((l) => [l, l])];
   return order.find(([need]) => !answered(draft, need))?.[1] ?? "standing";
 }
 

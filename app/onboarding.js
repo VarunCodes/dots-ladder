@@ -162,6 +162,27 @@ const groupLine = (group) => {
   return p;
 };
 
+const SVG = "http://www.w3.org/2000/svg";
+
+/** A short list of what the app does, each line with the icon of the tab it lives on: [icon, lead, rest]. */
+function featureList(items) {
+  const list = el("ul", "fv-features");
+  for (const [icon, lead, rest] of items) {
+    const li = el("li");
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("class", "fv-feature-icon");
+    svg.setAttribute("aria-hidden", "true");
+    const use = document.createElementNS(SVG, "use");
+    use.setAttribute("href", `#${icon}`);
+    svg.append(use);
+    const text = el("p");
+    text.append(el("strong", "", lead), rest);
+    li.append(svg, text);
+    list.append(li);
+  }
+  return list;
+}
+
 const credit = () => {
   const p = el("p", "fv-credit", "Real results from ");
   const a = Object.assign(el("a", "", "OpenPowerlifting"), { href: "https://www.openpowerlifting.org/", rel: "noreferrer" });
@@ -176,8 +197,13 @@ const SCREENS = {
     const started = L.draftStarted(store.getState().draft);
     const nodes = [
       heading("See how your lifts compare with real UK powerlifters"),
-      el("p", "fv-lede", "A few quick questions, about a minute. You'll see where your squat, bench press and deadlift stand, and what to aim for next."),
-      el("p", "fv-note", "The comparisons come from real results at UK powerlifting meets, not from gym apps or guesses."),
+      featureList([
+        ["icon-tab-ladder", "See where you stand", " among UK powerlifters in your weight class."],
+        ["icon-arrow-up", "Know what to lift next:", " each lift's next step, in kilos."],
+        ["icon-tab-progress", "Log maxes or sets,", " past ones too, and watch your trend."],
+        ["icon-tab-meet", "Plan a meet:", " attempts, warm-ups and plates."],
+      ]),
+      el("p", "fv-lede", "Comparisons come from real results at UK powerlifting meets."),
     ];
     if (started) {
       const resume = el("div", "fv-resume");
@@ -194,7 +220,8 @@ const SCREENS = {
       resume.append(el("p", "", "Pick up where you left off?"), el("p", "small muted", "Your answers so far are saved on this phone."), row);
       nodes.push(resume);
     }
-    const quick = el("button", "link-button fv-link", "I know my numbers: quick setup");
+    // Quick setup is a main choice beside Start, for lifters who know their numbers.
+    const quick = el("button", "button fv-cta", "Quick setup: I know my numbers");
     quick.type = "button";
     quick.addEventListener("click", () => go("quick"));
     const restore = el("button", "link-button fv-link", "Restore from a backup");
@@ -208,7 +235,8 @@ const SCREENS = {
     // Counting is on by default, so the first screen says so (what's counted, and that numbers never are).
     const privacy = el("p", "fv-private", "Nothing you enter leaves this phone. The app counts which screens are used, anonymously, to improve it. ");
     privacy.append(Object.assign(el("a", "", "Privacy"), { href: "privacy.html" }));
-    box.append(quick, restore, note, privacy);
+    box.insertBefore(quick, box.querySelector(".primary")?.nextSibling ?? null);
+    box.append(restore, note, privacy);
     return [...nodes, box];
   },
 
@@ -220,7 +248,7 @@ const SCREENS = {
     };
     const list = el("div", "fv-choices");
     list.append(choice("Women", "", d.sex === "F", pick("F")), choice("Men", "", d.sex === "M", pick("M")));
-    return [heading("Women's or men's?"), el("p", "fv-lede", "Powerlifting meets have separate categories, so you're compared with lifters in yours."), list];
+    return [heading("Which category do you lift in?"), el("p", "fv-lede", "Powerlifting meets compare women and men separately."), list];
   },
 
   bodyweight() {
@@ -242,42 +270,27 @@ const SCREENS = {
       if (!ok) return showResult(out, null);
       answer(() => ({ bodyweight: bw }));
       const wclass = L.weightClass(d.sex, bw);
-      showResult(out, card(`You're in the ${wclass} kg class`, `Lifters from ${L.classRange(d.sex, wclass)}, like at a meet.`));
+      showResult(out, card(`You're in the ${wclass} kg class`, `Powerlifters from ${L.classRange(d.sex, wclass)}, as at a meet.`));
     };
     input.addEventListener("input", update);
     input.addEventListener("keydown", (e) => e.key === "Enter" && !button.disabled && go("competed"));
     update();
-    return [question, el("p", "fv-lede", "Heavier lifters tend to lift more, so you're compared with people around your weight."), wrap, problem, out, box];
+    return [question, el("p", "fv-lede", "Heavier lifters tend to lift more, so you're compared with powerlifters around your weight."), wrap, problem, out, box];
   },
 
   competed() {
     const d = draft();
     const pick = (competed) => () => {
       answer(() => ({ competed }));
-      go("max-known");
-    };
-    const list = el("div", "fv-choices");
-    list.append(
-      choice("No, never", "You'll be compared with lifters at their first meet: the closest group to you.", d.competed === "never", pick("never")),
-      choice("Once", "Your next meet would be your second, so you're compared with lifters at theirs.", d.competed === "once", pick("once")),
-      choice("Twice or more", "Compared with lifters with 3 or more meets.", d.competed === "more", pick("more")),
-    );
-    return [heading("Have you ever competed in powerlifting?"), el("p", "fv-lede", "A powerlifting meet is a competition in squat, bench press and deadlift, with judges."), list];
-  },
-
-  "max-known"() {
-    const d = draft();
-    const pick = (mode) => () => {
-      // Lifts not typed yet follow the answer; one already entered keeps its own way.
-      answer((now) => ({ mode, lifts: Object.fromEntries(Object.entries(now.lifts).map(([lift, e]) => [lift, e.kg == null ? { ...e, mode } : e])) }));
       go("squat");
     };
     const list = el("div", "fv-choices");
     list.append(
-      choice("Yes, I've tested it", "You'll enter the weight for each lift.", d.mode === "max", pick("max")),
-      choice("No, I lift sets", "Enter a recent set, like 60 kg for 5 reps, and we'll estimate your max.", d.mode === "set", pick("set")),
+      choice("No, never", "Compared with powerlifters at their first meet, the closest group to you.", d.competed === "never", pick("never")),
+      choice("Once", "Compared with powerlifters at their second meet.", d.competed === "once", pick("once")),
+      choice("Twice or more", "Compared with powerlifters with 3 or more meets.", d.competed === "more", pick("more")),
     );
-    return [heading("Do you know your one-rep max?"), el("p", "fv-lede", "Your one-rep max is the heaviest weight you can lift once, with good form."), list];
+    return [heading("Have you ever competed in powerlifting?"), el("p", "fv-lede", "A powerlifting meet is a competition in squat, bench press and deadlift, with judges."), list];
   },
 
   squat: () => liftScreen("squat"),
@@ -290,7 +303,7 @@ const SCREENS = {
     const group = L.draftGroup(rungsData, d);
     if (!group) {
       const { box } = actions("Next", () => go("score"));
-      return [heading("Not enough lifters to compare yet"), el("p", "fv-lede", "There aren't enough UK powerlifters in your class for a fair comparison. You'll still see your score, and how it changes."), box];
+      return [heading("Not enough powerlifters to compare yet"), el("p", "fv-lede", "There aren't enough UK powerlifters in your class for a fair comparison. You'll still see your score, and how it changes."), box];
     }
     const words = L.standingWords(profile, group);
     const crowd = el("div", "fv-crowd");
@@ -318,7 +331,7 @@ const SCREENS = {
     sum.append(totalRow);
     const nodes = [el("p", "fv-lede", `Picture 100 UK powerlifters: ${L.groupWords(group)}.`), heading(words.title, "fv-statement"), el("p", "small muted", words.more), crowd, key, sum];
     if (L.LIFTS.some((lift) => L.draftEstimated(d, lift))) nodes.push(el("p", "fv-note", "Lifts marked est. are estimated from a set. A tested max, at a meet especially, may come out lower."));
-    if (group.fellBack) nodes.push(el("p", "small muted", "Too few lifters at that many meets in your class, so this uses first-meet lifters."));
+    if (group.fellBack) nodes.push(el("p", "small muted", "Too few powerlifters at that many meets in your class, so this compares you with first-meet powerlifters."));
     nodes.push(credit(), actions("Next", () => go("score")).box);
     return nodes;
   },
@@ -340,7 +353,7 @@ const SCREENS = {
     return [
       heading("Your score"),
       head,
-      el("p", "fv-lede", "DOTS turns your total and your bodyweight into one number. Heavier lifters need a bigger total to get the same score, so it measures how strong you are for your size."),
+      el("p", "fv-lede", "DOTS turns your total and bodyweight into one score: how strong you are for your size. A heavier lifter needs a bigger total for the same score."),
       el("h3", "fv-subhead", "How your score moves"),
       sum,
       ...(words.gymGoer ? [el("p", "fv-note", words.gymGoer)] : []),
@@ -357,7 +370,7 @@ const SCREENS = {
     // Each lift's next step, nearest first. The total's target is on the 100 screen; these are separate goals
     // (each lift's rungs come from its own lifters), so they aren't shown as adding up to it.
     const words = L.targetWords(profile, group);
-    if (words.allTop) return [heading("Past every rung"), el("p", "fv-lede", "Every lift is as high as these numbers go. From here, each test is about beating your own best."), credit(), next];
+    if (words.allTop) return [heading("Past the top of the ladder"), el("p", "fv-lede", "Every lift is as high as these numbers go. From here, each test is about beating your own best."), credit(), next];
     const sum = el("dl", "fv-sum");
     for (const row of words.lifts) {
       const div = el("div");
@@ -366,13 +379,20 @@ const SCREENS = {
       div.append(el("dt", "", LIFT_TITLES[row.lift]), dd);
       sum.append(div);
     }
-    return [heading("Your next steps"), el("p", "fv-lede", "Each lift on its own, nearest first. Beat one and log it."), sum, credit(), next];
+    // The full plan lives in Lift balance on the Ladder, so the first visit points there.
+    const plan = el("p", "fv-callout");
+    plan.append("View your full plan on the Ladder page under ", el("strong", "", "Lift balance"), ".");
+    return [heading("Your next steps"), el("p", "fv-lede", "Each lift's next step, nearest first."), sum, plan, credit(), next];
   },
 
   next() {
     return [
       heading("Your ladder is ready"),
-      el("p", "fv-lede", "When you lift more, log it on Log test: one lift or all three. Your score and your place on the ladder update straight away."),
+      featureList([
+        ["icon-tab-log", "Log test", " when you lift more: a new max or a set, one lift or all three."],
+        ["icon-tab-progress", "Add past tests", " with their dates, and Progress shows your trend."],
+        ["icon-tab-ladder", "Lift balance,", " on the Ladder, shows what to work on next."],
+      ]),
       el("p", "small muted", "Your numbers stay on this phone. Back them up any time from Progress."),
       actions("Show my ladder", finish).box,
     ];
@@ -380,10 +400,11 @@ const SCREENS = {
 
   quick() {
     const d = draft();
-    const pickRow = (label, options, key) => {
+    // A row of chips, optionally under a visible question that names the group.
+    const pickRow = (label, options, key, question) => {
       const row = el("div", "fv-chips");
       row.setAttribute("role", "group");
-      row.setAttribute("aria-label", label);
+      row.setAttribute("aria-label", question ?? label);
       for (const [value, text] of options) {
         const chip = el("button", "fv-chip", text);
         chip.type = "button";
@@ -395,7 +416,10 @@ const SCREENS = {
         });
         row.append(chip);
       }
-      return row;
+      if (!question) return row;
+      const wrap = el("div", "fv-ask-group");
+      wrap.append(el("p", "fv-ask", question), row);
+      return wrap;
     };
     const bw = numberField("Bodyweight", { id: "fv-q-bw", value: d.bodyweight, placeholder: 70 });
     const lifts = Object.fromEntries(L.LIFTS.map((lift) => [lift, numberField(lift === "bench" ? "Bench" : LIFT_TITLES[lift], { id: `fv-q-${lift}`, value: d.lifts[lift]?.mode === "max" ? d.lifts[lift].kg : null, unit: "kg" })]));
@@ -413,7 +437,7 @@ const SCREENS = {
       const weight = bw.input.valueAsNumber;
       const now = draft();
       const missing = [
-        !now.sex && "women's or men's",
+        !now.sex && "category",
         !(weight >= L.LIMITS.bodyweight[0] && weight <= L.LIMITS.bodyweight[1]) && `bodyweight (${L.LIMITS.bodyweight.join(" to ")} kg)`,
         ...L.LIFTS.filter((lift) => L.liftEntryProblem({ kg: values[lift], mode: "max" })).map((lift) => `${LIFT_TITLES[lift].toLowerCase()} (${L.LIMITS.lift.join(" to ")} kg)`),
         !now.competed && "meets so far",
@@ -429,7 +453,7 @@ const SCREENS = {
       pickRow("Category", [["F", "Women"], ["M", "Men"]], "sex"),
       bw.wrap,
       grid,
-      pickRow("Meets so far", [["never", "No meets yet"], ["once", "1 meet"], ["more", "2+ meets"]], "competed"),
+      pickRow("Meets so far", [["never", "No meets yet"], ["once", "1 meet"], ["more", "2+ meets"]], "competed", "Have you participated in a powerlifting meet before?"),
     );
     queueMicrotask(update);
     return [heading("Quick setup"), el("p", "fv-lede", "Your tested maxes, in kg."), form, box];
@@ -452,6 +476,22 @@ function liftScreen(lift) {
   const nextScreen = L.FIRST_VISIT_STEPS[L.FIRST_VISIT_STEPS.indexOf(lift) + 1];
   const group = L.draftGroup(rungsData, d);
   const question = heading(`Your best ${LIFT_TITLES[lift].toLowerCase()}`);
+  // Max or set, as two tabs: what to enter, said plainly, and that an estimate is fine.
+  const tabs = el("div", "fv-chips fv-mode");
+  tabs.setAttribute("role", "group");
+  tabs.setAttribute("aria-label", "Enter a max or a set");
+  for (const [mode, text] of [["max", "Max"], ["set", "Set"]]) {
+    const tab = el("button", "fv-chip", text);
+    tab.type = "button";
+    tab.setAttribute("aria-pressed", String(entry.mode === mode));
+    tab.addEventListener("click", () => {
+      if (entry.mode === mode) return;
+      answerLift(lift, { mode, reps: entry.reps ?? null });
+      show(current);
+    });
+    tabs.append(tab);
+  }
+  const lede = el("p", "fv-lede", "Your heaviest single, or a recent hard set. An estimate is fine: you can update it later.");
   const weight = numberField(setMode ? "Heaviest recent set" : "One-rep max", { id: "fv-kg", value: entry.kg, placeholder: PLACEHOLDER[lift], enterKey: setMode ? "next" : "go" });
   const fields = el("div", "fv-fields");
   fields.append(weight.wrap);
@@ -497,22 +537,18 @@ function liftScreen(lift) {
     else if (!button.disabled) go(nextScreen);
   });
   reps?.input.addEventListener("keydown", (e) => e.key === "Enter" && !button.disabled && go(nextScreen));
-  const toggle = el("button", "link-button fv-link", setMode ? "I know my max" : "Don't know your max? Use a set");
-  toggle.type = "button";
-  toggle.addEventListener("click", () => {
-    answerLift(lift, { mode: setMode ? "max" : "set", reps: entry.reps ?? null });
-    show(current);
-  });
   update();
   // Kept short above the field, so the field and what it gives back stay above the keyboard.
   return [
     ...(group ? [groupLine(group)] : []),
     question,
+    lede,
     what(lift),
+    tabs,
     fields,
+    ...(setMode ? [el("p", "fv-epley small muted", "Estimated with the Epley formula: weight × (1 + reps ÷ 30).")] : []),
     problem,
     out,
-    toggle,
     box,
   ];
 }
