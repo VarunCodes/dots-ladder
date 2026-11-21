@@ -203,7 +203,7 @@ const SCREENS = {
         ["icon-tab-progress", "Log maxes or sets,", " past ones too, and watch your trend."],
         ["icon-tab-meet", "Plan a meet:", " attempts, warm-ups and plates."],
       ]),
-      el("p", "fv-lede", "About a minute. Comparisons come from real results at UK powerlifting meets."),
+      el("p", "fv-lede", "Comparisons come from real results at UK powerlifting meets."),
     ];
     if (started) {
       const resume = el("div", "fv-resume");
@@ -220,7 +220,8 @@ const SCREENS = {
       resume.append(el("p", "", "Pick up where you left off?"), el("p", "small muted", "Your answers so far are saved on this phone."), row);
       nodes.push(resume);
     }
-    const quick = el("button", "link-button fv-link", "I know my numbers: quick setup");
+    // Quick setup is a main choice beside Start, for lifters who know their numbers.
+    const quick = el("button", "button fv-cta", "Quick setup: I know my numbers");
     quick.type = "button";
     quick.addEventListener("click", () => go("quick"));
     const restore = el("button", "link-button fv-link", "Restore from a backup");
@@ -234,7 +235,8 @@ const SCREENS = {
     // Counting is on by default, so the first screen says so (what's counted, and that numbers never are).
     const privacy = el("p", "fv-private", "Nothing you enter leaves this phone. The app counts which screens are used, anonymously, to improve it. ");
     privacy.append(Object.assign(el("a", "", "Privacy"), { href: "privacy.html" }));
-    box.append(quick, restore, note, privacy);
+    box.insertBefore(quick, box.querySelector(".primary")?.nextSibling ?? null);
+    box.append(restore, note, privacy);
     return [...nodes, box];
   },
 
@@ -280,7 +282,7 @@ const SCREENS = {
     const d = draft();
     const pick = (competed) => () => {
       answer(() => ({ competed }));
-      go("max-known");
+      go("squat");
     };
     const list = el("div", "fv-choices");
     list.append(
@@ -289,21 +291,6 @@ const SCREENS = {
       choice("Twice or more", "Compared with powerlifters with 3 or more meets.", d.competed === "more", pick("more")),
     );
     return [heading("Have you ever competed in powerlifting?"), el("p", "fv-lede", "A powerlifting meet is a competition in squat, bench press and deadlift, with judges."), list];
-  },
-
-  "max-known"() {
-    const d = draft();
-    const pick = (mode) => () => {
-      // Lifts not typed yet follow the answer; one already entered keeps its own way.
-      answer((now) => ({ mode, lifts: Object.fromEntries(Object.entries(now.lifts).map(([lift, e]) => [lift, e.kg == null ? { ...e, mode } : e])) }));
-      go("squat");
-    };
-    const list = el("div", "fv-choices");
-    list.append(
-      choice("Yes, I've tested it", "You'll enter the weight for each lift.", d.mode === "max", pick("max")),
-      choice("No, I lift sets", "Enter a recent set, like 60 kg for 5 reps, and we'll estimate your max.", d.mode === "set", pick("set")),
-    );
-    return [heading("Do you know your one-rep max?"), el("p", "fv-lede", "Your one-rep max is the heaviest weight you can lift once, with good form."), list];
   },
 
   squat: () => liftScreen("squat"),
@@ -394,7 +381,7 @@ const SCREENS = {
     }
     // The full plan lives in Lift balance on the Ladder, so the first visit points there.
     const plan = el("p", "fv-callout");
-    plan.append(el("strong", "", "Your full plan is in Lift balance,"), " on the Ladder: each lift's next step in kilos, and where your split differs from typical.");
+    plan.append("View your full plan on the Ladder page under ", el("strong", "", "Lift balance"), ".");
     return [heading("Your next steps"), el("p", "fv-lede", "Each lift's next step, nearest first."), sum, plan, credit(), next];
   },
 
@@ -500,7 +487,7 @@ function liftScreen(lift) {
     });
     tabs.append(tab);
   }
-  const lede = el("p", "fv-lede", "Your heaviest single, or a recent hard set: we'll work out your max from it. An estimate is fine: you can update it later.");
+  const lede = el("p", "fv-lede", "Your heaviest single, or a recent hard set. An estimate is fine: you can update it later.");
   const weight = numberField(setMode ? "Heaviest recent set" : "One-rep max", { id: "fv-kg", value: entry.kg, placeholder: PLACEHOLDER[lift], enterKey: setMode ? "next" : "go" });
   const fields = el("div", "fv-fields");
   fields.append(weight.wrap);
@@ -555,6 +542,7 @@ function liftScreen(lift) {
     what(lift),
     tabs,
     fields,
+    ...(setMode ? [el("p", "fv-epley small muted", "Estimated with the Epley formula: weight × (1 + reps ÷ 30).")] : []),
     problem,
     out,
     box,

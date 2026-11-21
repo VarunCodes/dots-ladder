@@ -494,6 +494,9 @@ a:hover { color: var(--accent-hover); }
 .fv-callout { margin: 0; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 12px; color: var(--text-2); line-height: 1.4; }
 .fv-callout strong { color: var(--text); font-weight: 600; }
 .fv-mode .fv-chip[aria-pressed="true"]::before { content: none; }
+/* Quick setup as a main choice: full width and full height, outlined under the accent Start. */
+.fv-actions .fv-cta { width: 100%; min-height: 52px; border-radius: 14px; font-weight: 600; }
+.fv-screen .fv-epley { margin: calc(-1 * var(--distance-base)) 0 0; line-height: 1.4; } /* sits with the boxes it explains */
 .fv-note { padding: 10px 12px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 0.875rem; font-style: italic; line-height: 1.4; }
 .fv-credit { font-size: 0.75rem; color: var(--muted); }
 /* What's inside the app, on the last screen: a short list, each a feature and what it does for you. */
